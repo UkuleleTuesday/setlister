@@ -58,7 +58,9 @@ def rank_candidates(row: BoardRow, catalogue: Catalogue) -> list[Candidate]:
         if guess and entry.display == guess:
             score = min(100.0, score + GUESS_BONUS)
         page_delta = row.raw_page - entry.page if row.raw_page is not None else None
-        candidates.append(Candidate(entry=entry, title_score=score, page_delta=page_delta))
+        candidates.append(
+            Candidate(entry=entry, title_score=score, page_delta=page_delta)
+        )
     candidates.sort(key=lambda c: c.title_score, reverse=True)
     return candidates
 
@@ -66,7 +68,9 @@ def rank_candidates(row: BoardRow, catalogue: Catalogue) -> list[Candidate]:
 def match_row(row: BoardRow, catalogue: Catalogue) -> MatchedRow:
     candidates = rank_candidates(row, catalogue)
     best = candidates[0] if candidates else None
-    page_entry = catalogue.entry_by_page(row.raw_page) if row.raw_page is not None else None
+    page_entry = (
+        catalogue.entry_by_page(row.raw_page) if row.raw_page is not None else None
+    )
 
     def result(
         status: MatchStatus,
@@ -85,7 +89,9 @@ def match_row(row: BoardRow, catalogue: Catalogue) -> MatchedRow:
             method=method,
             confidence=round(confidence, 2),
             match=match,
-            alternatives=[a for a in alternatives if a.entry != match][:MAX_ALTERNATIVES],
+            alternatives=[a for a in alternatives if a.entry != match][
+                :MAX_ALTERNATIVES
+            ],
             explanation=explanation,
         )
 
@@ -170,5 +176,7 @@ def match_row(row: BoardRow, catalogue: Catalogue) -> MatchedRow:
     )
 
 
-def match_rows(extraction: WhiteboardExtraction, catalogue: Catalogue) -> list[MatchedRow]:
+def match_rows(
+    extraction: WhiteboardExtraction, catalogue: Catalogue
+) -> list[MatchedRow]:
     return [match_row(row, catalogue) for row in extraction.rows]

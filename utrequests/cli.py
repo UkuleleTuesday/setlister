@@ -47,7 +47,9 @@ def format_row(row: MatchedRow) -> str:
 @click.argument("photo", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--edition", default=None, help="Songbook edition ID (default: current)")
 @click.option("--model", default=None, help="Gemini model ID override")
-@click.option("--json", "as_json", is_flag=True, help="Print the full ParseResponse as JSON")
+@click.option(
+    "--json", "as_json", is_flag=True, help="Print the full ParseResponse as JSON"
+)
 def parse(photo: Path, edition: str | None, model: str | None, as_json: bool):
     """Parse a whiteboard PHOTO into a matched song-request list."""
     try:
@@ -68,8 +70,10 @@ def parse(photo: Path, edition: str | None, model: str | None, as_json: bool):
     for row in response.rows:
         click.echo(format_row(row))
     confirmed = sum(r.status == MatchStatus.CONFIRMED for r in response.rows)
-    click.echo(f"\n{len(response.rows)} rows: {confirmed} confirmed, "
-               f"{len(response.rows) - confirmed} needing review")
+    click.echo(
+        f"\n{len(response.rows)} rows: {confirmed} confirmed, "
+        f"{len(response.rows) - confirmed} needing review"
+    )
 
 
 @cli.command()

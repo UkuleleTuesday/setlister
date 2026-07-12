@@ -78,7 +78,9 @@ def build_catalogue(manifest: dict, edition_id: str) -> Catalogue:
     )
 
 
-def fetch_catalogue(edition: str | None = None, *, ttl: float | None = None) -> Catalogue:
+def fetch_catalogue(
+    edition: str | None = None, *, ttl: float | None = None
+) -> Catalogue:
     settings = get_settings()
     edition = edition or settings.default_edition
     ttl = settings.catalogue_cache_ttl if ttl is None else ttl
@@ -92,11 +94,19 @@ def fetch_catalogue(edition: str | None = None, *, ttl: float | None = None) -> 
         latest = httpx.get(f"{base}/latest.json", timeout=20).raise_for_status().json()
         manifest_filename = latest.get("manifest_filename")
         if not manifest_filename:
-            raise CatalogueError(f"latest.json for edition '{edition}' has no manifest_filename")
-        manifest = httpx.get(f"{base}/{manifest_filename}", timeout=20).raise_for_status().json()
+            raise CatalogueError(
+                f"latest.json for edition '{edition}' has no manifest_filename"
+            )
+        manifest = (
+            httpx.get(f"{base}/{manifest_filename}", timeout=20)
+            .raise_for_status()
+            .json()
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            raise CatalogueError(f"No published songbook found for edition '{edition}'") from e
+            raise CatalogueError(
+                f"No published songbook found for edition '{edition}'"
+            ) from e
         raise CatalogueError(f"Failed to fetch catalogue for '{edition}': {e}") from e
     except httpx.HTTPError as e:
         raise CatalogueError(f"Failed to fetch catalogue for '{edition}': {e}") from e
@@ -110,18 +120,27 @@ def clear_cache() -> None:
     _cache.clear()
 
 
+# Edition IDs are kebab-case YAML filenames in songbook-generator; Drive-based
+# editions publish under their raw Drive folder ID (mixed case) — skip those.
+_EDITION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
 def list_editions() -> list[EditionInfo]:
     """Discover editions from the public bucket listing, with a static fallback."""
     settings = get_settings()
     try:
-        resp = httpx.get(settings.bucket_base_url, params={"delimiter": "/"}, timeout=20)
+        resp = httpx.get(
+            settings.bucket_base_url, params={"delimiter": "/"}, timeout=20
+        )
         resp.raise_for_status()
         root = ET.fromstring(resp.text)
         ns = root.tag.partition("}")[0] + "}" if root.tag.startswith("{") else ""
         ids = sorted(
             prefix.text.rstrip("/")
             for el in root.iter(f"{ns}CommonPrefixes")
-            if (prefix := el.find(f"{ns}Prefix")) is not None and prefix.text
+            if (prefix := el.find(f"{ns}Prefix")) is not None
+            and prefix.text
+            and _EDITION_ID.match(prefix.text.rstrip("/"))
         )
         if ids:
             return [EditionInfo(id=i, title=i) for i in ids]

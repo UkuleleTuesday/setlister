@@ -32,14 +32,19 @@ class Catalogue(BaseModel):
 class BoardRow(BaseModel):
     """One handwritten row as extracted by the vision model."""
 
-    raw_title: str = Field(description="The literal handwritten title, misspellings kept")
+    raw_title: str = Field(
+        description="The literal handwritten title, misspellings kept"
+    )
     raw_page: int | None = Field(
-        default=None, description="The handwritten page number, null if missing/unreadable"
+        default=None,
+        description="The handwritten page number, null if missing/unreadable",
     )
     notes: str | None = Field(
         default=None, description="Side annotations written next to the title, if any"
     )
-    crossed_out: bool = Field(default=False, description="True if the row is struck through")
+    crossed_out: bool = Field(
+        default=False, description="True if the row is struck through"
+    )
     catalogue_guess: str | None = Field(
         default=None,
         description="Exact 'Title - Artist' line copied verbatim from the supplied songbook, or null",

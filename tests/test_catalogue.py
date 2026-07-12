@@ -94,6 +94,7 @@ def test_list_editions_parses_bucket_listing(monkeypatch):
     <ListBucketResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'>
       <CommonPrefixes><Prefix>complete/</Prefix></CommonPrefixes>
       <CommonPrefixes><Prefix>current/</Prefix></CommonPrefixes>
+      <CommonPrefixes><Prefix>1sab406s2TUo6jb624RvHJRfBOnxuNDY0/</Prefix></CommonPrefixes>
     </ListBucketResult>"""
 
     def fake_get(url, **kwargs):

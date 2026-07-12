@@ -36,7 +36,9 @@ def test_build_prompt_contains_every_catalogue_line(sample_catalogue):
 
 
 def test_extract_rows_parses_structured_output(sample_catalogue, fake_client):
-    extraction = extract_rows(b"img", "image/jpeg", sample_catalogue, client=fake_client)
+    extraction = extract_rows(
+        b"img", "image/jpeg", sample_catalogue, client=fake_client
+    )
     assert len(extraction.rows) == 7
     assert extraction.rows[0].raw_title == "Vampire"
     call = fake_client.calls[0]
@@ -47,7 +49,11 @@ def test_extract_rows_parses_structured_output(sample_catalogue, fake_client):
 def test_extract_rows_discards_non_verbatim_guesses(sample_catalogue):
     rows = {
         "rows": [
-            {"raw_title": "Vampire", "raw_page": 112, "catalogue_guess": "Fake Song - Nobody"},
+            {
+                "raw_title": "Vampire",
+                "raw_page": 112,
+                "catalogue_guess": "Fake Song - Nobody",
+            },
             {
                 "raw_title": "Kids",
                 "raw_page": 70,

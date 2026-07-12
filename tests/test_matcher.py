@@ -99,7 +99,9 @@ def test_song_not_in_edition_with_stale_page(sample_catalogue):
 
 def test_verbatim_catalogue_guess_adds_bonus(sample_catalogue):
     entry = entry_for(sample_catalogue, "Sarà Perché")
-    plain = rank_candidates(BoardRow(raw_title="Sara ti amo", raw_page=None), sample_catalogue)
+    plain = rank_candidates(
+        BoardRow(raw_title="Sara ti amo", raw_page=None), sample_catalogue
+    )
     boosted = rank_candidates(
         BoardRow(raw_title="Sara ti amo", raw_page=None, catalogue_guess=entry.display),
         sample_catalogue,
@@ -157,5 +159,7 @@ def test_sample_photo_extraction_against_current_catalogue(sample_catalogue):
 @pytest.mark.parametrize("delta", [1, PAGE_NEAR])
 def test_drift_boundary_is_review_not_conflict(sample_catalogue, delta):
     entry = entry_for(sample_catalogue, "Kids - MGMT")
-    matched = match_row(BoardRow(raw_title="Kids", raw_page=entry.page + delta), sample_catalogue)
+    matched = match_row(
+        BoardRow(raw_title="Kids", raw_page=entry.page + delta), sample_catalogue
+    )
     assert matched.status == MatchStatus.NEEDS_REVIEW
