@@ -68,16 +68,19 @@ def test_parse_garbage_image_400(client, mock_bucket, fake_vision):
     assert response.status_code == 400
 
 
-def test_parse_without_key_503(client, mock_bucket, monkeypatch):
-    from utrequests.config import Settings
+def test_parse_without_credentials_503(client, mock_bucket, monkeypatch):
+    import google.auth.exceptions
 
-    monkeypatch.setattr(vision, "get_settings", lambda: Settings(gemini_api_key=None))
+    def boom(*a, **k):
+        raise google.auth.exceptions.DefaultCredentialsError("no ADC")
+
+    monkeypatch.setattr(vision.genai, "Client", boom)
     photo = (FIXTURES / "whiteboard_sample.jpg").read_bytes()
     response = client.post(
         "/api/parse", files={"image": ("board.jpg", photo, "image/jpeg")}
     )
     assert response.status_code == 503
-    assert "GEMINI_API_KEY" in response.json()["detail"]
+    assert "application-default" in response.json()["detail"]
 
 
 def test_static_index_served(client):

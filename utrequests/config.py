@@ -19,8 +19,12 @@ KNOWN_EDITIONS = [
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
+    # Gemini runs through Vertex AI over Application Default Credentials — no API
+    # key, matching ../tabby and songbook-generator. Authenticate locally with
+    # `gcloud auth application-default login`.
+    gcp_project: str = "songbook-generator"
+    gcp_location: str = "us-central1"
     bucket_base_url: str = "https://storage.googleapis.com/ukulele-tuesday-songbooks"
     catalogue_cache_ttl: float = 900.0
     max_image_edge: int = 1600

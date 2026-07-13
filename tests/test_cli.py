@@ -44,16 +44,16 @@ def test_parse_json_output(monkeypatch, sample_catalogue):
     assert payload["edition"]["id"] == "current"
 
 
-def test_parse_missing_key_is_clean_error(monkeypatch):
+def test_parse_missing_credentials_is_clean_error(monkeypatch):
     from utrequests.vision import VisionConfigError
 
     def boom(*a, **k):
-        raise VisionConfigError("GEMINI_API_KEY is not set")
+        raise VisionConfigError("run `gcloud auth application-default login`")
 
     monkeypatch.setattr(cli_module, "parse_photo", boom)
     result = CliRunner().invoke(cli, ["parse", str(FIXTURES / "whiteboard_sample.jpg")])
     assert result.exit_code != 0
-    assert "GEMINI_API_KEY" in result.output
+    assert "application-default" in result.output
     assert "Traceback" not in result.output
 
 

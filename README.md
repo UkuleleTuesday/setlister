@@ -23,9 +23,13 @@ credentials needed.
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 
+Gemini runs through Vertex AI over Application Default Credentials — no API
+key needed. Authenticate once with `gcloud auth application-default login`
+(uses the shared `songbook-generator` GCP project, same as `../tabby`).
+
 ```bash
 uv sync
-cp .env.example .env   # then set GEMINI_API_KEY
+gcloud auth application-default login   # one-time; ADC for Vertex AI
 
 # CLI
 uv run ut-requests editions                       # list songbook editions
@@ -41,7 +45,7 @@ uv run ut-requests serve --port 8000              # then open http://127.0.0.1:8
 
 ```bash
 uv run pytest              # offline test suite (no API key needed)
-uv run pytest -m live      # live smoke test (needs GEMINI_API_KEY, network)
+uv run pytest -m live      # live smoke test (needs ADC + network)
 uv run ruff check .
 uv run ruff format .
 ```

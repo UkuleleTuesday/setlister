@@ -6,6 +6,7 @@ happen locally in :mod:`utrequests.matcher`. ``catalogue_guess`` values that
 are not verbatim catalogue entries are discarded here.
 """
 
+import google.auth.exceptions
 from google import genai
 from google.genai import types
 
@@ -49,13 +50,20 @@ def build_prompt(catalogue: Catalogue) -> str:
 
 
 def get_client() -> genai.Client:
+    # Vertex AI over ADC — no API key, matching ../tabby and songbook-generator.
     settings = get_settings()
-    if not settings.gemini_api_key:
-        raise VisionConfigError(
-            "GEMINI_API_KEY is not set — copy .env.example to .env and add a key "
-            "(https://aistudio.google.com/apikey)"
+    try:
+        return genai.Client(
+            vertexai=True,
+            project=settings.gcp_project,
+            location=settings.gcp_location,
         )
-    return genai.Client(api_key=settings.gemini_api_key)
+    except google.auth.exceptions.GoogleAuthError as e:
+        raise VisionConfigError(
+            "No Google Application Default Credentials — run "
+            "`gcloud auth application-default login` (Gemini runs through "
+            f"Vertex AI in project {settings.gcp_project})."
+        ) from e
 
 
 def extract_rows(

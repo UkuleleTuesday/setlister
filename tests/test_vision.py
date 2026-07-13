@@ -74,9 +74,12 @@ def test_extract_rows_wraps_model_errors(sample_catalogue):
         extract_rows(b"img", "image/jpeg", sample_catalogue, client=extraction_error)
 
 
-def test_missing_api_key_raises_config_error(sample_catalogue, monkeypatch):
-    from utrequests.config import Settings
+def test_missing_credentials_raises_config_error(sample_catalogue, monkeypatch):
+    import google.auth.exceptions
 
-    monkeypatch.setattr(vision, "get_settings", lambda: Settings(gemini_api_key=None))
-    with pytest.raises(VisionConfigError, match="GEMINI_API_KEY"):
+    def boom(*a, **k):
+        raise google.auth.exceptions.DefaultCredentialsError("no ADC")
+
+    monkeypatch.setattr(vision.genai, "Client", boom)
+    with pytest.raises(VisionConfigError, match="application-default"):
         extract_rows(b"img", "image/jpeg", sample_catalogue)
