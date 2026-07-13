@@ -1,5 +1,5 @@
 [project]
-name = "ut-requests"
+name = "setlister"
 version = "0.1.0"
 description = "Ukulele Tuesday whiteboard song request parser"
 readme = "README.md"
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ut-requests = "utrequests.cli:cli"
+setlister = "utrequests.cli:cli"
 
 [dependency-groups]
 dev = [
