@@ -1,0 +1,68 @@
+[
+  {
+    "image": "whiteboard_sample.jpg",
+    "note": "Current-edition board; exact page agreement on Murder On The Dancefloor.",
+    "min_rows": 6,
+    "expect_titles": [
+      { "needle": "vampire", "match_contains": "vampire" },
+      { "needle": "murder", "match_contains": "murder on the dancefloor", "status": "confirmed" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_2.jpg",
+    "note": "Older-edition board (pages drift a lot); one row has a page number but no title.",
+    "min_rows": 7,
+    "expect_titles": [
+      { "needle": "hotel yorba", "match_contains": "hotel yorba" },
+      { "needle": "ho hey", "match_contains": "ho hey" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_3.jpg",
+    "note": "Older-edition board with a crossed-out request and a shorthand title ('i oughta know' -> You Oughta Know).",
+    "min_rows": 7,
+    "expect_crossed_out": true,
+    "expect_titles": [
+      { "needle": "proud mary", "match_contains": "proud mary" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_4.jpg",
+    "note": "'Song Title / Pg no' board with a marker pen lying across it, partially obscuring rows.",
+    "min_rows": 6,
+    "expect_titles": [
+      { "needle": "sunshine", "match_contains": "sunshine" },
+      { "needle": "blitzkrieg", "match_contains": "blitzkrieg" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_5.jpg",
+    "note": "Low-contrast red marker; combined 'Kiss/Mustang' request and a title with a handwritten note ('Can I sing it? - Gillian').",
+    "min_rows": 7,
+    "expect_titles": [
+      { "needle": "survive", "match_contains": "survive" },
+      { "needle": "psycho", "match_contains": "psycho killer" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_6.jpg",
+    "note": "Faint dry-erase board with a crossed-out entry and a heart doodle after 'I feel'.",
+    "min_rows": 4,
+    "expect_crossed_out": true,
+    "expect_titles": [
+      { "needle": "wrecking ball", "match_contains": "wrecking ball" },
+      { "needle": "walking on sun", "match_contains": "walking on sunshine" }
+    ]
+  },
+  {
+    "image": "whiteboard_sample_7.jpg",
+    "note": "Full board (8 rows) including a smiley doodle after 'Holding out for a hero'.",
+    "min_rows": 7,
+    "expect_titles": [
+      { "needle": "price tag", "match_contains": "price tag" },
+      { "needle": "toxic", "match_contains": "toxic" },
+      { "needle": "9 to 5", "match_contains": "9 to 5" },
+      { "needle": "holding out", "match_contains": "holding out for a hero" }
+    ]
+  }
+]

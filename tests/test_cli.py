@@ -69,15 +69,13 @@ def test_catalogue_command(mock_bucket):
     assert "9 to 5 - Dolly Parton" in result.output
 
 
+WHITEBOARD_CASES = load_fixture("whiteboard_cases.json")
+
+
 @pytest.mark.parametrize(
     "name",
-    [
-        "whiteboard_sample.jpg",
-        "whiteboard_sample_2.jpg",
-        "whiteboard_sample_3.jpg",
-        "whiteboard_sample_4.jpg",
-        "whiteboard_sample_5.jpg",
-    ],
+    [c["image"] for c in WHITEBOARD_CASES],
+    ids=[c["image"] for c in WHITEBOARD_CASES],
 )
 def test_sample_photo_fixture_exists(name):
     assert (Path(FIXTURES) / name).stat().st_size > 10_000
