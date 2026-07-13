@@ -85,3 +85,42 @@ def test_sample_photo_3_end_to_end():
 
     # The board has one visibly crossed-out entry — the model should flag it.
     assert any(r.crossed_out for r in response.rows), "No crossed-out row detected"
+
+
+def test_sample_photo_4_end_to_end():
+    # "Song Title / Pg no" board with a marker pen lying across the surface,
+    # partially obscuring a couple of rows.
+    photo = (FIXTURES / "whiteboard_sample_4.jpg").read_bytes()
+    response = parse_photo(photo, "current")
+
+    assert len(response.rows) >= 6
+
+    sunshine = _row_matching(response, "sunshine")
+    assert sunshine is not None, "Walking on Sunshine row not detected"
+    assert sunshine.match is not None
+    assert "sunshine" in sunshine.match.display.lower()
+
+    blitzkrieg = _row_matching(response, "blitzkrieg")
+    assert blitzkrieg is not None, "Blitzkrieg Bop row not detected"
+    assert blitzkrieg.match is not None
+    assert "blitzkrieg" in blitzkrieg.match.display.lower()
+
+
+def test_sample_photo_5_end_to_end():
+    # "Requests Board" written in low-contrast red marker, with a couple of
+    # edge cases: a combined "Kiss/Mustang" request and a title carrying a
+    # handwritten note ("Can I sing it? - Gillian").
+    photo = (FIXTURES / "whiteboard_sample_5.jpg").read_bytes()
+    response = parse_photo(photo, "current")
+
+    assert len(response.rows) >= 7
+
+    survive = _row_matching(response, "survive")
+    assert survive is not None, "I Will Survive row not detected"
+    assert survive.match is not None
+    assert "survive" in survive.match.display.lower()
+
+    psycho = _row_matching(response, "psycho")
+    assert psycho is not None, "Psycho Killer row not detected"
+    assert psycho.match is not None
+    assert "psycho killer" in psycho.match.display.lower()

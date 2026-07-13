@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from utrequests import cli as cli_module
@@ -68,5 +69,15 @@ def test_catalogue_command(mock_bucket):
     assert "9 to 5 - Dolly Parton" in result.output
 
 
-def test_sample_photo_fixture_exists():
-    assert (Path(FIXTURES) / "whiteboard_sample.jpg").stat().st_size > 10_000
+@pytest.mark.parametrize(
+    "name",
+    [
+        "whiteboard_sample.jpg",
+        "whiteboard_sample_2.jpg",
+        "whiteboard_sample_3.jpg",
+        "whiteboard_sample_4.jpg",
+        "whiteboard_sample_5.jpg",
+    ],
+)
+def test_sample_photo_fixture_exists(name):
+    assert (Path(FIXTURES) / name).stat().st_size > 10_000
