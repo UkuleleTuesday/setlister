@@ -8,17 +8,21 @@
 </head>
 <body>
   <header>
+    <button id="settings-toggle" class="settings-toggle" type="button"
+            aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
     <h1>🎶 Whiteboard of Wishes</h1>
     <p class="subtitle">Snap the request board, get the setlist.</p>
-  </header>
 
-  <main>
-    <section id="capture">
+    <div id="settings-panel" class="settings-panel" role="dialog" aria-label="Settings" hidden>
       <label class="field">
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
       </label>
+    </div>
+  </header>
 
+  <main>
+    <section id="capture">
       <label class="camera-button" for="photo-input">📷 Take or choose a photo</label>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 

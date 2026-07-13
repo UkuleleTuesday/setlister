@@ -9,6 +9,8 @@ const rowsList = document.getElementById("rows");
 const editionNote = document.getElementById("edition-note");
 const includeCrossed = document.getElementById("include-crossed");
 const showSuggestions = document.getElementById("show-suggestions");
+const settingsToggle = document.getElementById("settings-toggle");
+const settingsPanel = document.getElementById("settings-panel");
 
 showSuggestions.addEventListener("change", renderResults);
 
@@ -16,6 +18,25 @@ showSuggestions.addEventListener("change", renderResults);
 previewWrap.addEventListener("click", () => previewWrap.classList.toggle("collapsed"));
 
 let state = null; // last ParseResponse, mutated by user edits
+
+// Settings live in a panel behind the gear icon; toggle it and close on
+// outside click or Escape so it behaves like a normal popover.
+function setSettingsOpen(open) {
+  settingsPanel.hidden = !open;
+  settingsToggle.setAttribute("aria-expanded", String(open));
+}
+settingsToggle.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setSettingsOpen(settingsPanel.hidden);
+});
+document.addEventListener("click", (event) => {
+  if (!settingsPanel.hidden && !settingsPanel.contains(event.target)) {
+    setSettingsOpen(false);
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setSettingsOpen(false);
+});
 
 // The UI is a static site (GitHub Pages in production), so the API lives on a
 // different origin: the deployed Cloud Function, or a local
