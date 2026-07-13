@@ -1,8 +1,8 @@
-# UT Whiteboard Song Request Parser
+# Setlister
 
-Proof of concept for parsing photos of the Ukulele Tuesday song-request
-whiteboard into a clean, reviewable list of requested songs, matched against
-the active UT songbook.
+Proof of concept for turning photos of the Ukulele Tuesday song-request
+whiteboard — the "whiteboard of wishes" — into a clean, reviewable setlist,
+matched against the active UT songbook.
 
 Take a photo of the board, and the app:
 
@@ -12,7 +12,7 @@ Take a photo of the board, and the app:
    (title fuzzy-matching + page-number cross-checking with
    [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz)),
 3. shows a review screen where uncertain rows can be corrected before
-   copying/exporting the final request list.
+   copying/exporting the final setlist.
 
 The songbook catalogue is derived from the public manifests published by
 [songbook-generator](https://github.com/UkuleleTuesday/songbook-generator) at
@@ -25,7 +25,8 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 
 Gemini runs through Vertex AI over Application Default Credentials — no API
 key needed. Authenticate once with `gcloud auth application-default login`
-(uses the shared `songbook-generator` GCP project, same as `../tabby`).
+(uses the shared `songbook-generator` GCP project, same as `tabby` and
+songbook-generator).
 
 ```bash
 uv sync
