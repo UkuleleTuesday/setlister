@@ -75,6 +75,7 @@ jobs:
           URL=$(gcloud functions describe "$API_FUNCTION_NAME" \
             --region "$GCP_REGION" --format='value(serviceConfig.uri)')
           echo "Function URL: $URL"
+          # 11 retries × 5 s = up to ~55 s for the function to become ready
           curl -fsS --retry 11 --retry-delay 5 --retry-all-errors \
             "$URL/api/editions" | grep -q '"current"'
 
