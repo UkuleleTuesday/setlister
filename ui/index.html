@@ -37,9 +37,10 @@
     </section>
 
     <section id="results" hidden>
-      <h2>Requests</h2>
-      <p id="edition-note" class="note"></p>
       <ul id="rows"></ul>
+      <label class="note toggle">
+        <input type="checkbox" id="show-suggestions"> show alternative suggestions
+      </label>
       <label class="note toggle">
         <input type="checkbox" id="include-crossed"> include crossed-out rows in export
       </label>
@@ -47,6 +48,7 @@
         <button id="copy">📋 Copy list</button>
         <button id="download">⬇️ Download JSON</button>
       </div>
+      <p id="edition-note" class="note"></p>
     </section>
   </main>
 

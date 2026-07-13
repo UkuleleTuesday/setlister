@@ -8,6 +8,12 @@ const resultsSection = document.getElementById("results");
 const rowsList = document.getElementById("rows");
 const editionNote = document.getElementById("edition-note");
 const includeCrossed = document.getElementById("include-crossed");
+const showSuggestions = document.getElementById("show-suggestions");
+
+showSuggestions.addEventListener("change", renderResults);
+
+// Let the user reclaim the photo after it collapses on match, and re-collapse it.
+previewWrap.addEventListener("click", () => previewWrap.classList.toggle("collapsed"));
 
 let state = null; // last ParseResponse, mutated by user edits
 
@@ -46,6 +52,7 @@ photoInput.addEventListener("change", async () => {
   if (!file) return;
   preview.src = URL.createObjectURL(file);
   previewWrap.hidden = false;
+  previewWrap.classList.remove("collapsed");
   errorBox.hidden = true;
   resultsSection.hidden = true;
   scanOverlay.hidden = false;
@@ -62,6 +69,8 @@ photoInput.addEventListener("change", async () => {
     state = await res.json();
     state.rows.forEach((row) => (row.removed = false));
     renderResults();
+    // Shrink the photo so the match list becomes the prominent thing.
+    previewWrap.classList.add("collapsed");
   } catch (err) {
     errorBox.textContent = err.message;
     errorBox.hidden = false;
@@ -208,6 +217,15 @@ function renderRow(row, index) {
   const title = document.createElement("span");
   title.className = "match-title";
   title.textContent = row.match ? row.match.display : `“${row.raw_title}”`;
+  // Matched rows are all "green"; a mismatch (needs_review/conflict) is flagged
+  // with a warning icon rather than a different colour.
+  if (row.match && row.status !== "confirmed") {
+    const warn = document.createElement("span");
+    warn.className = "warn-icon";
+    warn.textContent = "⚠️";
+    warn.title = row.explanation || "Needs a check";
+    title.append(" ", warn);
+  }
   top.appendChild(title);
   if (row.match) {
     const badge = document.createElement("span");
@@ -234,7 +252,7 @@ function renderRow(row, index) {
     li.appendChild(explanation);
   }
 
-  if (row.alternatives?.length && !row.removed) {
+  if (showSuggestions.checked && row.alternatives?.length && !row.removed) {
     const chips = document.createElement("div");
     chips.className = "chips";
     row.alternatives.forEach((alt) => {
