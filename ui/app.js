@@ -7,10 +7,15 @@ const errorBox = document.getElementById("error");
 const resultsSection = document.getElementById("results");
 const rowsList = document.getElementById("rows");
 const editionNote = document.getElementById("edition-note");
-const catalogueList = document.getElementById("catalogue-list");
 const includeCrossed = document.getElementById("include-crossed");
+const showSuggestions = document.getElementById("show-suggestions");
 const settingsToggle = document.getElementById("settings-toggle");
 const settingsPanel = document.getElementById("settings-panel");
+
+showSuggestions.addEventListener("change", renderResults);
+
+// Let the user reclaim the photo after it collapses on match, and re-collapse it.
+previewWrap.addEventListener("click", () => previewWrap.classList.toggle("collapsed"));
 
 let state = null; // last ParseResponse, mutated by user edits
 
@@ -68,6 +73,7 @@ photoInput.addEventListener("change", async () => {
   if (!file) return;
   preview.src = URL.createObjectURL(file);
   previewWrap.hidden = false;
+  previewWrap.classList.remove("collapsed");
   errorBox.hidden = true;
   resultsSection.hidden = true;
   scanOverlay.hidden = false;
@@ -84,6 +90,8 @@ photoInput.addEventListener("change", async () => {
     state = await res.json();
     state.rows.forEach((row) => (row.removed = false));
     renderResults();
+    // Shrink the photo so the match list becomes the prominent thing.
+    previewWrap.classList.add("collapsed");
   } catch (err) {
     errorBox.textContent = err.message;
     errorBox.hidden = false;
@@ -92,8 +100,114 @@ photoInput.addEventListener("change", async () => {
   }
 });
 
-function entryByDisplay(display) {
-  return state.catalogue.find((e) => e.display === display) || null;
+function normalizeText(s) {
+  // Mirror the accent-insensitive matching the backend does in matcher.py, so
+  // "sara" finds "Sarà" and users don't have to type diacritics on a phone.
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function searchCatalogue(query, limit = 8) {
+  const terms = normalizeText(query.trim()).split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return state.catalogue
+    .filter((entry) => {
+      const haystack = normalizeText(`${entry.title} ${entry.artist || ""}`);
+      return terms.every((term) => haystack.includes(term));
+    })
+    .slice(0, limit);
+}
+
+// A small custom combobox. We rolled our own instead of a native <datalist>
+// because datalist support is unreliable on the mobile browsers this app
+// targets (no dropdown on iOS Safari, flaky on Android).
+function buildSongPicker(row) {
+  const wrap = document.createElement("div");
+  wrap.className = "song-picker";
+
+  const input = document.createElement("input");
+  input.className = "song-picker-input";
+  input.type = "text";
+  input.placeholder = "Correct song…";
+  input.autocomplete = "off";
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-expanded", "false");
+
+  const menu = document.createElement("ul");
+  menu.className = "song-picker-menu";
+  menu.setAttribute("role", "listbox");
+  menu.hidden = true;
+
+  let matches = [];
+  let active = -1;
+
+  function close() {
+    menu.hidden = true;
+    menu.replaceChildren();
+    input.setAttribute("aria-expanded", "false");
+    active = -1;
+  }
+
+  function renderMenu() {
+    if (!matches.length) return close();
+    menu.replaceChildren(
+      ...matches.map((entry, i) => {
+        const li = document.createElement("li");
+        li.className = "song-picker-option" + (i === active ? " active" : "");
+        li.setAttribute("role", "option");
+        li.setAttribute("aria-selected", i === active ? "true" : "false");
+        const name = document.createElement("span");
+        name.className = "song-picker-name";
+        name.textContent = entry.display;
+        const page = document.createElement("span");
+        page.className = "page-badge";
+        page.textContent = `p.${entry.page}`;
+        li.append(name, page);
+        // pointerdown fires before the input's blur, so the pick registers
+        // instead of the field closing first (works for mouse and touch).
+        li.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          setMatch(row, entry);
+        });
+        return li;
+      })
+    );
+    menu.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
+  input.addEventListener("input", () => {
+    matches = searchCatalogue(input.value);
+    active = -1;
+    renderMenu();
+  });
+
+  input.addEventListener("keydown", (ev) => {
+    if (menu.hidden) return;
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      active = Math.min(active + 1, matches.length - 1);
+      renderMenu();
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      active = Math.max(active - 1, 0);
+      renderMenu();
+    } else if (ev.key === "Enter" && active >= 0) {
+      ev.preventDefault();
+      setMatch(row, matches[active]);
+    } else if (ev.key === "Escape") {
+      close();
+    }
+  });
+
+  // Delay so a pending option pointerdown can win the race with blur.
+  input.addEventListener("blur", () => setTimeout(close, 120));
+
+  wrap.append(input, menu);
+  return wrap;
 }
 
 function setMatch(row, entry) {
@@ -108,14 +222,6 @@ function renderResults() {
   editionNote.textContent =
     `Matched against “${state.edition.title}” ` +
     `(generated ${state.catalogue_generated_at?.slice(0, 10) || "unknown"})`;
-
-  catalogueList.replaceChildren(
-    ...state.catalogue.map((e) => {
-      const option = document.createElement("option");
-      option.value = e.display;
-      return option;
-    })
-  );
 
   rowsList.replaceChildren(...state.rows.map(renderRow));
   resultsSection.hidden = false;
@@ -132,6 +238,15 @@ function renderRow(row, index) {
   const title = document.createElement("span");
   title.className = "match-title";
   title.textContent = row.match ? row.match.display : `“${row.raw_title}”`;
+  // Matched rows are all "green"; a mismatch (needs_review/conflict) is flagged
+  // with a warning icon rather than a different colour.
+  if (row.match && row.status !== "confirmed") {
+    const warn = document.createElement("span");
+    warn.className = "warn-icon";
+    warn.textContent = "⚠️";
+    warn.title = row.explanation || "Needs a check";
+    title.append(" ", warn);
+  }
   top.appendChild(title);
   if (row.match) {
     const badge = document.createElement("span");
@@ -158,7 +273,7 @@ function renderRow(row, index) {
     li.appendChild(explanation);
   }
 
-  if (row.alternatives?.length && !row.removed) {
+  if (showSuggestions.checked && row.alternatives?.length && !row.removed) {
     const chips = document.createElement("div");
     chips.className = "chips";
     row.alternatives.forEach((alt) => {
@@ -172,13 +287,7 @@ function renderRow(row, index) {
 
   const tools = document.createElement("div");
   tools.className = "row-tools";
-  const input = document.createElement("input");
-  input.setAttribute("list", "catalogue-list");
-  input.placeholder = "Correct song…";
-  input.addEventListener("change", () => {
-    const entry = entryByDisplay(input.value);
-    if (entry) setMatch(row, entry);
-  });
+  const picker = buildSongPicker(row);
   const removeButton = document.createElement("button");
   removeButton.textContent = row.removed ? "↩️" : "🗑";
   removeButton.title = row.removed ? "Restore row" : "Remove row";
@@ -186,7 +295,7 @@ function renderRow(row, index) {
     row.removed = !row.removed;
     renderResults();
   };
-  tools.append(input, removeButton);
+  tools.append(picker, removeButton);
   li.appendChild(tools);
 
   return li;
