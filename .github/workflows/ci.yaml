@@ -81,17 +81,32 @@ jobs:
           check_endpoint() {
             local endpoint="$1"
             local attempt
+            local response
+            local status_code
+            local body
+            local curl_exit
             for attempt in $(seq 1 "$ATTEMPTS"); do
-              if [[ "$endpoint" == "/api/editions" ]]; then
-                if curl -fsS "$URL$endpoint" | grep -q '"current"'; then
-                  return 0
+              response=$(curl -sS -w '\n%{http_code}' "$URL$endpoint")
+              curl_exit=$?
+              if [[ "$curl_exit" -eq 0 ]]; then
+                status_code="${response##*$'\n'}"
+                body="${response%$'\n'*}"
+                if [[ "$status_code" =~ ^2[0-9][0-9]$ ]]; then
+                  if [[ "$endpoint" == "/api/editions" ]] && ! grep -q '"current"' <<<"$body"; then
+                    echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} returned 2xx but missing \"current\"."
+                  else
+                    return 0
+                  fi
+                else
+                  echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} returned HTTP ${status_code}."
                 fi
-              elif curl -fsS "$URL$endpoint" >/dev/null; then
-                return 0
+              else
+                echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} failed with curl exit code ${curl_exit}."
               fi
-              echo "Attempt ${attempt}/${ATTEMPTS} failed for ${endpoint}; retrying in ${DELAY_SECONDS}s..."
+              echo "Retrying ${endpoint} in ${DELAY_SECONDS}s..."
               sleep "$DELAY_SECONDS"
             done
+            echo "Smoke check failed for ${endpoint} after ${ATTEMPTS} attempts."
             return 1
           }
 
