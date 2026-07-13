@@ -46,6 +46,43 @@ def test_extract_rows_parses_structured_output(sample_catalogue, fake_client):
     assert call["config"].temperature == 0
 
 
+def test_build_prompt_omits_catalogue_when_disabled(sample_catalogue):
+    prompt = build_prompt(sample_catalogue, include_catalogue=False)
+    assert "SONGBOOK" not in prompt
+    for entry in sample_catalogue.entries:
+        assert entry.display not in prompt
+
+
+def test_extract_rows_passes_thinking_budget(sample_catalogue, fake_client):
+    extract_rows(
+        b"img", "image/jpeg", sample_catalogue, client=fake_client, thinking_budget=0
+    )
+    config = fake_client.calls[0]["config"]
+    assert config.thinking_config.thinking_budget == 0
+
+
+def test_extract_rows_defaults_thinking_budget_from_settings(
+    sample_catalogue, fake_client
+):
+    # config default is 0 (thinking disabled).
+    extract_rows(b"img", "image/jpeg", sample_catalogue, client=fake_client)
+    assert fake_client.calls[0]["config"].thinking_config.thinking_budget == 0
+
+
+def test_extract_rows_without_catalogue_prompt_omits_songbook(
+    sample_catalogue, fake_client
+):
+    extract_rows(
+        b"img",
+        "image/jpeg",
+        sample_catalogue,
+        client=fake_client,
+        catalogue_in_prompt=False,
+    )
+    sent_prompt = fake_client.calls[0]["contents"][1]
+    assert "SONGBOOK" not in sent_prompt
+
+
 def test_extract_rows_discards_non_verbatim_guesses(sample_catalogue):
     rows = {
         "rows": [

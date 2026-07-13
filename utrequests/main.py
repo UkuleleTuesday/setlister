@@ -9,6 +9,10 @@ package root), so the relative import works both deployed and locally.
 import functions_framework
 
 from .api import handle_request
+from .tracing import setup_tracing
+
+# Per-instance init: install the Cloud Trace exporter (no-op off-GCP).
+setup_tracing()
 
 
 @functions_framework.http

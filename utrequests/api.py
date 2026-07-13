@@ -9,7 +9,7 @@ shape the UI expects.
 
 import json
 
-from . import ratelimit
+from . import ratelimit, tracing
 from .catalogue import CatalogueError, list_editions
 from .config import get_settings
 from .pipeline import parse_photo
@@ -17,6 +17,52 @@ from .preprocess import ImageError
 from .vision import VisionConfigError, VisionError
 
 _ALLOWED_METHODS = "GET, POST, OPTIONS"
+
+# The endpoint is public, so the tuning knobs are bounded before use. Models
+# are limited to the flash tier to keep per-call cost predictable.
+_ALLOWED_MODEL_PREFIXES = ("gemini-2.5-flash",)
+_THINKING_BUDGET_MAX = 24576
+_IMAGE_EDGE_MIN, _IMAGE_EDGE_MAX = 256, 4096
+
+
+def _clamp_int(raw: str | None, lo: int, hi: int) -> int | None:
+    """Parse a form value to an int in [lo, hi]; None if absent/unparseable."""
+    if raw is None or raw == "":
+        return None
+    try:
+        return max(lo, min(hi, int(raw)))
+    except ValueError:
+        return None
+
+
+def _parse_bool(raw: str | None) -> bool | None:
+    if raw is None or raw == "":
+        return None
+    return raw.lower() in ("1", "true", "yes", "on")
+
+
+def _parse_knobs(request) -> dict:
+    """Read the optional tuning knobs from the request form, bounded and safe.
+
+    Absent or invalid values are dropped so ``parse_photo`` falls back to the
+    configured defaults.
+    """
+    knobs: dict = {}
+    model = request.form.get("model") or ""
+    if model.startswith(_ALLOWED_MODEL_PREFIXES):
+        knobs["model"] = model
+    budget = _clamp_int(request.form.get("thinking_budget"), 0, _THINKING_BUDGET_MAX)
+    if budget is not None:
+        knobs["thinking_budget"] = budget
+    edge = _clamp_int(
+        request.form.get("max_image_edge"), _IMAGE_EDGE_MIN, _IMAGE_EDGE_MAX
+    )
+    if edge is not None:
+        knobs["max_image_edge"] = edge
+    catalogue_in_prompt = _parse_bool(request.form.get("catalogue_in_prompt"))
+    if catalogue_in_prompt is not None:
+        knobs["catalogue_in_prompt"] = catalogue_in_prompt
+    return knobs
 
 
 def _cors_headers(request) -> dict[str, str]:
@@ -79,9 +125,10 @@ def _parse(request):
     if len(data) > settings.max_upload_bytes:
         return _error(request, 413, "Upload too large")
     edition = request.form.get("edition") or "current"
+    knobs = _parse_knobs(request)
 
     try:
-        response = parse_photo(data, edition)
+        response = parse_photo(data, edition, **knobs)
     except ImageError as e:
         return _error(request, 400, str(e))
     except CatalogueError as e:
@@ -93,8 +140,7 @@ def _parse(request):
     return _json(request, response.model_dump_json())
 
 
-def handle_request(request):
-    """Dispatch a request to the matching route."""
+def _route(request):
     path = request.path.rstrip("/") or "/"
 
     if request.method == "OPTIONS":
@@ -111,3 +157,12 @@ def handle_request(request):
         return _parse(request)
 
     return _error(request, 404, "Not found")
+
+
+def handle_request(request):
+    """Dispatch a request to the matching route, flushing any traces after."""
+    try:
+        return _route(request)
+    finally:
+        # Instances can freeze between invocations; ship spans before that.
+        tracing.flush()

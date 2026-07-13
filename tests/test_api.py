@@ -74,6 +74,46 @@ def test_parse_happy_path(client, mock_bucket, fake_vision):
     assert "confirmed" in statuses
 
 
+def test_parse_forwards_knobs_to_model(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    form = _image_form(photo, "current")
+    form["model"] = "gemini-2.5-flash-lite"
+    form["thinking_budget"] = "512"
+    form["catalogue_in_prompt"] = "false"
+    response = client.post("/api/parse", data=form)
+    assert response.status_code == 200, response.text
+    call = fake_vision.calls[0]
+    assert call["model"] == "gemini-2.5-flash-lite"
+    assert call["config"].thinking_config.thinking_budget == 512
+    assert "SONGBOOK" not in call["contents"][1]
+
+
+def test_parse_clamps_thinking_budget(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    form = _image_form(photo, "current")
+    form["thinking_budget"] = "999999"
+    response = client.post("/api/parse", data=form)
+    assert response.status_code == 200
+    assert fake_vision.calls[0]["config"].thinking_config.thinking_budget == 24576
+
+
+def test_parse_ignores_disallowed_model(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    form = _image_form(photo, "current")
+    form["model"] = "gemini-2.5-pro"  # not flash-tier — dropped, default used
+    response = client.post("/api/parse", data=form)
+    assert response.status_code == 200
+    assert fake_vision.calls[0]["model"] == get_settings().gemini_model
+
+
+def test_parse_ignores_junk_image_edge(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    form = _image_form(photo, "current")
+    form["max_image_edge"] = "not-a-number"
+    response = client.post("/api/parse", data=form)
+    assert response.status_code == 200
+
+
 def test_parse_empty_upload_400(client):
     response = client.post("/api/parse", data=_image_form(b""))
     assert response.status_code == 400

@@ -48,12 +48,46 @@ def format_row(row: MatchedRow) -> str:
 @click.option("--edition", default=None, help="Songbook edition ID (default: current)")
 @click.option("--model", default=None, help="Gemini model ID override")
 @click.option(
+    "--thinking-budget",
+    type=int,
+    default=None,
+    help="Gemini thinking token budget (0 disables; default from config)",
+)
+@click.option(
+    "--max-image-edge",
+    type=int,
+    default=None,
+    help="Resize the photo's long edge to this many pixels before the vision call",
+)
+@click.option(
+    "--no-catalogue-prompt",
+    "catalogue_in_prompt",
+    flag_value=False,
+    default=None,
+    help="Don't send the songbook to the vision model (pure transcription)",
+)
+@click.option(
     "--json", "as_json", is_flag=True, help="Print the full ParseResponse as JSON"
 )
-def parse(photo: Path, edition: str | None, model: str | None, as_json: bool):
+def parse(
+    photo: Path,
+    edition: str | None,
+    model: str | None,
+    thinking_budget: int | None,
+    max_image_edge: int | None,
+    catalogue_in_prompt: bool | None,
+    as_json: bool,
+):
     """Parse a whiteboard PHOTO into a matched song-request list."""
     try:
-        response = parse_photo(photo.read_bytes(), edition, model=model)
+        response = parse_photo(
+            photo.read_bytes(),
+            edition,
+            model=model,
+            thinking_budget=thinking_budget,
+            max_image_edge=max_image_edge,
+            catalogue_in_prompt=catalogue_in_prompt,
+        )
     except VisionConfigError as e:
         raise click.ClickException(str(e)) from e
     except (CatalogueError, ImageError, VisionError) as e:
