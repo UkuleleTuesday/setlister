@@ -67,7 +67,7 @@ jobs:
             --allow-unauthenticated \
             --memory 512Mi \
             --timeout 120s \
-            --concurrency 8 \
+            --concurrency 1 \
             --max-instances 1 \
             --set-env-vars "GCP_PROJECT=$GCP_PROJECT_ID,GCP_LOCATION=$GCP_VERTEX_LOCATION,CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS"
       - name: Smoke check
