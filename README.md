@@ -69,7 +69,8 @@ The app deploys automatically on every merge to `main`
 
 The endpoint is public but guarded: uploads are capped at 20 MB, `/api/parse`
 is rate-limited per IP (in-process fixed window), and the function runs with
-`--max-instances 2` to bound worst-case Vertex AI spend.
+`--max-instances 1` to bound worst-case Vertex AI spend (expected traffic is a
+handful of photos per club night, so one instance is plenty).
 
 ### One-time setup
 
