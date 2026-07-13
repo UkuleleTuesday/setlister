@@ -1,7 +1,13 @@
-"""End-to-end smoke test against the real Gemini API and GCS bucket.
+"""End-to-end smoke tests against the real Gemini API and GCS bucket.
 
 Deselected by default; run with:  uv run pytest -m live
 Requires Google ADC (`gcloud auth application-default login`) and network access.
+
+Each whiteboard photo is described declaratively in
+``tests/fixtures/whiteboards/cases.json`` and exercised by the parametrized
+``test_whiteboard_sample`` below. To add a new test case, drop the image in
+``tests/fixtures/whiteboards/`` and append an entry to that manifest — no new
+test code.
 """
 
 import pytest
@@ -9,9 +15,11 @@ import pytest
 from utrequests.models import MatchStatus
 from utrequests.pipeline import parse_photo
 
-from .conftest import FIXTURES
+from .conftest import WHITEBOARDS, load_whiteboard_cases
 
 pytestmark = pytest.mark.live
+
+WHITEBOARD_CASES = load_whiteboard_cases()
 
 
 @pytest.fixture(autouse=True)
@@ -32,56 +40,40 @@ def _row_matching(response, needle):
     )
 
 
-def test_sample_photo_end_to_end():
-    photo = (FIXTURES / "whiteboard_sample.jpg").read_bytes()
+@pytest.mark.parametrize(
+    "case",
+    WHITEBOARD_CASES,
+    ids=[c["image"] for c in WHITEBOARD_CASES],
+)
+def test_whiteboard_sample(case):
+    photo = (WHITEBOARDS / case["image"]).read_bytes()
     response = parse_photo(photo, "current")
 
-    # The board has 7 rows; allow the model a little slack either way.
-    assert len(response.rows) >= 6
+    assert len(response.rows) >= case["min_rows"], (
+        f"{case['image']}: expected >= {case['min_rows']} rows, "
+        f"got {len(response.rows)}"
+    )
 
-    vampire = _row_matching(response, "vampire")
-    assert vampire is not None, "Vampire row not detected"
-    assert vampire.match is not None
-    assert "vampire" in vampire.match.display.lower()
+    for expected in case.get("expect_titles", []):
+        needle = expected["needle"]
+        row = _row_matching(response, needle)
+        assert row is not None, f"{case['image']}: row '{needle}' not detected"
+        assert row.match is not None, f"{case['image']}: row '{needle}' not matched"
 
-    murder = _row_matching(response, "murder")
-    assert murder is not None, "Murder on the Dancefloor row not detected"
-    assert murder.match is not None
-    # exact page agreement in the current edition -> should be auto-confirmed
-    assert murder.status == MatchStatus.CONFIRMED
+        wanted = expected.get("match_contains")
+        if wanted:
+            assert wanted in row.match.display.lower(), (
+                f"{case['image']}: row '{needle}' matched "
+                f"'{row.match.display}', expected to contain '{wanted}'"
+            )
 
+        if expected.get("status") == "confirmed":
+            assert row.status == MatchStatus.CONFIRMED, (
+                f"{case['image']}: row '{needle}' expected CONFIRMED, "
+                f"got {row.status}"
+            )
 
-def test_sample_photo_2_end_to_end():
-    # Older-edition board (pages drift a lot) with a distinctive edge case:
-    # one row has only a page number and no title. See fixture image.
-    photo = (FIXTURES / "whiteboard_sample_2.jpg").read_bytes()
-    response = parse_photo(photo, "current")
-
-    assert len(response.rows) >= 7
-
-    hotel_yorba = _row_matching(response, "hotel yorba")
-    assert hotel_yorba is not None, "Hotel Yorba row not detected"
-    assert hotel_yorba.match is not None
-    assert "hotel yorba" in hotel_yorba.match.display.lower()
-
-    ho_hey = _row_matching(response, "ho hey")
-    assert ho_hey is not None, "Ho Hey row not detected"
-    assert ho_hey.match is not None
-    assert "ho hey" in ho_hey.match.display.lower()
-
-
-def test_sample_photo_3_end_to_end():
-    # Older-edition board with a crossed-out request ("Hand in My Pocket") and
-    # a title written in shorthand ("i oughta know" -> You Oughta Know).
-    photo = (FIXTURES / "whiteboard_sample_3.jpg").read_bytes()
-    response = parse_photo(photo, "current")
-
-    assert len(response.rows) >= 7
-
-    proud_mary = _row_matching(response, "proud mary")
-    assert proud_mary is not None, "Proud Mary row not detected"
-    assert proud_mary.match is not None
-    assert "proud mary" in proud_mary.match.display.lower()
-
-    # The board has one visibly crossed-out entry — the model should flag it.
-    assert any(r.crossed_out for r in response.rows), "No crossed-out row detected"
+    if case.get("expect_crossed_out"):
+        assert any(r.crossed_out for r in response.rows), (
+            f"{case['image']}: no crossed-out row detected"
+        )

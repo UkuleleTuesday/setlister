@@ -1,13 +1,13 @@
 import json
-from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from utrequests import cli as cli_module
 from utrequests.cli import cli
 from utrequests.models import ParseResponse
 
-from .conftest import FIXTURES, load_fixture
+from .conftest import WHITEBOARDS, load_fixture, load_whiteboard_cases
 
 
 def make_response(sample_catalogue) -> ParseResponse:
@@ -26,7 +26,7 @@ def make_response(sample_catalogue) -> ParseResponse:
 def test_parse_human_output(monkeypatch, sample_catalogue):
     response = make_response(sample_catalogue)
     monkeypatch.setattr(cli_module, "parse_photo", lambda *a, **k: response)
-    result = CliRunner().invoke(cli, ["parse", str(FIXTURES / "whiteboard_sample.jpg")])
+    result = CliRunner().invoke(cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")])
     assert result.exit_code == 0, result.output
     assert "Murder On The Dancefloor" in result.output
     assert "7 rows" in result.output
@@ -36,7 +36,7 @@ def test_parse_json_output(monkeypatch, sample_catalogue):
     response = make_response(sample_catalogue)
     monkeypatch.setattr(cli_module, "parse_photo", lambda *a, **k: response)
     result = CliRunner().invoke(
-        cli, ["parse", str(FIXTURES / "whiteboard_sample.jpg"), "--json"]
+        cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg"), "--json"]
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -51,7 +51,7 @@ def test_parse_missing_credentials_is_clean_error(monkeypatch):
         raise VisionConfigError("run `gcloud auth application-default login`")
 
     monkeypatch.setattr(cli_module, "parse_photo", boom)
-    result = CliRunner().invoke(cli, ["parse", str(FIXTURES / "whiteboard_sample.jpg")])
+    result = CliRunner().invoke(cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")])
     assert result.exit_code != 0
     assert "application-default" in result.output
     assert "Traceback" not in result.output
@@ -68,5 +68,13 @@ def test_catalogue_command(mock_bucket):
     assert "9 to 5 - Dolly Parton" in result.output
 
 
-def test_sample_photo_fixture_exists():
-    assert (Path(FIXTURES) / "whiteboard_sample.jpg").stat().st_size > 10_000
+WHITEBOARD_CASES = load_whiteboard_cases()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [c["image"] for c in WHITEBOARD_CASES],
+    ids=[c["image"] for c in WHITEBOARD_CASES],
+)
+def test_sample_photo_fixture_exists(name):
+    assert (WHITEBOARDS / name).stat().st_size > 10_000

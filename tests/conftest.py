@@ -8,6 +8,11 @@ from utrequests import catalogue
 from utrequests.models import Catalogue
 
 FIXTURES = Path(__file__).parent / "fixtures"
+WHITEBOARDS = FIXTURES / "whiteboards"
+
+
+def load_whiteboard_cases() -> list[dict]:
+    return json.loads((WHITEBOARDS / "cases.json").read_text())
 
 
 @pytest.fixture(autouse=True)
