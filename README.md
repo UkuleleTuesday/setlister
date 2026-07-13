@@ -118,7 +118,9 @@ Then:
 
 1. **Runtime Vertex access** — confirm the default compute service account has
    `roles/aiplatform.user` in the project (songbook-generator's worker already
-   uses Vertex under it).
+   uses Vertex under it). For the per-stage latency traces the function exports
+   to Cloud Trace, that same account also needs `roles/cloudtrace.agent` (the
+   default compute SA usually has it already).
 2. **GitHub Pages** — after the first `main` deploy creates the `gh-pages`
    branch, set repo Settings → Pages → deploy from branch `gh-pages`, `/`
    (root).

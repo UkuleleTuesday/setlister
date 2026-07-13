@@ -11,6 +11,10 @@ const includeCrossed = document.getElementById("include-crossed");
 const showSuggestions = document.getElementById("show-suggestions");
 const settingsToggle = document.getElementById("settings-toggle");
 const settingsPanel = document.getElementById("settings-panel");
+const modelSelect = document.getElementById("model");
+const disableThinking = document.getElementById("disable-thinking");
+const sendCatalogue = document.getElementById("send-catalogue");
+const maxImageEdge = document.getElementById("max-image-edge");
 
 showSuggestions.addEventListener("change", renderResults);
 
@@ -81,6 +85,12 @@ photoInput.addEventListener("change", async () => {
   const form = new FormData();
   form.append("image", file);
   form.append("edition", editionSelect.value);
+  // Tuning knobs from the settings panel — the API clamps/ignores anything out
+  // of range and falls back to its configured defaults.
+  if (modelSelect.value) form.append("model", modelSelect.value);
+  form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
+  form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
+  if (maxImageEdge.value) form.append("max_image_edge", maxImageEdge.value);
   try {
     const res = await fetch(`${API_BASE}/api/parse`, { method: "POST", body: form });
     if (!res.ok) {
