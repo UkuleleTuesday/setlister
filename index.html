@@ -22,8 +22,17 @@
       <label class="camera-button" for="photo-input">📷 Take or choose a photo</label>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 
-      <img id="preview" alt="" hidden>
-      <div id="spinner" class="spinner" hidden><div></div>Reading the board…</div>
+      <div id="preview-wrap" class="preview-wrap" hidden>
+        <img id="preview" alt="">
+        <div id="scan-overlay" class="scan-overlay" hidden aria-hidden="true">
+          <div class="scan-beam"></div>
+          <div class="scan-corner tl"></div>
+          <div class="scan-corner tr"></div>
+          <div class="scan-corner bl"></div>
+          <div class="scan-corner br"></div>
+          <div class="scan-status"><span class="dot"></span>Reading the board…</div>
+        </div>
+      </div>
       <div id="error" class="error" hidden></div>
     </section>
 
