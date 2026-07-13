@@ -26,7 +26,9 @@ def make_response(sample_catalogue) -> ParseResponse:
 def test_parse_human_output(monkeypatch, sample_catalogue):
     response = make_response(sample_catalogue)
     monkeypatch.setattr(cli_module, "parse_photo", lambda *a, **k: response)
-    result = CliRunner().invoke(cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")])
+    result = CliRunner().invoke(
+        cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")]
+    )
     assert result.exit_code == 0, result.output
     assert "Murder On The Dancefloor" in result.output
     assert "7 rows" in result.output
@@ -51,7 +53,9 @@ def test_parse_missing_credentials_is_clean_error(monkeypatch):
         raise VisionConfigError("run `gcloud auth application-default login`")
 
     monkeypatch.setattr(cli_module, "parse_photo", boom)
-    result = CliRunner().invoke(cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")])
+    result = CliRunner().invoke(
+        cli, ["parse", str(WHITEBOARDS / "whiteboard_sample.jpg")]
+    )
     assert result.exit_code != 0
     assert "application-default" in result.output
     assert "Traceback" not in result.output
