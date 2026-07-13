@@ -103,8 +103,10 @@ jobs:
               else
                 echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} failed with curl exit code ${curl_exit}."
               fi
-              echo "Retrying ${endpoint} in ${DELAY_SECONDS}s..."
-              sleep "$DELAY_SECONDS"
+              if [[ "$attempt" -lt "$ATTEMPTS" ]]; then
+                echo "Retrying ${endpoint} in ${DELAY_SECONDS}s..."
+                sleep "$DELAY_SECONDS"
+              fi
             done
             echo "Smoke check failed for ${endpoint} after ${ATTEMPTS} attempts."
             return 1
