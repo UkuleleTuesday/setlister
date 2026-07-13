@@ -1,18 +1,33 @@
+import io
 import json
 
+import flask
 import pytest
-from fastapi.testclient import TestClient
 
 from utrequests import vision
-from utrequests.api import app
+from utrequests.api import handle_request
+from utrequests.config import get_settings
 
 from .conftest import WHITEBOARDS, load_fixture
 from .test_vision import FakeClient
 
+PAGES_ORIGIN = "https://ukuleletuesday.github.io"
+
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    """Drive handle_request through a plain Flask app (no functions-framework:
+    create_app re-imports the source under a different module name, which would
+    break monkeypatching of the already-imported modules)."""
+    app = flask.Flask(__name__)
+    methods = ["GET", "POST", "OPTIONS"]
+
+    def dispatch(path=""):
+        return handle_request(flask.request)
+
+    app.add_url_rule("/", "root", dispatch, methods=methods)
+    app.add_url_rule("/<path:path>", "any", dispatch, methods=methods)
+    return app.test_client()
 
 
 @pytest.fixture
@@ -22,8 +37,15 @@ def fake_vision(monkeypatch):
     return fake
 
 
+def _image_form(photo: bytes, edition: str | None = None) -> dict:
+    form = {"image": (io.BytesIO(photo), "board.jpg", "image/jpeg")}
+    if edition is not None:
+        form["edition"] = edition
+    return form
+
+
 def test_healthz(client):
-    assert client.get("/healthz").json() == {"ok": True}
+    assert client.get("/healthz").get_json() == {"ok": True}
 
 
 def test_editions_endpoint(client, monkeypatch):
@@ -37,18 +59,14 @@ def test_editions_endpoint(client, monkeypatch):
     monkeypatch.setattr(catalogue.httpx, "get", offline)
     response = client.get("/api/editions")
     assert response.status_code == 200
-    assert any(e["id"] == "current" for e in response.json()["editions"])
+    assert any(e["id"] == "current" for e in response.get_json()["editions"])
 
 
 def test_parse_happy_path(client, mock_bucket, fake_vision):
     photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
-    response = client.post(
-        "/api/parse",
-        files={"image": ("board.jpg", photo, "image/jpeg")},
-        data={"edition": "current"},
-    )
+    response = client.post("/api/parse", data=_image_form(photo, "current"))
     assert response.status_code == 200, response.text
-    payload = response.json()
+    payload = response.get_json()
     assert len(payload["rows"]) == 7
     assert payload["edition"]["id"] == "current"
     assert len(payload["catalogue"]) == 123
@@ -57,14 +75,12 @@ def test_parse_happy_path(client, mock_bucket, fake_vision):
 
 
 def test_parse_empty_upload_400(client):
-    response = client.post("/api/parse", files={"image": ("x.jpg", b"", "image/jpeg")})
+    response = client.post("/api/parse", data=_image_form(b""))
     assert response.status_code == 400
 
 
 def test_parse_garbage_image_400(client, mock_bucket, fake_vision):
-    response = client.post(
-        "/api/parse", files={"image": ("x.jpg", b"not an image", "image/jpeg")}
-    )
+    response = client.post("/api/parse", data=_image_form(b"not an image"))
     assert response.status_code == 400
 
 
@@ -76,14 +92,54 @@ def test_parse_without_credentials_503(client, mock_bucket, monkeypatch):
 
     monkeypatch.setattr(vision.genai, "Client", boom)
     photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
-    response = client.post(
-        "/api/parse", files={"image": ("board.jpg", photo, "image/jpeg")}
-    )
+    response = client.post("/api/parse", data=_image_form(photo))
     assert response.status_code == 503
-    assert "application-default" in response.json()["detail"]
+    assert "application-default" in response.get_json()["detail"]
 
 
-def test_static_index_served(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "Whiteboard" in response.text
+def test_unknown_path_404(client):
+    response = client.get("/nope")
+    assert response.status_code == 404
+    assert response.get_json() == {"detail": "Not found"}
+
+
+def test_cors_allowed_origin_echoed(client):
+    response = client.get("/healthz", headers={"Origin": PAGES_ORIGIN})
+    assert response.headers["Access-Control-Allow-Origin"] == PAGES_ORIGIN
+    assert "Origin" in response.headers["Vary"]
+
+
+def test_cors_disallowed_origin_gets_no_allow_header(client):
+    response = client.get("/healthz", headers={"Origin": "https://evil.example"})
+    assert "Access-Control-Allow-Origin" not in response.headers
+
+
+def test_options_preflight_204(client):
+    response = client.open(
+        "/api/parse", method="OPTIONS", headers={"Origin": PAGES_ORIGIN}
+    )
+    assert response.status_code == 204
+    assert response.headers["Access-Control-Allow-Origin"] == PAGES_ORIGIN
+
+
+def test_parse_oversized_content_length_413(client):
+    too_big = get_settings().max_upload_bytes + 1
+    response = client.post(
+        "/api/parse",
+        data=b"x",
+        content_type="multipart/form-data",
+        environ_overrides={"CONTENT_LENGTH": str(too_big)},
+    )
+    assert response.status_code == 413
+
+
+def test_parse_rate_limited_429(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    limit = get_settings().parse_rate_limit
+    for _ in range(limit):
+        response = client.post("/api/parse", data=_image_form(photo))
+        assert response.status_code == 200
+    response = client.post("/api/parse", data=_image_form(photo))
+    assert response.status_code == 429
+    assert int(response.headers["Retry-After"]) >= 1
+    assert "detail" in response.get_json()

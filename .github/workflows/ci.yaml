@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: write # JamesIves/github-pages-deploy-action pushes to gh-pages
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Install dependencies
+        run: uv sync --locked --dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Check formatting
+        run: uv run ruff format --check .
+      - name: Run tests
+        run: uv run pytest
+
+  deploy-function:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load deploy config
+        uses: falti/dotenv-action@v1.1.4
+        with:
+          path: .env.deploy
+          export-variables: true
+          keys-case: bypass
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          export_environment_variables: true
+      - uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Generate requirements.txt for the function build
+        run: >
+          uv export --no-emit-project --no-dev --format requirements-txt
+          > utrequests/requirements.txt
+      - name: Deploy Cloud Function
+        run: |
+          gcloud functions deploy "$API_FUNCTION_NAME" \
+            --gen2 \
+            --region "$GCP_REGION" \
+            --runtime python312 \
+            --source utrequests \
+            --entry-point setlister_api \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory 512Mi \
+            --timeout 120s \
+            --concurrency 8 \
+            --max-instances 2 \
+            --set-env-vars "GCP_PROJECT=$GCP_PROJECT_ID,GCP_LOCATION=$GCP_VERTEX_LOCATION,CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS"
+      - name: Smoke check
+        run: |
+          URL=$(gcloud functions describe "$API_FUNCTION_NAME" \
+            --region "$GCP_REGION" --format='value(serviceConfig.uri)')
+          echo "Function URL: $URL"
+          curl -fsS "$URL/healthz"
+          curl -fsS "$URL/api/editions" | grep -q '"current"'
+
+  deploy-ui:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy UI to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ui

@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from utrequests import catalogue
+from utrequests import catalogue, ratelimit
 from utrequests.models import Catalogue
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -20,6 +20,13 @@ def _clear_catalogue_cache():
     catalogue.clear_cache()
     yield
     catalogue.clear_cache()
+
+
+@pytest.fixture(autouse=True)
+def _clear_rate_limits():
+    ratelimit.clear()
+    yield
+    ratelimit.clear()
 
 
 def load_fixture(name: str) -> dict:
