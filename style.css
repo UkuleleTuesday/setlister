@@ -66,17 +66,21 @@ main { max-width: 560px; margin: 0 auto; padding: 1rem; }
 .preview-wrap { position: relative; margin-top: 0.8rem; }
 #preview { display: block; width: 100%; border-radius: 10px; }
 
-/* Once matches are ready the photo collapses to a small thumbnail so the list
-   is the prominent thing; tapping it toggles back to full size. */
-.preview-wrap.collapsed { cursor: pointer; }
-.preview-wrap.collapsed #preview {
-  max-height: 64px; object-fit: cover; object-position: top;
+/* Once matches are ready the photo is hidden; these controls let the user
+   reveal it again or take a new one, replacing the big camera button. */
+.photo-controls { display: flex; gap: 0.6rem; }
+.photo-toggle {
+  flex: 1; padding: 0.9rem; font-size: 1.05rem;
+  background: #4a148c; color: white; border: none; border-radius: 10px;
+  cursor: pointer;
 }
-.preview-wrap.collapsed::after {
-  content: "tap to expand"; position: absolute; right: 8px; bottom: 8px;
-  padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem;
-  background: rgba(28, 10, 52, 0.72); color: #ece3ff;
+.photo-toggle:active { opacity: 0.85; }
+.new-photo-link {
+  flex: 0 0 auto; padding: 0.9rem; font-size: 1.05rem; text-align: center;
+  background: var(--card); color: #4a148c; border: 1px solid #ccc;
+  border-radius: 10px; cursor: pointer; user-select: none;
 }
+.new-photo-link:active { opacity: 0.85; }
 
 /* Scanning overlay: a sci-fi document-scanner sweep on top of the photo
    while the board is being read, replacing the old spinner. */
