@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from utrequests import vision
 from utrequests.api import app
 
-from .conftest import FIXTURES, load_fixture
+from .conftest import WHITEBOARDS, load_fixture
 from .test_vision import FakeClient
 
 
@@ -41,7 +41,7 @@ def test_editions_endpoint(client, monkeypatch):
 
 
 def test_parse_happy_path(client, mock_bucket, fake_vision):
-    photo = (FIXTURES / "whiteboard_sample.jpg").read_bytes()
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
     response = client.post(
         "/api/parse",
         files={"image": ("board.jpg", photo, "image/jpeg")},
@@ -75,7 +75,7 @@ def test_parse_without_credentials_503(client, mock_bucket, monkeypatch):
         raise google.auth.exceptions.DefaultCredentialsError("no ADC")
 
     monkeypatch.setattr(vision.genai, "Client", boom)
-    photo = (FIXTURES / "whiteboard_sample.jpg").read_bytes()
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
     response = client.post(
         "/api/parse", files={"image": ("board.jpg", photo, "image/jpeg")}
     )

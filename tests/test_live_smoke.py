@@ -4,9 +4,10 @@ Deselected by default; run with:  uv run pytest -m live
 Requires Google ADC (`gcloud auth application-default login`) and network access.
 
 Each whiteboard photo is described declaratively in
-``tests/fixtures/whiteboard_cases.json`` and exercised by the parametrized
+``tests/fixtures/whiteboards/cases.json`` and exercised by the parametrized
 ``test_whiteboard_sample`` below. To add a new test case, drop the image in
-``tests/fixtures/`` and append an entry to that manifest — no new test code.
+``tests/fixtures/whiteboards/`` and append an entry to that manifest — no new
+test code.
 """
 
 import pytest
@@ -14,11 +15,11 @@ import pytest
 from utrequests.models import MatchStatus
 from utrequests.pipeline import parse_photo
 
-from .conftest import FIXTURES, load_fixture
+from .conftest import WHITEBOARDS, load_whiteboard_cases
 
 pytestmark = pytest.mark.live
 
-WHITEBOARD_CASES = load_fixture("whiteboard_cases.json")
+WHITEBOARD_CASES = load_whiteboard_cases()
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +46,7 @@ def _row_matching(response, needle):
     ids=[c["image"] for c in WHITEBOARD_CASES],
 )
 def test_whiteboard_sample(case):
-    photo = (FIXTURES / case["image"]).read_bytes()
+    photo = (WHITEBOARDS / case["image"]).read_bytes()
     response = parse_photo(photo, "current")
 
     assert len(response.rows) >= case["min_rows"], (
