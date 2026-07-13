@@ -75,8 +75,28 @@ jobs:
           URL=$(gcloud functions describe "$API_FUNCTION_NAME" \
             --region "$GCP_REGION" --format='value(serviceConfig.uri)')
           echo "Function URL: $URL"
-          curl -fsS "$URL/healthz"
-          curl -fsS "$URL/api/editions" | grep -q '"current"'
+          ATTEMPTS=12
+          DELAY_SECONDS=5
+
+          check_endpoint() {
+            local endpoint="$1"
+            local attempt
+            for attempt in $(seq 1 "$ATTEMPTS"); do
+              if [[ "$endpoint" == "/api/editions" ]]; then
+                if curl -fsS "$URL$endpoint" | grep -q '"current"'; then
+                  return 0
+                fi
+              elif curl -fsS "$URL$endpoint" >/dev/null; then
+                return 0
+              fi
+              echo "Attempt ${attempt}/${ATTEMPTS} failed for ${endpoint}; retrying in ${DELAY_SECONDS}s..."
+              sleep "$DELAY_SECONDS"
+            done
+            return 1
+          }
+
+          check_endpoint "/healthz"
+          check_endpoint "/api/editions"
 
   deploy-ui:
     needs: test
