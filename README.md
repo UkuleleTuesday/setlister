@@ -33,13 +33,13 @@ uv sync
 gcloud auth application-default login   # one-time; ADC for Vertex AI
 
 # CLI
-uv run ut-requests editions                       # list songbook editions
-uv run ut-requests catalogue --edition current    # dump song -> page catalogue
-uv run ut-requests parse photo.jpg                # parse a whiteboard photo
-uv run ut-requests parse photo.jpg --json         # machine-readable output
+uv run setlister editions                       # list songbook editions
+uv run setlister catalogue --edition current    # dump song -> page catalogue
+uv run setlister parse photo.jpg                # parse a whiteboard photo
+uv run setlister parse photo.jpg --json         # machine-readable output
 
 # Web app (mobile-first review UI)
-uv run ut-requests serve --port 8000              # then open http://127.0.0.1:8000
+uv run setlister serve --port 8000              # then open http://127.0.0.1:8000
 ```
 
 ## Development
