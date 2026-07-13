@@ -34,6 +34,14 @@
         <input type="checkbox" id="send-catalogue" checked>
         <span>Send songbook to model (better handwriting reads)</span>
       </label>
+      <label class="field toggle">
+        <input type="checkbox" id="show-suggestions">
+        <span>Show alternative suggestions</span>
+      </label>
+      <label class="field toggle">
+        <input type="checkbox" id="include-crossed">
+        <span>Include crossed-out rows in export</span>
+      </label>
       <label class="field">
         <span>Max image edge (px)</span>
         <input type="number" id="max-image-edge" min="256" max="4096" step="128"
@@ -44,8 +52,13 @@
 
   <main>
     <section id="capture">
-      <label class="camera-button" for="photo-input">📷 Take or choose a photo</label>
+      <label class="camera-button" id="camera-button" for="photo-input">📷 Take or choose a photo</label>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+
+      <div id="photo-controls" class="photo-controls" hidden>
+        <button id="toggle-photo" class="photo-toggle" type="button">🖼 Show photo</button>
+        <label class="new-photo-link" for="photo-input">📷 New photo</label>
+      </div>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
@@ -63,12 +76,6 @@
 
     <section id="results" hidden>
       <ul id="rows"></ul>
-      <label class="note toggle">
-        <input type="checkbox" id="show-suggestions"> show alternative suggestions
-      </label>
-      <label class="note toggle">
-        <input type="checkbox" id="include-crossed"> include crossed-out rows in export
-      </label>
       <div class="actions">
         <button id="copy">📋 Copy list</button>
         <button id="download">⬇️ Download JSON</button>

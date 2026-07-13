@@ -15,11 +15,19 @@ const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
 const maxImageEdge = document.getElementById("max-image-edge");
+const cameraButton = document.getElementById("camera-button");
+const photoControls = document.getElementById("photo-controls");
+const togglePhoto = document.getElementById("toggle-photo");
 
 showSuggestions.addEventListener("change", renderResults);
 
-// Let the user reclaim the photo after it collapses on match, and re-collapse it.
-previewWrap.addEventListener("click", () => previewWrap.classList.toggle("collapsed"));
+// After a scan the photo is hidden to keep the match list prominent; this
+// button reveals or re-hides the full image on demand.
+togglePhoto.addEventListener("click", () => {
+  const show = previewWrap.hidden;
+  previewWrap.hidden = !show;
+  togglePhoto.textContent = show ? "🙈 Hide photo" : "🖼 Show photo";
+});
 
 let state = null; // last ParseResponse, mutated by user edits
 
@@ -76,8 +84,10 @@ photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
   preview.src = URL.createObjectURL(file);
+  // Scanning view: show the full image with the scan overlay, no controls.
   previewWrap.hidden = false;
-  previewWrap.classList.remove("collapsed");
+  cameraButton.hidden = true;
+  photoControls.hidden = true;
   errorBox.hidden = true;
   resultsSection.hidden = true;
   scanOverlay.hidden = false;
@@ -100,11 +110,18 @@ photoInput.addEventListener("change", async () => {
     state = await res.json();
     state.rows.forEach((row) => (row.removed = false));
     renderResults();
-    // Shrink the photo so the match list becomes the prominent thing.
-    previewWrap.classList.add("collapsed");
+    // Hide the photo so the match list is the prominent thing; the controls
+    // row lets the user reveal it again or take a new one.
+    previewWrap.hidden = true;
+    photoControls.hidden = false;
+    togglePhoto.textContent = "🖼 Show photo";
   } catch (err) {
     errorBox.textContent = err.message;
     errorBox.hidden = false;
+    // Keep the image visible so the user can see what failed, but still offer
+    // the controls to hide it or retake.
+    photoControls.hidden = false;
+    togglePhoto.textContent = "🙈 Hide photo";
   } finally {
     scanOverlay.hidden = true;
   }
@@ -229,6 +246,9 @@ function setMatch(row, entry) {
 }
 
 function renderResults() {
+  // The suggestions/crossed-out toggles now live in the always-open settings
+  // panel, so a change can fire before any photo has been scanned.
+  if (!state) return;
   editionNote.textContent =
     `Matched against “${state.edition.title}” ` +
     `(generated ${state.catalogue_generated_at?.slice(0, 10) || "unknown"})`;
