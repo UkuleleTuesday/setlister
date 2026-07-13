@@ -74,20 +74,51 @@ handful of photos per club night, so one instance is plenty).
 
 ### One-time setup
 
-These are manual, project-level steps (already-deployed siblings mean most of
-this exists):
+CI authenticates to GCP with **Workload Identity Federation** — GitHub mints a
+short-lived OIDC token that GCP exchanges for deployer-SA credentials, so
+there are **no keys and no GitHub secrets/variables to configure**. A project
+admin runs this once (values match `.env.deploy`; `993670465212` is the
+`songbook-generator` project number):
 
-1. **Repo secret `GCP_SA_KEY`** — the deployer service-account JSON key (the
-   same one the songbook-generator repo uses; it already deploys gen2
-   `--allow-unauthenticated` functions in this project). If a fresh SA is
-   minted instead, it needs `roles/cloudfunctions.admin` (or `.developer` plus
-   a one-time `gcloud functions add-invoker-policy-binding setlister-api
-   --region=europe-west1 --member=allUsers` by an admin) and
-   `roles/iam.serviceAccountUser` on the default compute service account.
-2. **Repo variable `GCP_PROJECT_ID`** = `songbook-generator`.
-3. **Runtime Vertex access** — confirm the default compute service account has
+```bash
+# 1. Dedicated deployer service account
+gcloud iam service-accounts create setlister-deployer \
+  --project=songbook-generator --display-name="setlister CI deployer"
+gcloud projects add-iam-policy-binding songbook-generator \
+  --member=serviceAccount:setlister-deployer@songbook-generator.iam.gserviceaccount.com \
+  --role=roles/cloudfunctions.admin
+# The function runs as the default compute SA; deploying on its behalf needs:
+gcloud iam service-accounts add-iam-policy-binding \
+  993670465212-compute@developer.gserviceaccount.com \
+  --project=songbook-generator \
+  --member=serviceAccount:setlister-deployer@songbook-generator.iam.gserviceaccount.com \
+  --role=roles/iam.serviceAccountUser
+
+# 2. Workload identity pool + GitHub OIDC provider
+#    (skip if the project already has this pool/provider)
+gcloud iam workload-identity-pools create github \
+  --project=songbook-generator --location=global \
+  --display-name="GitHub Actions"
+gcloud iam workload-identity-pools providers create-oidc github-oidc \
+  --project=songbook-generator --location=global \
+  --workload-identity-pool=github --display-name="GitHub OIDC" \
+  --issuer-uri="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository_owner == 'UkuleleTuesday'"
+
+# 3. Allow workflows from this repo (only) to impersonate the deployer SA
+gcloud iam service-accounts add-iam-policy-binding \
+  setlister-deployer@songbook-generator.iam.gserviceaccount.com \
+  --project=songbook-generator \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/993670465212/locations/global/workloadIdentityPools/github/attribute.repository/UkuleleTuesday/setlister"
+```
+
+Then:
+
+1. **Runtime Vertex access** — confirm the default compute service account has
    `roles/aiplatform.user` in the project (songbook-generator's worker already
    uses Vertex under it).
-4. **GitHub Pages** — after the first `main` deploy creates the `gh-pages`
+2. **GitHub Pages** — after the first `main` deploy creates the `gh-pages`
    branch, set repo Settings → Pages → deploy from branch `gh-pages`, `/`
    (root).
