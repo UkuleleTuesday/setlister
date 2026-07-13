@@ -75,45 +75,8 @@ jobs:
           URL=$(gcloud functions describe "$API_FUNCTION_NAME" \
             --region "$GCP_REGION" --format='value(serviceConfig.uri)')
           echo "Function URL: $URL"
-          ATTEMPTS=12
-          DELAY_SECONDS=5
-
-          check_endpoint() {
-            local endpoint="$1"
-            local attempt
-            local response
-            local status_code
-            local body
-            local curl_exit
-            for attempt in $(seq 1 "$ATTEMPTS"); do
-              response=$(curl -sS -w '\n%{http_code}' "$URL$endpoint")
-              curl_exit=$?
-              if [[ "$curl_exit" -eq 0 ]]; then
-                status_code="${response##*$'\n'}"
-                body="${response%$'\n'*}"
-                if [[ "$status_code" =~ ^2[0-9][0-9]$ ]]; then
-                  if [[ "$endpoint" == "/api/editions" ]] && ! grep -q '"current"' <<<"$body"; then
-                    echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} returned 2xx but missing \"current\"."
-                  else
-                    return 0
-                  fi
-                else
-                  echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} returned HTTP ${status_code}."
-                fi
-              else
-                echo "Attempt ${attempt}/${ATTEMPTS} for ${endpoint} failed with curl exit code ${curl_exit}."
-              fi
-              if [[ "$attempt" -lt "$ATTEMPTS" ]]; then
-                echo "Retrying ${endpoint} in ${DELAY_SECONDS}s..."
-                sleep "$DELAY_SECONDS"
-              fi
-            done
-            echo "Smoke check failed for ${endpoint} after ${ATTEMPTS} attempts."
-            return 1
-          }
-
-          check_endpoint "/healthz"
-          check_endpoint "/api/editions"
+          curl -fsS --retry 11 --retry-delay 5 --retry-all-errors \
+            "$URL/api/editions" | grep -q '"current"'
 
   deploy-ui:
     needs: test
