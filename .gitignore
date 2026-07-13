@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 .env
 .pytest_cache/
+# Generated at deploy time by `uv export` (see .github/workflows/ci.yaml).
+utrequests/requirements.txt
 .ruff_cache/
 dist/
 build/

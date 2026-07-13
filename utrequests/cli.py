@@ -101,13 +101,19 @@ def catalogue(edition: str | None, as_json: bool):
 
 @cli.command()
 @click.option("--host", default="127.0.0.1")
-@click.option("--port", default=8000, type=int)
-@click.option("--reload", is_flag=True)
-def serve(host: str, port: int, reload: bool):
-    """Run the web app (API + mobile review UI)."""
-    import uvicorn
+@click.option("--port", default=8080, type=int)
+@click.option("--debug", is_flag=True)
+def serve(host: str, port: int, debug: bool):
+    """Run the API locally via functions-framework.
 
-    uvicorn.run("utrequests.api:app", host=host, port=port, reload=reload)
+    The UI is served separately, e.g.: python3 -m http.server 3000 -d ui
+    """
+    from functions_framework import create_app
+
+    source = Path(__file__).parent / "main.py"
+    create_app(target="setlister_api", source=str(source)).run(
+        host=host, port=port, debug=debug
+    )
 
 
 if __name__ == "__main__":

@@ -69,8 +69,7 @@ def test_whiteboard_sample(case):
 
         if expected.get("status") == "confirmed":
             assert row.status == MatchStatus.CONFIRMED, (
-                f"{case['image']}: row '{needle}' expected CONFIRMED, "
-                f"got {row.status}"
+                f"{case['image']}: row '{needle}' expected CONFIRMED, got {row.status}"
             )
 
     if case.get("expect_crossed_out"):

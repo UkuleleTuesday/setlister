@@ -11,9 +11,20 @@ const includeCrossed = document.getElementById("include-crossed");
 
 let state = null; // last ParseResponse, mutated by user edits
 
+// The UI is a static site (GitHub Pages in production), so the API lives on a
+// different origin: the deployed Cloud Function, or a local
+// `ut-requests serve` when developing.
+function getApiBase() {
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+    return "http://127.0.0.1:8080";
+  }
+  return "https://europe-west1-songbook-generator.cloudfunctions.net/setlister-api";
+}
+const API_BASE = getApiBase();
+
 async function loadEditions() {
   try {
-    const res = await fetch("/api/editions");
+    const res = await fetch(`${API_BASE}/api/editions`);
     const data = await res.json();
     editionSelect.replaceChildren(
       ...data.editions.map((e) => {
@@ -43,7 +54,7 @@ photoInput.addEventListener("change", async () => {
   form.append("image", file);
   form.append("edition", editionSelect.value);
   try {
-    const res = await fetch("/api/parse", { method: "POST", body: form });
+    const res = await fetch(`${API_BASE}/api/parse`, { method: "POST", body: form });
     if (!res.ok) {
       const detail = (await res.json().catch(() => ({}))).detail;
       throw new Error(detail || `Server error (${res.status})`);
