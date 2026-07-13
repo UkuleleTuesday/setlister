@@ -1,7 +1,8 @@
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
 const preview = document.getElementById("preview");
-const spinner = document.getElementById("spinner");
+const previewWrap = document.getElementById("preview-wrap");
+const scanOverlay = document.getElementById("scan-overlay");
 const errorBox = document.getElementById("error");
 const resultsSection = document.getElementById("results");
 const rowsList = document.getElementById("rows");
@@ -45,10 +46,10 @@ photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
   preview.src = URL.createObjectURL(file);
-  preview.hidden = false;
+  previewWrap.hidden = false;
   errorBox.hidden = true;
   resultsSection.hidden = true;
-  spinner.hidden = false;
+  scanOverlay.hidden = false;
 
   const form = new FormData();
   form.append("image", file);
@@ -66,7 +67,7 @@ photoInput.addEventListener("change", async () => {
     errorBox.textContent = err.message;
     errorBox.hidden = false;
   } finally {
-    spinner.hidden = true;
+    scanOverlay.hidden = true;
   }
 });
 
