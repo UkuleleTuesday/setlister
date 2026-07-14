@@ -40,11 +40,21 @@ export async function getFirestore() {
 }
 
 async function _init() {
-  const [{ initializeApp, getApps }, { getFirestore: _getFirestore, connectFirestoreEmulator, doc, onSnapshot, updateDoc, runTransaction, serverTimestamp, deleteField, Timestamp }] =
-    await Promise.all([
-      import("firebase/app"),
-      import("firebase/firestore"),
-    ]);
+  const [{ initializeApp, getApps }, firestoreModule] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/firestore"),
+  ]);
+  const {
+    getFirestore: _getFirestore,
+    connectFirestoreEmulator,
+    doc,
+    onSnapshot,
+    updateDoc,
+    runTransaction,
+    serverTimestamp,
+    deleteField,
+    Timestamp,
+  } = firestoreModule;
 
   // Re-use an existing Firebase app if one was already initialised (e.g.
   // during hot-module replacement in dev).
