@@ -79,6 +79,31 @@ jobs:
           curl -fsS --retry 11 --retry-delay 5 --retry-all-errors \
             "$URL/api/editions" | grep -q '"current"'
 
+  deploy-rules:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # mint the GitHub OIDC token exchanged for GCP credentials
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load deploy config
+        uses: falti/dotenv-action@v1.1.4
+        with:
+          path: .env.deploy
+          export-variables: true
+          keys-case: bypass
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+      - name: Deploy Firestore rules
+        run: npx --yes firebase-tools deploy --only firestore:rules --project "$GCP_PROJECT_ID"
+
   deploy-ui:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
