@@ -22,6 +22,9 @@ const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
 const maxImageEdge = document.getElementById("max-image-edge");
+const photoLightbox = document.getElementById("photo-lightbox");
+const photoLightboxImg = document.getElementById("photo-lightbox-img");
+const photoLightboxClose = document.getElementById("photo-lightbox-close");
 
 const STORAGE_KEY = "setlister.v1";
 
@@ -311,7 +314,10 @@ function rowToEntry(row) {
 photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
-  preview.src = URL.createObjectURL(file);
+  // Keep the object URL around: the review sheet lets you re-open this photo
+  // (via a row's ⚠️ icon) to eyeball a match against the actual handwriting.
+  const imageUrl = URL.createObjectURL(file);
+  preview.src = imageUrl;
   previewWrap.hidden = false;
   errorBox.hidden = true;
   scanOverlay.hidden = false;
@@ -340,7 +346,7 @@ photoInput.addEventListener("change", async () => {
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
     // Scanned rows go to the review sheet to be validated before merging.
-    app.review = { entries: data.rows.map(rowToEntry) };
+    app.review = { entries: data.rows.map(rowToEntry), imageUrl };
     openReview();
   } catch (err) {
     errorBox.textContent = err.message;
@@ -363,8 +369,32 @@ function closeReview() {
   reviewSection.hidden = true;
   addSection.hidden = false;
   previewWrap.hidden = true;
+  closePhotoLightbox();
   app.review = null;
 }
+
+// The scanned board is hidden during review, but a flagged row (⚠️) may need a
+// second look at the handwriting. Clicking the icon pops the photo full-screen
+// so the match can be checked by eye, then dismissed.
+function openPhotoLightbox() {
+  const src = app.review?.imageUrl;
+  if (!src) return;
+  photoLightboxImg.src = src;
+  photoLightbox.hidden = false;
+}
+
+function closePhotoLightbox() {
+  photoLightbox.hidden = true;
+}
+
+// Mobile-first dismissal: there's no Escape key on a phone and "tap the
+// backdrop but not the photo" is a fiddly target, so tapping ANYWHERE on the
+// overlay closes it. The ✕ stays as the obvious, thumb-sized affordance;
+// Escape is just a harmless desktop bonus.
+photoLightbox.addEventListener("click", closePhotoLightbox);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !photoLightbox.hidden) closePhotoLightbox();
+});
 
 function renderReview() {
   if (!app.review) return;
@@ -425,10 +455,14 @@ function renderRow(row, index, context) {
   // validation affordances — they belong to the review sheet only. The setlist
   // is the clean final running order, so they're omitted there.
   if (context === "review" && row.match && row.status !== "confirmed") {
-    const warn = document.createElement("span");
+    const warn = document.createElement("button");
+    warn.type = "button";
     warn.className = "warn-icon";
     warn.textContent = "⚠️";
-    warn.title = row.explanation || "Needs a check";
+    const reason = row.explanation || "Needs a check";
+    warn.title = `${reason} — tap to see the photo`;
+    warn.setAttribute("aria-label", `${reason}. Show the scanned photo to check this match.`);
+    warn.onclick = () => openPhotoLightbox();
     title.append(" ", warn);
   }
   top.appendChild(title);
