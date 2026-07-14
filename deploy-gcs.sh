@@ -93,6 +93,4 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
   --role=roles/cloudtrace.agent
 
 echo
-echo "Done. Remaining manual step:"
-echo "  GitHub Pages — after the first 'main' deploy creates the gh-pages"
-echo "  branch, set repo Settings -> Pages -> deploy from branch gh-pages, / (root)."
+echo "Done."

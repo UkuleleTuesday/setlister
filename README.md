@@ -75,7 +75,8 @@ The app deploys automatically on every merge to `main`
   `gcloud functions deploy --source utrequests` (the same pattern as
   songbook-generator: `requirements.txt` is generated from `uv.lock` with
   `uv export` at deploy time). Vertex AI calls stay in `us-central1`.
-- **UI** — the static `ui/` folder, published to GitHub Pages at
+- **UI** — the static `ui/` folder, published to GitHub Pages via branch flow:
+  CI pushes it to the `gh-pages` branch, which Pages serves at
   `https://ukuleletuesday.github.io/setlister/`. It calls the function
   cross-origin; allowed origins are configured via `CORS_ALLOWED_ORIGINS`
   (see `.env.deploy`).
@@ -98,7 +99,3 @@ runtime Vertex AI + Cloud Trace roles for the function's compute SA:
 ```bash
 ./deploy-gcs.sh
 ```
-
-The only remaining manual step is **GitHub Pages** — after the first `main`
-deploy creates the `gh-pages` branch, set repo Settings → Pages → deploy from
-branch `gh-pages`, `/` (root).
