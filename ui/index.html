@@ -105,6 +105,15 @@
     </section>
   </main>
 
+  <!-- Full-screen viewer for the scanned board, opened from a flagged review
+       row's ⚠️ icon so a match can be checked against the handwriting. -->
+  <div id="photo-lightbox" class="photo-lightbox" hidden role="dialog"
+       aria-modal="true" aria-label="Scanned request board">
+    <button id="photo-lightbox-close" class="photo-lightbox-close" type="button"
+            aria-label="Close photo">✕</button>
+    <img id="photo-lightbox-img" alt="Scanned request board">
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
