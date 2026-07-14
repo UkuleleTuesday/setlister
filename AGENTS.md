@@ -34,8 +34,8 @@ export. Every UI change is a mobile change first; desktop is incidental.
 
 - Plain ES modules and DOM APIs only — **no dependencies, no bundler.** Keep it
   that way unless there's a strong reason not to.
-- The in-progress setlist is the durable object (persisted to `localStorage`);
-  the review sheet is transient state from the latest scan.
+- The `upNext` and `requests` lists are the durable objects (persisted together
+  to `localStorage`); the review sheet is transient state from the latest scan.
 - Match the surrounding style: small focused functions, comments that explain
   *why* (especially the mobile/touch reasoning), not *what*.
 
@@ -52,9 +52,6 @@ uv run ruff format .       # format
 uv run setlister serve                  # API on http://127.0.0.1:8080
 python3 -m http.server 3000 -d ui       # UI on http://localhost:3000
 ```
-
-There is no automated JS test suite; verify UI changes by driving the real page
-in a browser (see the mobile-first note above).
 
 ## Before you push
 

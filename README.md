@@ -11,8 +11,10 @@ Take a photo of the board, and the app:
 2. matches every row against the published songbook catalogue
    (title fuzzy-matching + page-number cross-checking with
    [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz)),
-3. shows a review screen where uncertain rows can be corrected before
-   copying/exporting the final setlist.
+3. shows a review screen where uncertain rows can be corrected, then drops
+   the songs into a **Requests** pool. You build the **Up next** running
+   order by promoting requests into it (and can add songs by name too),
+   then copy/export the result.
 
 The web UI is **mobile-first**: the whole point is to pull out a phone at the
 club, snap the board, and build the setlist on the spot. Design and test UI
@@ -56,6 +58,12 @@ uv run pytest -m live      # live smoke test (needs ADC + network)
 uv run ruff check .
 uv run ruff format .
 ```
+
+The `ui/` app is a dependency-free static site — plain `index.html` + `app.js`
++ `style.css`, no build step and no framework. There is no automated JS test
+suite: verify UI changes by driving the real page in a phone-sized, touch-enabled
+browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }` at a ~390px
+viewport, using `.tap()`) and confirm there are no console errors.
 
 ## Deployment
 
