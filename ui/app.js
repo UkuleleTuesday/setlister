@@ -315,6 +315,9 @@ photoInput.addEventListener("change", async () => {
   previewWrap.hidden = false;
   errorBox.hidden = true;
   scanOverlay.hidden = false;
+  // Bring the photo (and its scanning animation) into view — it can sit below
+  // the setlist, so scroll to it while the board is being read.
+  previewWrap.scrollIntoView({ behavior: "smooth", block: "center" });
 
   const form = new FormData();
   form.append("image", file);
