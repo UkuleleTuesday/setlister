@@ -53,9 +53,6 @@ uv run setlister serve                  # API on http://127.0.0.1:8080
 python3 -m http.server 3000 -d ui       # UI on http://localhost:3000
 ```
 
-There is no automated JS test suite; verify UI changes by driving the real page
-in a browser (see the mobile-first note above).
-
 ## Before you push
 
 - Run `ruff check` / `ruff format` and the offline test suite for Python

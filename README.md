@@ -59,6 +59,12 @@ uv run ruff check .
 uv run ruff format .
 ```
 
+The `ui/` app is a dependency-free static site — plain `index.html` + `app.js`
++ `style.css`, no build step and no framework. There is no automated JS test
+suite: verify UI changes by driving the real page in a phone-sized, touch-enabled
+browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }` at a ~390px
+viewport, using `.tap()`) and confirm there are no console errors.
+
 ## Deployment
 
 The app deploys automatically on every merge to `main`
