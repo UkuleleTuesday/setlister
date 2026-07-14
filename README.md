@@ -75,7 +75,8 @@ The app deploys automatically on every merge to `main`
   `gcloud functions deploy --source utrequests` (the same pattern as
   songbook-generator: `requirements.txt` is generated from `uv.lock` with
   `uv export` at deploy time). Vertex AI calls stay in `us-central1`.
-- **UI** — the static `ui/` folder, published to GitHub Pages at
+- **UI** — the static `ui/` folder, published to GitHub Pages via branch flow:
+  CI pushes it to the `gh-pages` branch, which Pages serves at
   `https://ukuleletuesday.github.io/setlister/`. It calls the function
   cross-origin; allowed origins are configured via `CORS_ALLOWED_ORIGINS`
   (see `.env.deploy`).
@@ -90,50 +91,11 @@ handful of photos per club night, so one instance is plenty).
 CI authenticates to GCP with **Workload Identity Federation** — GitHub mints a
 short-lived OIDC token that GCP exchanges for deployer-SA credentials, so
 there are **no keys and no GitHub secrets/variables to configure**. A project
-admin runs this once (values match `.env.deploy`; `993670465212` is the
-`songbook-generator` project number):
+admin runs [`deploy-gcs.sh`](./deploy-gcs.sh) once. The script reads its config
+from `.env.deploy`, is idempotent (safe to re-run), and provisions the deployer
+service account, the GitHub OIDC workload-identity pool/provider, and the
+runtime Vertex AI + Cloud Trace roles for the function's compute SA:
 
 ```bash
-# 1. Dedicated deployer service account
-gcloud iam service-accounts create setlister-deployer \
-  --project=songbook-generator --display-name="setlister CI deployer"
-gcloud projects add-iam-policy-binding songbook-generator \
-  --member=serviceAccount:setlister-deployer@songbook-generator.iam.gserviceaccount.com \
-  --role=roles/cloudfunctions.admin
-# The function runs as the default compute SA; deploying on its behalf needs:
-gcloud iam service-accounts add-iam-policy-binding \
-  993670465212-compute@developer.gserviceaccount.com \
-  --project=songbook-generator \
-  --member=serviceAccount:setlister-deployer@songbook-generator.iam.gserviceaccount.com \
-  --role=roles/iam.serviceAccountUser
-
-# 2. Workload identity pool + GitHub OIDC provider
-#    (skip if the project already has this pool/provider)
-gcloud iam workload-identity-pools create github \
-  --project=songbook-generator --location=global \
-  --display-name="GitHub Actions"
-gcloud iam workload-identity-pools providers create-oidc github-oidc \
-  --project=songbook-generator --location=global \
-  --workload-identity-pool=github --display-name="GitHub OIDC" \
-  --issuer-uri="https://token.actions.githubusercontent.com" \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --attribute-condition="assertion.repository_owner == 'UkuleleTuesday'"
-
-# 3. Allow workflows from this repo (only) to impersonate the deployer SA
-gcloud iam service-accounts add-iam-policy-binding \
-  setlister-deployer@songbook-generator.iam.gserviceaccount.com \
-  --project=songbook-generator \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/993670465212/locations/global/workloadIdentityPools/github/attribute.repository/UkuleleTuesday/setlister"
+./deploy-gcs.sh
 ```
-
-Then:
-
-1. **Runtime Vertex access** — confirm the default compute service account has
-   `roles/aiplatform.user` in the project (songbook-generator's worker already
-   uses Vertex under it). For the per-stage latency traces the function exports
-   to Cloud Trace, that same account also needs `roles/cloudtrace.agent` (the
-   default compute SA usually has it already).
-2. **GitHub Pages** — after the first `main` deploy creates the `gh-pages`
-   branch, set repo Settings → Pages → deploy from branch `gh-pages`, `/`
-   (root).
