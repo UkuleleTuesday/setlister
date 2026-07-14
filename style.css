@@ -186,17 +186,51 @@ footer#edition-note:empty { display: none; }
 #upnext-rows, #requests-rows, #review-rows { list-style: none; margin: 0; padding: 0; }
 
 .row-card {
-  background: var(--card); border-radius: 10px; padding: 0.7rem 0.8rem;
-  margin-bottom: 0.6rem; border-left: 5px solid var(--unmatched);
+  border-radius: 10px; margin-bottom: 0.6rem;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+}
+/* The visible surface. Split out from .row-card so it can slide horizontally on
+   a swipe, revealing the .swipe-hint behind it. */
+.row-body {
+  position: relative; z-index: 1;
+  background: var(--card); border-radius: 10px; padding: 0.7rem 0.8rem;
+  border-left: 5px solid var(--unmatched);
+  transition: transform 0.2s ease;
+}
+/* Swipeable rows (Up next / Requests) clip the sliding body; the review sheet
+   is never swipeable, so its song-picker dropdown isn't clipped. */
+.row-card.swipeable {
+  position: relative; overflow: hidden; touch-action: pan-y;
+  -webkit-user-select: none; user-select: none;
 }
 /* Any row that matched a catalogue song is "green"; a page/title mismatch is
    flagged with a ⚠️ icon (see .warn-icon) rather than a warning colour. */
-.row-card.confirmed,
-.row-card.needs_review,
-.row-card.conflict { border-left-color: var(--confirmed); }
+.row-card.confirmed .row-body,
+.row-card.needs_review .row-body,
+.row-card.conflict .row-body { border-left-color: var(--confirmed); }
 .row-card.removed { opacity: 0.45; }
-.row-card.crossed .match-title { text-decoration: line-through; }
+/* Played (checked off): fade the whole card. Binned: cross out the title, same
+   treatment as a whiteboard "crossed out". */
+.row-card.played { opacity: 0.5; }
+.row-card.crossed .match-title,
+.row-card.binned .match-title { text-decoration: line-through; }
+
+/* Swipe reveal: ✓ on the left (swipe right = played), 🗑 on the right (swipe
+   left = bin). Opacity ramps with --swipe-progress, set by wireSwipe. */
+.swipe-hint {
+  position: absolute; inset: 0; z-index: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.15rem; font-size: 1.4rem; border-radius: 10px;
+}
+.swipe-hint span { opacity: 0; }
+.row-card.swipe-right .swipe-hint { background: rgba(46, 125, 50, 0.18); }
+.row-card.swipe-right .swipe-hint-left { opacity: var(--swipe-progress, 0); }
+.row-card.swipe-left .swipe-hint { background: rgba(198, 40, 40, 0.14); }
+.row-card.swipe-left .swipe-hint-right { opacity: var(--swipe-progress, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .row-body { transition: none; }
+}
 /* The ⚠️ is a button: tap it to pop the scanned photo and check the match. */
 .warn-icon {
   border: none; background: none; padding: 0; margin: 0;
@@ -254,6 +288,16 @@ footer#edition-note:empty { display: none; }
   border: none; background: none; font-size: 1.05rem; cursor: pointer; padding: 0.2rem;
 }
 .row-tools button:disabled { opacity: 0.3; cursor: default; }
+/* Toggled states for the live-tracking controls: a filled green check once a
+   tune is played, a highlighted bin once it's binned. */
+.row-tools .check-button.active {
+  background: var(--confirmed); color: #fff; border-radius: 999px;
+  width: 1.7rem; height: 1.7rem; line-height: 1;
+}
+.row-tools .bin-button.active {
+  background: #fbe4e4; border-radius: 999px;
+  width: 1.7rem; height: 1.7rem; line-height: 1;
+}
 
 /* Drag handle for reordering the setlist. touch-action:none keeps a touch-drag
    from scrolling the page instead of grabbing the row. */

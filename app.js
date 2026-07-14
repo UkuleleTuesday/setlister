@@ -310,6 +310,8 @@ function addManualEntry(entry) {
     alternatives: [],
     explanation: "Added manually",
     removed: false,
+    played: false,
+    binned: false,
   });
   renderRequests();
   persist();
@@ -326,7 +328,7 @@ function setMatch(row, entry) {
 
 // --- Photo scan -> review sheet --------------------------------------------
 function rowToEntry(row) {
-  return { ...row, uid: newUid(), source: "scan", removed: false };
+  return { ...row, uid: newUid(), source: "scan", removed: false, played: false, binned: false };
 }
 
 photoInput.addEventListener("change", async () => {
@@ -477,6 +479,16 @@ function renderRow(row, index, context) {
   li.dataset.uid = row.uid;
   if (row.crossed_out) li.classList.add("crossed");
   if (row.removed) li.classList.add("removed");
+  // Live gig-tracking state (Up next / Requests): played fades the row out,
+  // binned crosses it out. Both survive a reload via the persisted lists.
+  if (row.played) li.classList.add("played");
+  if (row.binned) li.classList.add("binned");
+
+  // The visible card surface lives in `.row-body`; it slides horizontally on a
+  // swipe to reveal the `.swipe-hint` layer behind it. The <li> itself is the
+  // clipping frame (see wireSwipe / the CSS).
+  const body = document.createElement("div");
+  body.className = "row-body";
 
   const top = document.createElement("div");
   top.className = "row-top";
@@ -504,7 +516,7 @@ function renderRow(row, index, context) {
     badge.textContent = `p.${row.match.page}`;
     top.appendChild(badge);
   }
-  li.appendChild(top);
+  body.appendChild(top);
 
   const raw = document.createElement("div");
   raw.className = "raw";
@@ -513,14 +525,14 @@ function renderRow(row, index, context) {
     (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
     (row.notes ? ` · ${row.notes}` : "") +
     (row.crossed_out ? " · crossed out" : "");
-  li.appendChild(raw);
+  body.appendChild(raw);
 
   if (context === "review" && row.explanation) {
     const explanation = document.createElement("div");
     explanation.className = "explanation";
     const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
     explanation.textContent = row.explanation + (row.status === "confirmed" ? confidence : "");
-    li.appendChild(explanation);
+    body.appendChild(explanation);
   }
 
   if (showSuggestions.checked && row.alternatives?.length && !row.removed) {
@@ -532,7 +544,7 @@ function renderRow(row, index, context) {
       chip.onclick = () => setMatch(row, alt.entry);
       chips.appendChild(chip);
     });
-    li.appendChild(chips);
+    body.appendChild(chips);
   }
 
   const tools = document.createElement("div");
@@ -585,18 +597,77 @@ function renderRow(row, index, context) {
   if (context === "review") {
     tools.append(buildSongPicker(row));
   }
-  const removeButton = document.createElement("button");
-  removeButton.textContent = row.removed ? "↩️" : "🗑";
-  removeButton.title = row.removed ? "Restore row" : "Remove row";
-  removeButton.onclick = () => {
-    row.removed = !row.removed;
-    rerender();
-    persist();
-  };
-  tools.append(removeButton);
-  li.appendChild(tools);
+
+  // Live tracking lives on the two working lists. Check off a tune once it's
+  // been played (fades it out); bin one you're skipping (crosses it out). The
+  // review sheet has no gig to track, so it keeps the plain remove/restore.
+  if (context === "upnext" || context === "requests") {
+    const playedButton = document.createElement("button");
+    playedButton.type = "button";
+    playedButton.textContent = "✓";
+    playedButton.className = "check-button" + (row.played ? " active" : "");
+    playedButton.title = row.played ? "Mark not played" : "Mark played";
+    playedButton.setAttribute("aria-label", playedButton.title);
+    playedButton.setAttribute("aria-pressed", String(!!row.played));
+    playedButton.onclick = () => togglePlayed(row);
+
+    // The trash icon reads as "bin" — reuse it for the bin action here (cross
+    // out, kept in the export) rather than the review sheet's hard removal.
+    const binButton = document.createElement("button");
+    binButton.type = "button";
+    binButton.textContent = "🗑";
+    binButton.className = "bin-button" + (row.binned ? " active" : "");
+    binButton.title = row.binned ? "Un-bin" : "Bin";
+    binButton.setAttribute("aria-label", binButton.title);
+    binButton.setAttribute("aria-pressed", String(!!row.binned));
+    binButton.onclick = () => toggleBinned(row);
+
+    tools.append(playedButton, binButton);
+  } else {
+    const removeButton = document.createElement("button");
+    removeButton.textContent = row.removed ? "↩️" : "🗑";
+    removeButton.title = row.removed ? "Restore row" : "Remove row";
+    removeButton.onclick = () => {
+      row.removed = !row.removed;
+      rerender();
+      persist();
+    };
+    tools.append(removeButton);
+  }
+  body.appendChild(tools);
+  li.appendChild(body);
+
+  // Swipe right = played, left = bin — the fast one-thumb path on a phone. The
+  // hint sits behind the body and is revealed as the body slides. `swipeable`
+  // gates the clipping/relative styles so it can't clip the review sheet's
+  // song-picker dropdown (that context is never swipeable).
+  if (context === "upnext" || context === "requests") {
+    li.classList.add("swipeable");
+    const hint = document.createElement("div");
+    hint.className = "swipe-hint";
+    hint.setAttribute("aria-hidden", "true");
+    hint.innerHTML = '<span class="swipe-hint-left">✓</span><span class="swipe-hint-right">🗑</span>';
+    li.insertBefore(hint, body);
+    wireSwipe(li, body, row);
+  }
 
   return li;
+}
+
+// Played and binned are mutually exclusive: a tune can't be both "done" and
+// "skipped". Both follow the mutate -> render -> persist pattern used elsewhere.
+function togglePlayed(row) {
+  row.played = !row.played;
+  if (row.played) row.binned = false;
+  rerender();
+  persist();
+}
+
+function toggleBinned(row) {
+  row.binned = !row.binned;
+  if (row.binned) row.played = false;
+  rerender();
+  persist();
 }
 
 // --- Move between lists (promote/demote) -----------------------------------
@@ -686,6 +757,88 @@ function commitDomOrder() {
   persist();
 }
 
+// --- Swipe to mark played / bin --------------------------------------------
+// Horizontal-swipe sibling of wireDrag (pointer events so touch works). The
+// `body` (.row-body) tracks the finger; committing past a threshold toggles the
+// state. Swipe right = played, left = bin. Vertical intent is handed back to the
+// page (touch-action: pan-y) so the list still scrolls.
+function wireSwipe(li, body, row) {
+  const ACTIVATE = 8; // px of travel before we decide it's a swipe, not a tap
+  li.addEventListener("pointerdown", (ev) => {
+    // Buttons and the drag handle own their own gestures — don't hijack them.
+    if (ev.target.closest("button")) return;
+    if (ev.button != null && ev.button !== 0) return; // ignore right/middle click
+
+    const startX = ev.clientX;
+    const startY = ev.clientY;
+    let engaged = false;
+    let decided = false; // once we know it's a vertical scroll, we bow out
+
+    const finish = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onCancel);
+    };
+
+    const settle = (dx) => {
+      const commit = 0.35 * li.clientWidth;
+      // A committed toggle re-renders the whole list, so this li is discarded —
+      // no snap-back needed. Otherwise animate the body back to rest.
+      if (dx >= commit) return togglePlayed(row);
+      if (dx <= -commit) return toggleBinned(row);
+      body.style.transition = "";
+      body.style.transform = "";
+      li.classList.remove("swiping", "swipe-right", "swipe-left");
+      li.style.removeProperty("--swipe-progress");
+    };
+
+    const onMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!engaged) {
+        if (decided) return;
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > ACTIVATE) {
+          // Vertical intent: let the page scroll, stop tracking this gesture.
+          decided = true;
+          finish();
+          return;
+        }
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > ACTIVATE) {
+          engaged = true;
+          li.classList.add("swiping");
+          body.style.transition = "none"; // follow the finger 1:1 while dragging
+          try {
+            li.setPointerCapture(e.pointerId);
+          } catch {
+            /* capture unsupported — document listeners still work */
+          }
+        } else {
+          return;
+        }
+      }
+      e.preventDefault();
+      body.style.transform = `translateX(${dx}px)`;
+      li.classList.toggle("swipe-right", dx > 0);
+      li.classList.toggle("swipe-left", dx < 0);
+      const progress = Math.min(1, Math.abs(dx) / (0.35 * li.clientWidth));
+      li.style.setProperty("--swipe-progress", progress.toFixed(3));
+    };
+
+    const onUp = (e) => {
+      finish();
+      if (engaged) settle(e.clientX - startX);
+    };
+    const onCancel = () => {
+      finish();
+      if (engaged) settle(0); // treat a cancelled gesture as a snap-back
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
+  });
+}
+
 // --- Clear + export --------------------------------------------------------
 clearButton.addEventListener("click", () => {
   if (!app.upNext.length && !app.requests.length) return;
@@ -715,8 +868,9 @@ function exportText() {
     .join("\n");
 }
 
-// Drop the internal UI/provenance fields from the exported JSON.
-function stripInternal({ uid, source, removed, ...rest }) {
+// Drop the internal UI/provenance fields from the exported JSON. `played` and
+// `binned` are live gig-tracking state, not part of the setlist payload.
+function stripInternal({ uid, source, removed, played, binned, ...rest }) {
   return rest;
 }
 
