@@ -387,11 +387,11 @@ function closePhotoLightbox() {
   photoLightbox.hidden = true;
 }
 
-photoLightboxClose.addEventListener("click", closePhotoLightbox);
-// Click the backdrop (but not the image itself) to dismiss.
-photoLightbox.addEventListener("click", (event) => {
-  if (event.target === photoLightbox) closePhotoLightbox();
-});
+// Mobile-first dismissal: there's no Escape key on a phone and "tap the
+// backdrop but not the photo" is a fiddly target, so tapping ANYWHERE on the
+// overlay closes it. The ✕ stays as the obvious, thumb-sized affordance;
+// Escape is just a harmless desktop bonus.
+photoLightbox.addEventListener("click", closePhotoLightbox);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !photoLightbox.hidden) closePhotoLightbox();
 });
