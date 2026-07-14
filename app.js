@@ -315,6 +315,9 @@ photoInput.addEventListener("change", async () => {
   previewWrap.hidden = false;
   errorBox.hidden = true;
   scanOverlay.hidden = false;
+  // Bring the photo (and its scanning animation) into view — it can sit below
+  // the setlist, so scroll to it while the board is being read.
+  previewWrap.scrollIntoView({ behavior: "smooth", block: "center" });
 
   const form = new FormData();
   form.append("image", file);
@@ -418,9 +421,10 @@ function renderRow(row, index, context) {
   const title = document.createElement("span");
   title.className = "match-title";
   title.textContent = row.match ? row.match.display : `“${row.raw_title}”`;
-  // Matched rows are all "green"; a mismatch (needs_review/conflict) is flagged
-  // with a warning icon rather than a different colour.
-  if (row.match && row.status !== "confirmed") {
+  // The warning icon, the "reasons" explanation, and the correct-song picker are
+  // validation affordances — they belong to the review sheet only. The setlist
+  // is the clean final running order, so they're omitted there.
+  if (context === "review" && row.match && row.status !== "confirmed") {
     const warn = document.createElement("span");
     warn.className = "warn-icon";
     warn.textContent = "⚠️";
@@ -445,7 +449,7 @@ function renderRow(row, index, context) {
     (row.crossed_out ? " · crossed out" : "");
   li.appendChild(raw);
 
-  if (row.explanation) {
+  if (context === "review" && row.explanation) {
     const explanation = document.createElement("div");
     explanation.className = "explanation";
     const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
@@ -494,7 +498,11 @@ function renderRow(row, index, context) {
     tools.append(handle, up, down);
   }
 
-  const picker = buildSongPicker(row);
+  // The correct-song picker is a review-only affordance; the setlist keeps just
+  // the reorder controls and remove.
+  if (context === "review") {
+    tools.append(buildSongPicker(row));
+  }
   const removeButton = document.createElement("button");
   removeButton.textContent = row.removed ? "↩️" : "🗑";
   removeButton.title = row.removed ? "Restore row" : "Remove row";
@@ -503,7 +511,7 @@ function renderRow(row, index, context) {
     rerender();
     persist();
   };
-  tools.append(picker, removeButton);
+  tools.append(removeButton);
   li.appendChild(tools);
 
   return li;

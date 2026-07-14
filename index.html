@@ -47,6 +47,13 @@
         <input type="number" id="max-image-edge" min="256" max="4096" step="128"
                placeholder="1600">
       </label>
+      <div class="field">
+        <span>Export setlist</span>
+        <div class="actions">
+          <button id="copy">📋 Copy list</button>
+          <button id="download">⬇️ Download JSON</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -61,10 +68,6 @@
       </div>
       <ul id="setlist-rows"></ul>
       <p id="setlist-empty" class="note">No tunes yet — snap the board or add one below.</p>
-      <div class="actions">
-        <button id="copy">📋 Copy list</button>
-        <button id="download">⬇️ Download JSON</button>
-      </div>
       <p id="edition-note" class="note"></p>
     </section>
 
