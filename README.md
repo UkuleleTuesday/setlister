@@ -86,6 +86,15 @@ is rate-limited per IP (in-process fixed window), and the function runs with
 `--max-instances 1` to bound worst-case Vertex AI spend (expected traffic is a
 handful of photos per club night, so one instance is plenty).
 
+- **Firestore (session sharing)** — realtime collaborative sessions store a
+  single doc `sessions/{sessionId}` that the browser reads/writes directly via
+  the Firebase Web SDK, so [`firestore.rules`](./firestore.rules) is the entire
+  access-control layer (deliberately unauthenticated — closed schema +
+  deny-by-default + a hard TTL cap). Rules deploy automatically on merge to main
+  (`deploy-rules` job). A TTL policy on `expiresAt` expires stale sessions.
+  Local development runs the Firestore emulator on port **8081** (8080 is the
+  Python API): `npx firebase-tools emulators:start --only firestore`.
+
 ### One-time setup
 
 CI authenticates to GCP with **Workload Identity Federation** — GitHub mints a
@@ -99,3 +108,30 @@ runtime Vertex AI + Cloud Trace roles for the function's compute SA:
 ```bash
 ./deploy-gcs.sh
 ```
+
+Firestore additionally needs a one-time provisioning pass (the app half of the
+project, not covered by `deploy-gcs.sh`). Run once by a project admin:
+
+```bash
+# Add Firebase to the existing GCP project and enable the rules API.
+firebase projects:addfirebase songbook-generator
+gcloud services enable firebaserules.googleapis.com --project=songbook-generator
+
+# Default Firestore database, Native mode, europe-west1 (matches the function).
+gcloud firestore databases create --location=europe-west1 \
+  --type=firestore-native --project=songbook-generator
+
+# Register a Web App to obtain the web config (apiKey, projectId, appId) that
+# the UI (#27) embeds.
+firebase apps:create web setlister --project=songbook-generator
+firebase apps:sdkconfig web --project=songbook-generator   # print the config
+
+# TTL policy so expired sessions are cleaned up automatically.
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=sessions --enable-ttl --project=songbook-generator
+
+# Then re-run ./deploy-gcs.sh so the deployer SA gains the Firebase rules roles.
+```
+
+Open rules mean usage is the blast radius — confirm a GCP **budget alert** is
+set on the project.

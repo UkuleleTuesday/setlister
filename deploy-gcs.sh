@@ -49,6 +49,16 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
   --member="serviceAccount:$GCP_DEPLOYER_SERVICE_ACCOUNT" \
   --role=roles/cloudfunctions.admin
 
+# Deploying Firestore security rules (the deploy-rules CI job) needs the
+# deployer SA to write/release rulesets, plus read access to Firebase project
+# config so firebase-tools can resolve the project.
+gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
+  --member="serviceAccount:$GCP_DEPLOYER_SERVICE_ACCOUNT" \
+  --role=roles/firebaserules.admin
+gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
+  --member="serviceAccount:$GCP_DEPLOYER_SERVICE_ACCOUNT" \
+  --role=roles/firebase.viewer
+
 # The function runs as the default compute SA; deploying on its behalf needs:
 gcloud iam service-accounts add-iam-policy-binding "$COMPUTE_SA" \
   --project="$GCP_PROJECT_ID" \

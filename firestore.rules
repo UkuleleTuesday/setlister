@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// Access control for realtime collaborative sessions (epic #25). The browser
+// reads/writes sessions/{id} directly via the Firebase Web SDK — there is no
+// backend sync endpoint, so these rules are the ENTIRE access-control layer.
+//
+// Deliberately unauthenticated (see the epic's "accepted risks"): anyone can
+// read any session, and anyone who knows/guesses an id can write it. The
+// defence is a closed schema (hasOnly locks the key set) + deny-by-default
+// everywhere else + a hard TTL cap so no document can live forever.
+//
+// v1 schema is CLOSED. Do NOT add `presence` or any other field here — that is
+// a droppable follow-up (#32), which would extend these rules itself.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /sessions/{id} {
+      allow read: if true;                        // public by design
+      allow create, update: if isValidSession(id);
+      allow delete: if false;                     // cleanup is the TTL's job
+    }
+
+    // Deny-by-default: everything not matched above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+function isValidSession(id) {
+  let d = request.resource.data;
+  // Session ids are `adjective-noun`, lowercase, one dash (e.g. misty-banjo).
+  return id.matches('^[a-z]+-[a-z]+$')
+    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'createdAt', 'updatedAt', 'expiresAt'])
+    && d.v == 1
+    && d.rows is map
+    && d.upNextOrder is list
+    && d.requestsOrder is list
+    && d.createdAt is timestamp
+    && d.updatedAt is timestamp
+    && d.expiresAt is timestamp
+    // Cap the lifetime so a client can't mint an immortal document.
+    && d.expiresAt <= request.time + duration.value(31, 'd');
+  // `edition` (map | null) is intentionally not type-constrained: hasOnly
+  // already caps the key set, and null vs map is validated client-side.
+}

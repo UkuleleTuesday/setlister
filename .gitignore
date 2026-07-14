@@ -9,3 +9,7 @@ utrequests/requirements.txt
 .ruff_cache/
 dist/
 build/
+# Firebase emulator / CLI artifacts.
+*-debug.log
+.firebase/
+firebase-export-*/
