@@ -21,7 +21,9 @@ body {
 }
 
 header { position: relative; padding: 1.2rem 1rem 0.4rem; text-align: center; }
-header h1 { margin: 0; font-size: 1.4rem; }
+/* Keep the centred title clear of the corner controls (Share top-left, gear
+   top-right) so it never tucks under them — even the long title at 320px. */
+header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
 .subtitle { margin: 0.2rem 0 0; color: #666; font-size: 0.9rem; }
 
 .settings-toggle {
@@ -33,6 +35,53 @@ header h1 { margin: 0; font-size: 1.4rem; }
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
 }
 .settings-toggle:active { opacity: 0.85; }
+
+/* Share button: mirrors the settings gear as a 2.4rem round card, but pinned
+   top-LEFT and honouring the left safe-area inset (notch in landscape). */
+.share-toggle {
+  position: absolute;
+  top: max(0.9rem, env(safe-area-inset-top));
+  left: max(0.9rem, env(safe-area-inset-left));
+  width: 2.4rem; height: 2.4rem; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; line-height: 1; cursor: pointer;
+  background: var(--card); border: 1px solid #ccc; border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+}
+/* The visible card is only ~38px to match the gear, but a phone touch target
+   must be ≥44px — extend the tappable area with a transparent pseudo-element
+   rather than enlarging the card (the gear is under-spec; don't copy that). */
+.share-toggle::before {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); width: 44px; height: 44px;
+}
+.share-toggle:active { opacity: 0.85; }
+.share-toggle:disabled { opacity: 0.6; cursor: default; }
+/* Active = the lists are shared. Accent ring + a small live dot so it reads at
+   a glance without relying on colour alone. */
+.share-toggle.active {
+  border-color: var(--confirmed);
+  box-shadow: 0 0 0 2px rgba(46,125,50,0.35), 0 1px 2px rgba(0,0,0,0.07);
+}
+.share-toggle.active::after {
+  content: ""; position: absolute; top: -1px; right: -1px;
+  width: 0.6rem; height: 0.6rem; border-radius: 50%;
+  background: var(--confirmed); border: 2px solid var(--card);
+}
+
+.share-panel {
+  position: absolute;
+  top: 3.4rem; left: max(0.9rem, env(safe-area-inset-left)); z-index: 10;
+  width: min(17rem, calc(100vw - 1.8rem));
+  text-align: left; padding: 0.9rem;
+  background: var(--card); border: 1px solid #ccc; border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.share-panel .share-session-label { margin: 0 0 0.2rem; font-size: 1rem; }
+.share-panel .share-session-label strong { color: var(--confirmed); }
+.share-panel .note { margin: 0 0 0.7rem; }
+/* Stack the share/leave buttons full-width so each is an easy thumb target. */
+.share-panel .actions { flex-direction: column; margin: 0; }
 
 .settings-panel {
   position: absolute; top: 3.4rem; right: 0.9rem; z-index: 10;

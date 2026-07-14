@@ -1,4 +1,5 @@
 import * as sync from "./sync.js";
+import { isValidSessionId } from "./session-id.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -22,6 +23,11 @@ const includeCrossed = document.getElementById("include-crossed");
 const showSuggestions = document.getElementById("show-suggestions");
 const settingsToggle = document.getElementById("settings-toggle");
 const settingsPanel = document.getElementById("settings-panel");
+const shareToggle = document.getElementById("share-toggle");
+const sharePanel = document.getElementById("share-panel");
+const shareSessionIdEl = document.getElementById("share-session-id");
+const shareLinkButton = document.getElementById("share-link");
+const shareLeaveButton = document.getElementById("share-leave");
 const playerName = document.getElementById("player-name");
 const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
@@ -67,6 +73,7 @@ function setSettingsOpen(open) {
 }
 settingsToggle.addEventListener("click", (event) => {
   event.stopPropagation();
+  setSharePanelOpen(false); // never leave both header popovers open at once
   setSettingsOpen(settingsPanel.hidden);
 });
 document.addEventListener("click", (event) => {
@@ -173,51 +180,217 @@ function applyRemoteState(state) {
   persist();
 }
 
+// The full app URL carrying `?session=<id>` — this is what gets shared. Built
+// from location.href so the GitHub Pages subpath survives.
+function sessionUrl(id) {
+  const url = new URL(location.href);
+  url.searchParams.set("session", id);
+  return url.toString();
+}
+
+// Add / remove the `?session=` param in the address bar without a navigation,
+// preserving any other query params and the hash.
+function setSessionParam(id) {
+  const url = new URL(location.href);
+  if (id) url.searchParams.set("session", id);
+  else url.searchParams.delete("session");
+  history.replaceState(null, "", url.toString());
+}
+
+function showSessionError(message) {
+  errorBox.textContent = message;
+  errorBox.hidden = false;
+}
+
 // Resolve which session to join on load: a `?session=` URL param wins (someone
-// opened a share link), else the stored id (silent auto-rejoin after a
-// reload). On failure, forget the id, strip the param, and carry on
-// local-only. The confirm-before-replace prompt for the URL case is #30's job.
+// opened a share link), else the stored id (silent auto-rejoin after a reload).
 async function resolveSession() {
-  const params = new URLSearchParams(location.search);
-  const fromUrl = params.get("session");
-  const target = fromUrl || storedSessionId;
+  const fromUrl = new URLSearchParams(location.search).get("session");
+  const stored = storedSessionId;
+  const target = fromUrl || stored;
   if (!target) return;
+
+  // A malformed share link can't be a real session — treat it as not-found
+  // without touching Firestore.
+  if (fromUrl && !isValidSessionId(fromUrl)) {
+    showSessionError(
+      "That share link doesn’t look right — you’re working locally."
+    );
+    setSessionParam(null);
+    return;
+  }
+
+  // Joining replaces the local lists (#29). Guard that behind a confirm when a
+  // share link would clobber non-empty local work — but not for the silent
+  // auto-rejoin of our own stored session.
+  if (
+    fromUrl &&
+    fromUrl !== stored &&
+    (app.upNext.length || app.requests.length)
+  ) {
+    if (
+      !confirm(`Join session “${fromUrl}”? This replaces your current lists.`)
+    ) {
+      setSessionParam(null); // declined — strip the param, stay local
+      return;
+    }
+  }
+
   try {
     await sync.joinSession(target, applyRemoteState);
+    // Make sure the param is present even on silent auto-rejoin, so the link in
+    // the address bar is shareable straight away.
+    setSessionParam(sync.getSessionId());
     persist();
   } catch {
     storedSessionId = null;
     persist();
     if (fromUrl) {
-      params.delete("session");
-      const qs = params.toString();
-      history.replaceState(
-        null,
-        "",
-        location.pathname + (qs ? `?${qs}` : "") + location.hash
+      showSessionError(
+        "That shared session wasn’t found — it may have expired. Your lists are still here, just local now."
       );
+      setSessionParam(null);
     }
+  }
+  updateShareUi();
+}
+
+// --- Share button + session popover ----------------------------------------
+function setSharePanelOpen(open) {
+  sharePanel.hidden = !open;
+  shareToggle.setAttribute("aria-expanded", String(open));
+}
+
+// Reflect the current session state on the button (active ring/dot) and in the
+// popover (session id). Wired to sync's status callback so TTL expiry, leaves,
+// and connects all keep the UI honest.
+function updateShareUi() {
+  const id = sync.getSessionId();
+  shareToggle.classList.toggle("active", !!id);
+  shareToggle.setAttribute(
+    "aria-label",
+    id ? `Sharing session ${id} — tap for options` : "Share session"
+  );
+  if (id) shareSessionIdEl.textContent = id;
+  else setSharePanelOpen(false); // no session → nothing to show
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Clipboard API needs a secure context / permission; fall back to the
+    // legacy execCommand path so copy still works on older mobile browsers.
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
   }
 }
 
-// Debug hook for console + Playwright until the real sharing UI lands (#30).
-window.setlisterSync = {
-  create: async () => {
+// Transient label swap (same pattern as the export "Copy list" button).
+function flashButton(button, message) {
+  const original = button.dataset.label ?? button.textContent;
+  button.dataset.label = original;
+  button.textContent = message;
+  clearTimeout(Number(button.dataset.flashTimer));
+  button.dataset.flashTimer = String(
+    setTimeout(() => {
+      button.textContent = button.dataset.label;
+    }, 1500)
+  );
+}
+
+// Offer the current session's link: the native share sheet on mobile (the
+// primary target), else copy to clipboard with transient feedback.
+async function shareSessionLink() {
+  const id = sync.getSessionId();
+  if (!id) return;
+  const url = sessionUrl(id);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Ukulele Tuesday setlist", url });
+    } catch {
+      /* user dismissed the share sheet, or it rejected the payload — no-op */
+    }
+    return;
+  }
+  await copyToClipboard(url);
+  flashButton(shareLinkButton, "✅ Link copied");
+}
+
+// Tap Share: open the popover if already sharing, otherwise create a session
+// and offer the link. Creating loads the Firestore chunk lazily, so the first
+// tap can take a beat — disable + show a spinner glyph meanwhile.
+async function onShareTap(event) {
+  event.stopPropagation();
+  setSettingsOpen(false);
+  if (sync.getSessionId()) {
+    setSharePanelOpen(sharePanel.hidden);
+    return;
+  }
+  errorBox.hidden = true;
+  shareToggle.disabled = true;
+  shareToggle.textContent = "⏳";
+  try {
     const id = await sync.createSession(sessionState, applyRemoteState);
     persist();
-    return id;
-  },
-  join: async (id) => {
-    await sync.joinSession(id, applyRemoteState);
+    setSessionParam(id);
+    updateShareUi();
+    setSharePanelOpen(true); // reveal the in-session popover as confirmation
+    await shareSessionLink();
+  } catch (err) {
+    showSessionError(
+      `Couldn’t start a shared session — ${err.message}. You’re still working locally.`
+    );
+  } finally {
+    shareToggle.disabled = false;
+    shareToggle.textContent = "🔗";
+  }
+}
+
+function leaveSessionUi() {
+  sync.leaveSession();
+  storedSessionId = null;
+  setSessionParam(null);
+  persist();
+  updateShareUi();
+  setSharePanelOpen(false);
+}
+
+shareToggle.addEventListener("click", onShareTap);
+shareLinkButton.addEventListener("click", shareSessionLink);
+shareLeaveButton.addEventListener("click", leaveSessionUi);
+
+// Same forgiving dismissal as the settings popover: tap outside or Escape.
+document.addEventListener("click", (event) => {
+  if (
+    !sharePanel.hidden &&
+    !sharePanel.contains(event.target) &&
+    !shareToggle.contains(event.target)
+  ) {
+    setSharePanelOpen(false);
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setSharePanelOpen(false);
+});
+
+// Keep the UI in sync when the engine changes state on its own — most
+// importantly when the remote doc expires (TTL) and we drop to local-only.
+sync.onStatusChange((status) => {
+  if (status.status === "expired") {
+    storedSessionId = null;
+    setSessionParam(null);
     persist();
-    return sync.getSessionId();
-  },
-  leave: () => {
-    sync.leaveSession();
-    persist();
-  },
-  getSessionId: () => sync.getSessionId(),
-};
+    showSessionError(
+      "This shared session has expired. Your lists are still here, just local now."
+    );
+  }
+  updateShareUi();
+});
 
 // --- Loading editions + catalogue ------------------------------------------
 async function loadEditions() {
@@ -964,7 +1137,12 @@ function wireSwipe(li, body, row) {
 // --- Clear + export --------------------------------------------------------
 clearButton.addEventListener("click", () => {
   if (!app.upNext.length && !app.requests.length) return;
-  if (!confirm("Clear Up next and Requests and start over?")) return;
+  // While sharing, "Start over" wipes the lists for everyone in the session,
+  // so spell that out in the confirm.
+  const prompt = sync.getSessionId()
+    ? "Clear Up next and Requests for everyone in this shared session and start over?"
+    : "Clear Up next and Requests and start over?";
+  if (!confirm(prompt)) return;
   app.upNext = [];
   app.requests = [];
   renderUpNext();
@@ -997,21 +1175,8 @@ function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest 
 }
 
 document.getElementById("copy").addEventListener("click", async () => {
-  const text = exportText();
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
-  const button = document.getElementById("copy");
-  const label = button.textContent;
-  button.textContent = "✅ Copied!";
-  setTimeout(() => (button.textContent = label), 1500);
+  await copyToClipboard(exportText());
+  flashButton(document.getElementById("copy"), "✅ Copied!");
 });
 
 document.getElementById("download").addEventListener("click", () => {
@@ -1039,6 +1204,7 @@ document.getElementById("download").addEventListener("click", () => {
   // catalogue: joining swaps in the remote lists, and this keeps the Firestore
   // chunk unfetched for local-only users.
   await resolveSession();
+  updateShareUi();
   await loadEditions();
   loadCatalogue(editionSelect.value);
 })();
