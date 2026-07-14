@@ -2,6 +2,7 @@ import io
 import json
 
 import flask
+import httpx
 import pytest
 
 from utrequests import vision
@@ -60,6 +61,33 @@ def test_editions_endpoint(client, monkeypatch):
     response = client.get("/api/editions")
     assert response.status_code == 200
     assert any(e["id"] == "current" for e in response.get_json()["editions"])
+
+
+def test_catalogue_endpoint_returns_entries(client, mock_bucket):
+    response = client.get("/api/catalogue?edition=current")
+    assert response.status_code == 200, response.text
+    payload = response.get_json()
+    assert payload["edition"]["id"] == "current"
+    assert len(payload["catalogue"]) == 123
+    assert payload["catalogue_generated_at"]
+
+
+def test_catalogue_endpoint_defaults_edition(client, mock_bucket):
+    response = client.get("/api/catalogue")
+    assert response.status_code == 200
+    assert response.get_json()["edition"]["id"] == "current"
+
+
+def test_catalogue_endpoint_missing_edition_502(client, monkeypatch):
+    from utrequests import catalogue
+
+    def not_found(url, **kwargs):
+        return httpx.Response(404, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(catalogue.httpx, "get", not_found)
+    response = client.get("/api/catalogue?edition=nope")
+    assert response.status_code == 502
+    assert "detail" in response.get_json()
 
 
 def test_parse_happy_path(client, mock_bucket, fake_vision):

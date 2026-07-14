@@ -10,7 +10,7 @@ shape the UI expects.
 import json
 
 from . import ratelimit, tracing
-from .catalogue import CatalogueError, list_editions
+from .catalogue import CatalogueError, fetch_catalogue, list_editions
 from .config import get_settings
 from .pipeline import parse_photo
 from .preprocess import ImageError
@@ -140,6 +140,27 @@ def _parse(request):
     return _json(request, response.model_dump_json())
 
 
+def _catalogue(request):
+    """Return the song catalogue for an edition, independent of any photo.
+
+    Backs the UI's manual "add a song" search, which needs the catalogue before
+    (or without) a scan. The payload mirrors the ``edition`` /
+    ``catalogue_generated_at`` / ``catalogue`` subset of ``ParseResponse`` so the
+    frontend populates its state the same way it does after a parse.
+    """
+    edition = request.args.get("edition") or "current"
+    try:
+        cat = fetch_catalogue(edition)
+    except CatalogueError as e:
+        return _error(request, 502, str(e))
+    payload = {
+        "edition": cat.edition.model_dump(mode="json"),
+        "catalogue_generated_at": cat.generated_at,
+        "catalogue": [entry.model_dump(mode="json") for entry in cat.entries],
+    }
+    return _json(request, json.dumps(payload))
+
+
 def _route(request):
     path = request.path.rstrip("/") or "/"
 
@@ -152,6 +173,9 @@ def _route(request):
     if request.method == "GET" and path == "/api/editions":
         editions = [e.model_dump(mode="json") for e in list_editions()]
         return _json(request, json.dumps({"editions": editions}))
+
+    if request.method == "GET" and path == "/api/catalogue":
+        return _catalogue(request)
 
     if request.method == "POST" and path == "/api/parse":
         return _parse(request)

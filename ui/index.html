@@ -51,14 +51,29 @@
   </header>
 
   <main>
-    <section id="capture">
-      <label class="camera-button" id="camera-button" for="photo-input">📷 Take or choose a photo</label>
-      <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
-
-      <div id="photo-controls" class="photo-controls" hidden>
-        <button id="toggle-photo" class="photo-toggle" type="button">🖼 Show photo</button>
-        <label class="new-photo-link" for="photo-input">📷 New photo</label>
+    <!-- The setlist you're building is the primary object: it accumulates tunes
+         from photo scans (via the review sheet) and manual searches, in the
+         order you'll play them. -->
+    <section id="setlist">
+      <div class="setlist-head">
+        <h2>Your setlist</h2>
+        <button id="clear" class="link-button" type="button" hidden>Start over</button>
       </div>
+      <ul id="setlist-rows"></ul>
+      <p id="setlist-empty" class="note">No tunes yet — snap the board or add one below.</p>
+      <div class="actions">
+        <button id="copy">📋 Copy list</button>
+        <button id="download">⬇️ Download JSON</button>
+      </div>
+      <p id="edition-note" class="note"></p>
+    </section>
+
+    <!-- Two ways to add tunes: type a song name, or snap the whiteboard. -->
+    <section id="add">
+      <div id="manual-add" class="manual-add"></div>
+      <div class="or-divider"><span>or</span></div>
+      <label class="camera-button" for="photo-input">📷 Snap the request board</label>
+      <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
@@ -74,13 +89,16 @@
       <div id="error" class="error" hidden></div>
     </section>
 
-    <section id="results" hidden>
-      <ul id="rows"></ul>
+    <!-- Review sheet: scanned rows land here to be validated/corrected before
+         they merge into the setlist. Hidden until a scan completes. -->
+    <section id="review" hidden>
+      <h2>Review scan</h2>
+      <p class="note">Fix any misreads, drop what you don't want, then add them to your setlist.</p>
+      <ul id="review-rows"></ul>
       <div class="actions">
-        <button id="copy">📋 Copy list</button>
-        <button id="download">⬇️ Download JSON</button>
+        <button id="review-confirm">➕ Add to setlist</button>
+        <button id="review-cancel" class="secondary">Cancel</button>
       </div>
-      <p id="edition-note" class="note"></p>
     </section>
   </main>
 
