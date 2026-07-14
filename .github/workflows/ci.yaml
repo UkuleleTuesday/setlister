@@ -104,15 +104,44 @@ jobs:
       - name: Deploy Firestore rules
         run: npx --yes firebase-tools deploy --only firestore:rules --project "$GCP_PROJECT_ID"
 
+  build-ui:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: ui
+      - name: Build UI
+        run: npm run build
+        working-directory: ui
+
   deploy-ui:
-    needs: test
+    needs: [test, build-ui]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write # pushes the gh-pages branch
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: ui
+      - name: Build UI
+        run: npm run build
+        working-directory: ui
       - name: Deploy UI to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: ui
+          folder: ui/dist

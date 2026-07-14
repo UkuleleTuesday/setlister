@@ -13,3 +13,6 @@ build/
 *-debug.log
 .firebase/
 firebase-export-*/
+# UI build output and installed packages.
+ui/node_modules/
+ui/dist/

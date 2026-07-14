@@ -10,8 +10,8 @@ reviewable, songbook-matched setlist. Two pieces:
 
 - **`utrequests/`** — Python API (vision parse via Gemini + fuzzy catalogue
   matching), served as a Cloud Function and locally via `setlister serve`.
-- **`ui/`** — a dependency-free static web app (`index.html` + `app.js` +
-  `style.css`), published to GitHub Pages. No build step, no framework.
+- **`ui/`** — a Vite-bundled web app (`index.html` + `app.js` +
+  `style.css`), npm-managed, published to GitHub Pages via `ui/dist`.
 
 ## The UI is mobile-first — treat this as a hard constraint
 
@@ -32,8 +32,9 @@ export. Every UI change is a mobile change first; desktop is incidental.
 
 ## Working in `ui/`
 
-- Plain ES modules and DOM APIs only — **no dependencies, no bundler.** Keep it
-  that way unless there's a strong reason not to.
+- Vite-bundled, npm-managed (`ui/package.json`). Keep runtime dependencies
+  minimal and justified — `firebase` is the established precedent. Run
+  `npm ci` in `ui/` before developing.
 - The `upNext` and `requests` lists are the durable objects (persisted together
   to `localStorage`); the review sheet is transient state from the latest scan.
 - Match the surrounding style: small focused functions, comments that explain
@@ -48,9 +49,13 @@ uv run pytest -m live      # live smoke test (needs ADC + network)
 uv run ruff check .        # lint
 uv run ruff format .       # format
 
-# Run the app locally (API + static UI served separately):
+# Run the app locally (API + UI served separately):
 uv run setlister serve                  # API on http://127.0.0.1:8080
-python3 -m http.server 3000 -d ui       # UI on http://localhost:3000
+cd ui && npm ci && npm run dev          # UI on http://localhost:3000 (Vite dev server)
+
+# Build the UI for production:
+cd ui && npm run build                  # output in ui/dist
+cd ui && npm run preview                # preview the built site locally
 ```
 
 ## Before you push

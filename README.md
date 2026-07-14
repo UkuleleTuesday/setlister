@@ -45,9 +45,9 @@ uv run setlister catalogue --edition current    # dump song -> page catalogue
 uv run setlister parse photo.jpg                # parse a whiteboard photo
 uv run setlister parse photo.jpg --json         # machine-readable output
 
-# Web app (mobile-first review UI): API + static UI are served separately
+# Web app (mobile-first review UI): API + Vite dev server run separately
 uv run setlister serve                          # API on http://127.0.0.1:8080
-python3 -m http.server 3000 -d ui               # UI on http://localhost:3000
+cd ui && npm ci && npm run dev                  # UI on http://localhost:3000
 ```
 
 ## Development
@@ -59,11 +59,12 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-The `ui/` app is a dependency-free static site — plain `index.html` + `app.js`
-+ `style.css`, no build step and no framework. There is no automated JS test
-suite: verify UI changes by driving the real page in a phone-sized, touch-enabled
-browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }` at a ~390px
-viewport, using `.tap()`) and confirm there are no console errors.
+The `ui/` app is built with [Vite](https://vite.dev/) — `index.html` + `app.js`
++ `style.css`, npm-managed, no other framework. Run `npm ci` then `npm run dev`
+in `ui/` to start the Vite dev server on port 3000. There is no automated JS
+test suite: verify UI changes by driving the real page in a phone-sized,
+touch-enabled browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }`
+at a ~390px viewport, using `.tap()`) and confirm there are no console errors.
 
 ## Deployment
 
@@ -75,11 +76,11 @@ The app deploys automatically on every merge to `main`
   `gcloud functions deploy --source utrequests` (the same pattern as
   songbook-generator: `requirements.txt` is generated from `uv.lock` with
   `uv export` at deploy time). Vertex AI calls stay in `us-central1`.
-- **UI** — the static `ui/` folder, published to GitHub Pages via branch flow:
-  CI pushes it to the `gh-pages` branch, which Pages serves at
-  `https://ukuleletuesday.github.io/setlister/`. It calls the function
-  cross-origin; allowed origins are configured via `CORS_ALLOWED_ORIGINS`
-  (see `.env.deploy`).
+- **UI** — built by Vite (`npm run build` in `ui/`); the `ui/dist` folder is
+  published to GitHub Pages via branch flow: CI pushes it to the `gh-pages`
+  branch, which Pages serves at `https://ukuleletuesday.github.io/setlister/`.
+  It calls the function cross-origin; allowed origins are configured via
+  `CORS_ALLOWED_ORIGINS` (see `.env.deploy`).
 
 The endpoint is public but guarded: uploads are capped at 20 MB, `/api/parse`
 is rate-limited per IP (in-process fixed window), and the function runs with
