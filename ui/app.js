@@ -1,3 +1,5 @@
+import * as sync from "./sync.js";
+
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
 const preview = document.getElementById("preview");
@@ -106,10 +108,23 @@ function persist() {
         requests: app.requests,
         edition: app.edition,
         name: app.name,
+        // Persist the active session id so a reload silently rejoins (see
+        // init()). null when local-only.
+        sessionId: sync.getSessionId(),
       })
     );
   } catch {
     /* storage may be full or blocked (private mode) — non-fatal */
+  }
+  // Every mutation already funnels through persist(), so this single choke
+  // point pushes local changes to every session peer. sync ignores it (and the
+  // Firestore chunk stays unloaded) when no session is active.
+  if (sync.getSessionId()) {
+    sync.notifyLocalChange({
+      upNext: app.upNext,
+      requests: app.requests,
+      edition: app.edition,
+    });
   }
 }
 
@@ -130,10 +145,79 @@ function restore() {
     }
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
+    if (typeof saved.sessionId === "string") storedSessionId = saved.sessionId;
   } catch {
     /* corrupt payload — start fresh */
   }
 }
+
+// --- Session sharing wiring ------------------------------------------------
+// The durable state sync lives in sync.js; app.js only feeds it state and
+// applies remote updates. storedSessionId is the id restored from localStorage,
+// used by init() to auto-rejoin on reload.
+let storedSessionId = null;
+
+function sessionState() {
+  return { upNext: app.upNext, requests: app.requests, edition: app.edition };
+}
+
+// Called by sync when a remote change arrives: swap in the fresh lists and
+// re-render. persist() writes them back to localStorage (and is a no-op push
+// since sync just set lastRemote to this same state).
+function applyRemoteState(state) {
+  app.upNext = state.upNext;
+  app.requests = state.requests;
+  if (state.edition) app.edition = state.edition;
+  renderUpNext();
+  renderRequests();
+  persist();
+}
+
+// Resolve which session to join on load: a `?session=` URL param wins (someone
+// opened a share link), else the stored id (silent auto-rejoin after a
+// reload). On failure, forget the id, strip the param, and carry on
+// local-only. The confirm-before-replace prompt for the URL case is #30's job.
+async function resolveSession() {
+  const params = new URLSearchParams(location.search);
+  const fromUrl = params.get("session");
+  const target = fromUrl || storedSessionId;
+  if (!target) return;
+  try {
+    await sync.joinSession(target, applyRemoteState);
+    persist();
+  } catch {
+    storedSessionId = null;
+    persist();
+    if (fromUrl) {
+      params.delete("session");
+      const qs = params.toString();
+      history.replaceState(
+        null,
+        "",
+        location.pathname + (qs ? `?${qs}` : "") + location.hash
+      );
+    }
+  }
+}
+
+// Debug hook for console + Playwright until the real sharing UI lands (#30).
+window.setlisterSync = {
+  create: async () => {
+    const id = await sync.createSession(sessionState, applyRemoteState);
+    persist();
+    return id;
+  },
+  join: async (id) => {
+    await sync.joinSession(id, applyRemoteState);
+    persist();
+    return sync.getSessionId();
+  },
+  leave: () => {
+    sync.leaveSession();
+    persist();
+  },
+  getSessionId: () => sync.getSessionId(),
+};
 
 // --- Loading editions + catalogue ------------------------------------------
 async function loadEditions() {
@@ -743,6 +827,9 @@ function dragAfterElement(container, y) {
 function wireDrag(handle, li) {
   handle.addEventListener("pointerdown", (ev) => {
     ev.preventDefault();
+    // Hold off applying remote snapshots while dragging so a peer's change
+    // can't yank the row out from under the finger; sync applies it on release.
+    sync.setGestureActive(true);
     li.classList.add("dragging");
     // Capture keeps touch from scrolling the page; move/up listen on the
     // document so events keep flowing even as we reorder the row in the DOM.
@@ -763,6 +850,8 @@ function wireDrag(handle, li) {
       document.removeEventListener("pointercancel", onUp);
       li.classList.remove("dragging");
       commitDomOrder();
+      // Order committed + pushed; now let any deferred snapshot apply.
+      sync.setGestureActive(false);
     };
 
     document.addEventListener("pointermove", onMove);
@@ -792,6 +881,11 @@ function wireSwipe(li, body, row) {
     if (ev.target.closest("button")) return;
     if (ev.button != null && ev.button !== 0) return; // ignore right/middle click
 
+    // Defer remote snapshots for the duration of the touch (a swipe that
+    // commits, or even a plain tap) so a peer's change can't re-render the row
+    // mid-gesture; sync applies any stashed snapshot when we release below.
+    sync.setGestureActive(true);
+
     const startX = ev.clientX;
     const startY = ev.clientY;
     let engaged = false;
@@ -801,6 +895,9 @@ function wireSwipe(li, body, row) {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onCancel);
+      // Local toggle (if any) has already been applied + pushed by settle();
+      // now let a deferred snapshot land.
+      sync.setGestureActive(false);
     };
 
     const settle = (dx) => {
@@ -848,12 +945,14 @@ function wireSwipe(li, body, row) {
     };
 
     const onUp = (e) => {
-      finish();
+      // Settle before finish() so the local toggle is committed + pushed
+      // before any deferred remote snapshot is applied — the two then converge.
       if (engaged) settle(e.clientX - startX);
+      finish();
     };
     const onCancel = () => {
-      finish();
       if (engaged) settle(0); // treat a cancelled gesture as a snap-back
+      finish();
     };
 
     document.addEventListener("pointermove", onMove);
@@ -936,6 +1035,10 @@ document.getElementById("download").addEventListener("click", () => {
   mountManualAdd();
   renderUpNext();
   renderRequests();
+  // Auto-rejoin a shared session (URL param or stored id) before loading the
+  // catalogue: joining swaps in the remote lists, and this keeps the Firestore
+  // chunk unfetched for local-only users.
+  await resolveSession();
   await loadEditions();
   loadCatalogue(editionSelect.value);
 })();
