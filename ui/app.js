@@ -20,6 +20,7 @@ const includeCrossed = document.getElementById("include-crossed");
 const showSuggestions = document.getElementById("show-suggestions");
 const settingsToggle = document.getElementById("settings-toggle");
 const settingsPanel = document.getElementById("settings-panel");
+const playerName = document.getElementById("player-name");
 const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
@@ -40,12 +41,21 @@ let app = {
   edition: null,
   catalogue: [],
   catalogueGeneratedAt: "",
+  // The current user's name — stamped onto every song they add (see `addedBy`),
+  // laying the groundwork for a future "multiplayer" mode.
+  name: "",
   upNext: [],
   requests: [],
   review: null,
 };
 
 showSuggestions.addEventListener("change", rerender);
+
+// Remember the name across sessions so provenance survives a reload.
+playerName.addEventListener("input", () => {
+  app.name = playerName.value;
+  persist();
+});
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -95,6 +105,7 @@ function persist() {
         upNext: app.upNext,
         requests: app.requests,
         edition: app.edition,
+        name: app.name,
       })
     );
   } catch {
@@ -118,6 +129,7 @@ function restore() {
       app.upNext = saved.setlist;
     }
     if (saved.edition) app.edition = saved.edition;
+    if (typeof saved.name === "string") app.name = saved.name;
   } catch {
     /* corrupt payload — start fresh */
   }
@@ -299,6 +311,7 @@ function addManualEntry(entry) {
   app.requests.push({
     uid: newUid(),
     source: "manual",
+    addedBy: app.name,
     raw_title: entry.display,
     raw_page: entry.page,
     notes: null,
@@ -328,7 +341,7 @@ function setMatch(row, entry) {
 
 // --- Photo scan -> review sheet --------------------------------------------
 function rowToEntry(row) {
-  return { ...row, uid: newUid(), source: "scan", removed: false, played: false, binned: false };
+  return { ...row, uid: newUid(), source: "scan", addedBy: app.name, removed: false, played: false, binned: false };
 }
 
 photoInput.addEventListener("change", async () => {
@@ -526,6 +539,16 @@ function renderRow(row, index, context) {
     (row.notes ? ` · ${row.notes}` : "") +
     (row.crossed_out ? " · crossed out" : "");
   body.appendChild(raw);
+
+  // Provenance: who added this tune and where it came from. Name it only when we
+  // have one (a legacy or name-less entry shows just the source).
+  const sourceLabel = row.source === "manual" ? "added manually" : "from whiteboard";
+  const provenance = document.createElement("div");
+  provenance.className = "added-by";
+  provenance.textContent = row.addedBy
+    ? `Added by ${row.addedBy} · ${sourceLabel}`
+    : sourceLabel;
+  body.appendChild(provenance);
 
   if (context === "review" && row.explanation) {
     const explanation = document.createElement("div");
@@ -870,7 +893,7 @@ function exportText() {
 
 // Drop the internal UI/provenance fields from the exported JSON. `played` and
 // `binned` are live gig-tracking state, not part of the setlist payload.
-function stripInternal({ uid, source, removed, played, binned, ...rest }) {
+function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest }) {
   return rest;
 }
 
@@ -909,6 +932,7 @@ document.getElementById("download").addEventListener("click", () => {
 // --- Init ------------------------------------------------------------------
 (async function init() {
   restore();
+  playerName.value = app.name;
   mountManualAdd();
   renderUpNext();
   renderRequests();

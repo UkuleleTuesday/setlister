@@ -60,7 +60,8 @@ footer#edition-note:empty { display: none; }
 .field { display: block; margin-bottom: 0.8rem; font-size: 0.9rem; }
 .field span { display: block; margin-bottom: 0.25rem; color: #555; }
 .field select,
-.field input[type="number"] {
+.field input[type="number"],
+.field input[type="text"] {
   width: 100%; padding: 0.6rem; font-size: 1rem;
   border: 1px solid #ccc; border-radius: 8px; background: var(--card);
 }
@@ -275,6 +276,7 @@ footer#edition-note:empty { display: none; }
   padding: 0.1rem 0.45rem; font-size: 0.9rem;
 }
 .raw { color: #777; font-size: 0.82rem; margin-top: 0.15rem; }
+.added-by { color: #777; font-size: 0.82rem; margin-top: 0.15rem; }
 .explanation { font-size: 0.84rem; margin-top: 0.3rem; color: #666; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
