@@ -11,8 +11,10 @@ Take a photo of the board, and the app:
 2. matches every row against the published songbook catalogue
    (title fuzzy-matching + page-number cross-checking with
    [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz)),
-3. shows a review screen where uncertain rows can be corrected before
-   copying/exporting the final setlist.
+3. shows a review screen where uncertain rows can be corrected, then drops
+   the songs into a **Requests** pool. You build the **Up next** running
+   order by promoting requests into it (and can add songs by name too),
+   then copy/export the result.
 
 The web UI is **mobile-first**: the whole point is to pull out a phone at the
 club, snap the board, and build the setlist on the spot. Design and test UI

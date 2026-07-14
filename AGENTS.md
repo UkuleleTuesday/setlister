@@ -34,8 +34,10 @@ export. Every UI change is a mobile change first; desktop is incidental.
 
 - Plain ES modules and DOM APIs only — **no dependencies, no bundler.** Keep it
   that way unless there's a strong reason not to.
-- The in-progress setlist is the durable object (persisted to `localStorage`);
-  the review sheet is transient state from the latest scan.
+- The two lists are the durable objects (persisted together to `localStorage`):
+  `requests` (the incoming pool that add-by-name and scans feed) and `upNext`
+  (the running order you promote requests into). The review sheet is transient
+  state from the latest scan.
 - Match the surrounding style: small focused functions, comments that explain
   *why* (especially the mobile/touch reasoning), not *what*.
 
