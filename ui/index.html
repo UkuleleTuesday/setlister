@@ -58,20 +58,27 @@
   </header>
 
   <main>
-    <!-- The setlist you're building is the primary object: it accumulates tunes
-         from photo scans (via the review sheet) and manual searches, in the
-         order you'll play them. -->
-    <section id="setlist">
+    <!-- "Up next" is the curated running order: the tunes you'll actually play,
+         promoted (in order) from the Requests pool below. -->
+    <section id="upnext">
       <div class="setlist-head">
-        <h2>Your setlist</h2>
+        <h2>Up next</h2>
         <button id="clear" class="link-button" type="button" hidden>Start over</button>
       </div>
-      <ul id="setlist-rows"></ul>
-      <p id="setlist-empty" class="note">No tunes yet — snap the board or add one below.</p>
+      <ul id="upnext-rows"></ul>
+      <p id="upnext-empty" class="note">Nothing queued yet — promote a request below.</p>
       <p id="edition-note" class="note"></p>
     </section>
 
-    <!-- Two ways to add tunes: type a song name, or snap the whiteboard. -->
+    <!-- "Requests" is the incoming pool: everything added by name or snapped off
+         the board lands here first, then gets promoted up into the set. -->
+    <section id="requests">
+      <h2>Requests</h2>
+      <ul id="requests-rows"></ul>
+      <p id="requests-empty" class="note">No requests yet — snap the board or add one below.</p>
+    </section>
+
+    <!-- Two ways to add a request: type a song name, or snap the whiteboard. -->
     <section id="add">
       <div id="manual-add" class="manual-add"></div>
       <div class="or-divider"><span>or</span></div>
@@ -93,13 +100,13 @@
     </section>
 
     <!-- Review sheet: scanned rows land here to be validated/corrected before
-         they merge into the setlist. Hidden until a scan completes. -->
+         they merge into Requests. Hidden until a scan completes. -->
     <section id="review" hidden>
       <h2>Review scan</h2>
-      <p class="note">Fix any misreads, drop what you don't want, then add them to your setlist.</p>
+      <p class="note">Fix any misreads, drop what you don't want, then add them to your requests.</p>
       <ul id="review-rows"></ul>
       <div class="actions">
-        <button id="review-confirm">➕ Add to setlist</button>
+        <button id="review-confirm">➕ Add to requests</button>
         <button id="review-cancel" class="secondary">Cancel</button>
       </div>
     </section>
