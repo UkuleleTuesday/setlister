@@ -6,8 +6,10 @@ const scanOverlay = document.getElementById("scan-overlay");
 const errorBox = document.getElementById("error");
 const addSection = document.getElementById("add");
 const manualAddHost = document.getElementById("manual-add");
-const setlistRows = document.getElementById("setlist-rows");
-const setlistEmpty = document.getElementById("setlist-empty");
+const upnextRows = document.getElementById("upnext-rows");
+const upnextEmpty = document.getElementById("upnext-empty");
+const requestsRows = document.getElementById("requests-rows");
+const requestsEmpty = document.getElementById("requests-empty");
 const clearButton = document.getElementById("clear");
 const reviewSection = document.getElementById("review");
 const reviewRows = document.getElementById("review-rows");
@@ -28,15 +30,18 @@ const photoLightboxClose = document.getElementById("photo-lightbox-close");
 
 const STORAGE_KEY = "setlister.v1";
 
-// The setlist is the durable, primary object. The catalogue/edition are loaded
-// once per edition (independent of any scan) and feed matching + manual search.
-// `review` holds the rows from the most recent scan while they're being
-// validated in the review sheet, before they merge into the setlist.
+// The two lists are the durable, primary objects. Adds (by name or snap) land in
+// `requests`, the incoming pool; the user promotes entries into `upNext`, the
+// running order. The catalogue/edition are loaded once per edition (independent
+// of any scan) and feed matching + manual search. `review` holds the rows from
+// the most recent scan while they're being validated in the review sheet, before
+// they merge into `requests`.
 let app = {
   edition: null,
   catalogue: [],
   catalogueGeneratedAt: "",
-  setlist: [],
+  upNext: [],
+  requests: [],
   review: null,
 };
 
@@ -79,14 +84,18 @@ function newUid() {
 }
 
 // --- Persistence -----------------------------------------------------------
-// The in-progress setlist survives a reload / accidental close: entries carry
-// their matched catalogue entry inline, so they render and export even before
-// the catalogue reloads over the network.
+// Both lists survive a reload / accidental close: entries carry their matched
+// catalogue entry inline, so they render and export even before the catalogue
+// reloads over the network.
 function persist() {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ setlist: app.setlist, edition: app.edition })
+      JSON.stringify({
+        upNext: app.upNext,
+        requests: app.requests,
+        edition: app.edition,
+      })
     );
   } catch {
     /* storage may be full or blocked (private mode) — non-fatal */
@@ -96,10 +105,19 @@ function persist() {
 function restore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (saved && Array.isArray(saved.setlist)) {
-      app.setlist = saved.setlist;
-      if (saved.edition) app.edition = saved.edition;
+    if (!saved) return;
+    if (Array.isArray(saved.upNext)) app.upNext = saved.upNext;
+    if (Array.isArray(saved.requests)) app.requests = saved.requests;
+    // Migrate the pre-split payload: the old single `setlist` was the running
+    // order, so it becomes Up next.
+    if (
+      Array.isArray(saved.setlist) &&
+      !Array.isArray(saved.upNext) &&
+      !Array.isArray(saved.requests)
+    ) {
+      app.upNext = saved.setlist;
     }
+    if (saved.edition) app.edition = saved.edition;
   } catch {
     /* corrupt payload — start fresh */
   }
@@ -136,7 +154,7 @@ async function loadCatalogue(edition) {
     app.edition = data.edition;
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
-    renderSetlist();
+    renderUpNext();
   } catch {
     /* leave any previously loaded catalogue in place */
   }
@@ -270,7 +288,7 @@ function buildSongPicker(row) {
 }
 
 // The standalone add field lives outside any row and creates a new confirmed
-// setlist entry instead of correcting an existing one.
+// request instead of correcting an existing one.
 function mountManualAdd() {
   manualAddHost.replaceChildren(
     makeCombobox({ placeholder: "Add a tune by name…", onPick: addManualEntry })
@@ -278,7 +296,7 @@ function mountManualAdd() {
 }
 
 function addManualEntry(entry) {
-  app.setlist.push({
+  app.requests.push({
     uid: newUid(),
     source: "manual",
     raw_title: entry.display,
@@ -293,7 +311,7 @@ function addManualEntry(entry) {
     explanation: "Added manually",
     removed: false,
   });
-  renderSetlist();
+  renderRequests();
   persist();
 }
 
@@ -399,7 +417,7 @@ document.addEventListener("keydown", (event) => {
 function renderReview() {
   if (!app.review) return;
   const kept = app.review.entries.filter((e) => !e.removed).length;
-  reviewConfirm.textContent = `➕ Add ${kept} to setlist`;
+  reviewConfirm.textContent = `➕ Add ${kept} to requests`;
   reviewConfirm.disabled = kept === 0;
   reviewRows.replaceChildren(
     ...app.review.entries.map((e, i) => renderRow(e, i, "review"))
@@ -409,9 +427,9 @@ function renderReview() {
 reviewConfirm.addEventListener("click", () => {
   if (!app.review) return;
   const kept = app.review.entries.filter((e) => !e.removed);
-  app.setlist.push(...kept);
+  app.requests.push(...kept);
   closeReview();
-  renderSetlist();
+  renderRequests();
   persist();
 });
 
@@ -419,11 +437,12 @@ reviewCancel.addEventListener("click", closeReview);
 
 // --- Rendering -------------------------------------------------------------
 function rerender() {
-  renderSetlist();
+  renderUpNext();
+  renderRequests();
   if (app.review) renderReview();
 }
 
-function renderSetlist() {
+function renderEditionNote() {
   if (app.edition) {
     editionNote.textContent =
       `Matched against “${app.edition.title}” ` +
@@ -431,11 +450,24 @@ function renderSetlist() {
   } else {
     editionNote.textContent = "";
   }
-  const hasRows = app.setlist.length > 0;
-  setlistEmpty.hidden = hasRows;
-  clearButton.hidden = !hasRows;
-  setlistRows.replaceChildren(
-    ...app.setlist.map((e, i) => renderRow(e, i, "setlist"))
+}
+
+function renderUpNext() {
+  renderEditionNote();
+  upnextEmpty.hidden = app.upNext.length > 0;
+  // "Start over" wipes both lists, so it's relevant whenever either has rows.
+  clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
+  upnextRows.replaceChildren(
+    ...app.upNext.map((e, i) => renderRow(e, i, "upnext"))
+  );
+}
+
+function renderRequests() {
+  requestsEmpty.hidden = app.requests.length > 0;
+  // The clear button's visibility also depends on the requests list.
+  clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
+  requestsRows.replaceChildren(
+    ...app.requests.map((e, i) => renderRow(e, i, "requests"))
   );
 }
 
@@ -506,9 +538,9 @@ function renderRow(row, index, context) {
   const tools = document.createElement("div");
   tools.className = "row-tools";
 
-  // Reorder controls only make sense on the setlist (the running order), not in
-  // the review sheet where rows are still being validated.
-  if (context === "setlist") {
+  // Reorder controls only make sense on Up next (the running order), not in the
+  // Requests pool or the review sheet where rows are still being validated.
+  if (context === "upnext") {
     const handle = document.createElement("button");
     handle.className = "drag-handle";
     handle.type = "button";
@@ -526,14 +558,30 @@ function renderRow(row, index, context) {
     const down = document.createElement("button");
     down.textContent = "↓";
     down.title = "Move down";
-    down.disabled = index === app.setlist.length - 1;
+    down.disabled = index === app.upNext.length - 1;
     down.onclick = () => moveEntry(index, 1);
 
-    tools.append(handle, up, down);
+    // Send a queued tune back to the Requests pool without deleting it.
+    const demoteButton = document.createElement("button");
+    demoteButton.textContent = "⬇️";
+    demoteButton.title = "Move to Requests";
+    demoteButton.setAttribute("aria-label", "Move to Requests");
+    demoteButton.onclick = () => demote(row.uid);
+
+    tools.append(handle, up, down, demoteButton);
   }
 
-  // The correct-song picker is a review-only affordance; the setlist keeps just
-  // the reorder controls and remove.
+  // A request is promoted into the running order; no reorder in the pool.
+  if (context === "requests") {
+    const promoteButton = document.createElement("button");
+    promoteButton.textContent = "⬆️";
+    promoteButton.title = "Move to Up next";
+    promoteButton.setAttribute("aria-label", "Move to Up next");
+    promoteButton.onclick = () => promote(row.uid);
+    tools.append(promoteButton);
+  }
+
+  // The correct-song picker is a review-only affordance.
   if (context === "review") {
     tools.append(buildSongPicker(row));
   }
@@ -551,13 +599,34 @@ function renderRow(row, index, context) {
   return li;
 }
 
-// --- Reorder (up/down + drag) ----------------------------------------------
+// --- Move between lists (promote/demote) -----------------------------------
+function promote(uid) {
+  const index = app.requests.findIndex((e) => e.uid === uid);
+  if (index === -1) return;
+  const [item] = app.requests.splice(index, 1);
+  app.upNext.push(item);
+  renderUpNext();
+  renderRequests();
+  persist();
+}
+
+function demote(uid) {
+  const index = app.upNext.findIndex((e) => e.uid === uid);
+  if (index === -1) return;
+  const [item] = app.upNext.splice(index, 1);
+  app.requests.push(item);
+  renderUpNext();
+  renderRequests();
+  persist();
+}
+
+// --- Reorder Up next (up/down + drag) --------------------------------------
 function moveEntry(index, delta) {
   const target = index + delta;
-  if (target < 0 || target >= app.setlist.length) return;
-  const [item] = app.setlist.splice(index, 1);
-  app.setlist.splice(target, 0, item);
-  renderSetlist();
+  if (target < 0 || target >= app.upNext.length) return;
+  const [item] = app.upNext.splice(index, 1);
+  app.upNext.splice(target, 0, item);
+  renderUpNext();
   persist();
 }
 
@@ -590,9 +659,9 @@ function wireDrag(handle, li) {
     }
 
     const onMove = (e) => {
-      const after = dragAfterElement(setlistRows, e.clientY);
-      if (after == null) setlistRows.appendChild(li);
-      else if (after !== li) setlistRows.insertBefore(li, after);
+      const after = dragAfterElement(upnextRows, e.clientY);
+      if (after == null) upnextRows.appendChild(li);
+      else if (after !== li) upnextRows.insertBefore(li, after);
     };
     const onUp = () => {
       document.removeEventListener("pointermove", onMove);
@@ -609,25 +678,29 @@ function wireDrag(handle, li) {
 }
 
 function commitDomOrder() {
-  const order = [...setlistRows.querySelectorAll(".row-card")].map(
+  const order = [...upnextRows.querySelectorAll(".row-card")].map(
     (el) => el.dataset.uid
   );
-  app.setlist.sort((a, b) => order.indexOf(a.uid) - order.indexOf(b.uid));
-  renderSetlist();
+  app.upNext.sort((a, b) => order.indexOf(a.uid) - order.indexOf(b.uid));
+  renderUpNext();
   persist();
 }
 
 // --- Clear + export --------------------------------------------------------
 clearButton.addEventListener("click", () => {
-  if (!app.setlist.length) return;
-  if (!confirm("Clear the whole setlist and start over?")) return;
-  app.setlist = [];
-  renderSetlist();
+  if (!app.upNext.length && !app.requests.length) return;
+  if (!confirm("Clear Up next and Requests and start over?")) return;
+  app.upNext = [];
+  app.requests = [];
+  renderUpNext();
+  renderRequests();
   persist();
 });
 
+// Export covers both lists, running order first: Up next, then any requests
+// still waiting in the pool.
 function exportedRows() {
-  return app.setlist.filter(
+  return [...app.upNext, ...app.requests].filter(
     (row) => !row.removed && (includeCrossed.checked || !row.crossed_out)
   );
 }
@@ -683,7 +756,8 @@ document.getElementById("download").addEventListener("click", () => {
 (async function init() {
   restore();
   mountManualAdd();
-  renderSetlist();
+  renderUpNext();
+  renderRequests();
   await loadEditions();
   loadCatalogue(editionSelect.value);
 })();
