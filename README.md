@@ -14,6 +14,11 @@ Take a photo of the board, and the app:
 3. shows a review screen where uncertain rows can be corrected before
    copying/exporting the final setlist.
 
+The web UI is **mobile-first**: the whole point is to pull out a phone at the
+club, snap the board, and build the setlist on the spot. Design and test UI
+changes for a phone (touch targets, tap-to-dismiss, safe-area insets, small
+viewport) first; desktop is the incidental case.
+
 The songbook catalogue is derived from the public manifests published by
 [songbook-generator](https://github.com/UkuleleTuesday/songbook-generator) at
 `https://storage.googleapis.com/ukulele-tuesday-songbooks/<edition>/` — no
