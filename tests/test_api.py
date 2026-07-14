@@ -5,7 +5,7 @@ import flask
 import httpx
 import pytest
 
-from utrequests import vision
+from utrequests import ratelimit, vision
 from utrequests.api import handle_request
 from utrequests.config import get_settings
 
@@ -201,7 +201,11 @@ def test_parse_oversized_content_length_413(client):
     assert response.status_code == 413
 
 
-def test_parse_rate_limited_429(client, mock_bucket, fake_vision):
+def test_parse_rate_limited_429(client, mock_bucket, fake_vision, monkeypatch):
+    # Pin time so every request lands in the same fixed-window bucket.
+    # Without this, a real-clock boundary crossing mid-loop would reset the
+    # counter and let the 9th request through, making the test flaky.
+    monkeypatch.setattr(ratelimit.time, "time", lambda: 12345.0)
     photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
     limit = get_settings().parse_rate_limit
     for _ in range(limit):
