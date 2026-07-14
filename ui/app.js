@@ -4,8 +4,15 @@ const preview = document.getElementById("preview");
 const previewWrap = document.getElementById("preview-wrap");
 const scanOverlay = document.getElementById("scan-overlay");
 const errorBox = document.getElementById("error");
-const resultsSection = document.getElementById("results");
-const rowsList = document.getElementById("rows");
+const addSection = document.getElementById("add");
+const manualAddHost = document.getElementById("manual-add");
+const setlistRows = document.getElementById("setlist-rows");
+const setlistEmpty = document.getElementById("setlist-empty");
+const clearButton = document.getElementById("clear");
+const reviewSection = document.getElementById("review");
+const reviewRows = document.getElementById("review-rows");
+const reviewConfirm = document.getElementById("review-confirm");
+const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
 const includeCrossed = document.getElementById("include-crossed");
 const showSuggestions = document.getElementById("show-suggestions");
@@ -15,21 +22,22 @@ const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
 const maxImageEdge = document.getElementById("max-image-edge");
-const cameraButton = document.getElementById("camera-button");
-const photoControls = document.getElementById("photo-controls");
-const togglePhoto = document.getElementById("toggle-photo");
 
-showSuggestions.addEventListener("change", renderResults);
+const STORAGE_KEY = "setlister.v1";
 
-// After a scan the photo is hidden to keep the match list prominent; this
-// button reveals or re-hides the full image on demand.
-togglePhoto.addEventListener("click", () => {
-  const show = previewWrap.hidden;
-  previewWrap.hidden = !show;
-  togglePhoto.textContent = show ? "🙈 Hide photo" : "🖼 Show photo";
-});
+// The setlist is the durable, primary object. The catalogue/edition are loaded
+// once per edition (independent of any scan) and feed matching + manual search.
+// `review` holds the rows from the most recent scan while they're being
+// validated in the review sheet, before they merge into the setlist.
+let app = {
+  edition: null,
+  catalogue: [],
+  catalogueGeneratedAt: "",
+  setlist: [],
+  review: null,
+};
 
-let state = null; // last ParseResponse, mutated by user edits
+showSuggestions.addEventListener("change", rerender);
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -61,6 +69,40 @@ function getApiBase() {
 }
 const API_BASE = getApiBase();
 
+function newUid() {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// --- Persistence -----------------------------------------------------------
+// The in-progress setlist survives a reload / accidental close: entries carry
+// their matched catalogue entry inline, so they render and export even before
+// the catalogue reloads over the network.
+function persist() {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ setlist: app.setlist, edition: app.edition })
+    );
+  } catch {
+    /* storage may be full or blocked (private mode) — non-fatal */
+  }
+}
+
+function restore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (saved && Array.isArray(saved.setlist)) {
+      app.setlist = saved.setlist;
+      if (saved.edition) app.edition = saved.edition;
+    }
+  } catch {
+    /* corrupt payload — start fresh */
+  }
+}
+
+// --- Loading editions + catalogue ------------------------------------------
 async function loadEditions() {
   try {
     const res = await fetch(`${API_BASE}/api/editions`);
@@ -70,7 +112,7 @@ async function loadEditions() {
         const option = document.createElement("option");
         option.value = e.id;
         option.textContent = e.id;
-        option.selected = e.id === "current";
+        option.selected = e.id === (app.edition?.id || "current");
         return option;
       })
     );
@@ -78,54 +120,26 @@ async function loadEditions() {
     /* keep the hardcoded "current" option */
   }
 }
-loadEditions();
 
-photoInput.addEventListener("change", async () => {
-  const file = photoInput.files[0];
-  if (!file) return;
-  preview.src = URL.createObjectURL(file);
-  // Scanning view: show the full image with the scan overlay, no controls.
-  previewWrap.hidden = false;
-  cameraButton.hidden = true;
-  photoControls.hidden = true;
-  errorBox.hidden = true;
-  resultsSection.hidden = true;
-  scanOverlay.hidden = false;
-
-  const form = new FormData();
-  form.append("image", file);
-  form.append("edition", editionSelect.value);
-  // Tuning knobs from the settings panel — the API clamps/ignores anything out
-  // of range and falls back to its configured defaults.
-  if (modelSelect.value) form.append("model", modelSelect.value);
-  form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
-  form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
-  if (maxImageEdge.value) form.append("max_image_edge", maxImageEdge.value);
+// Load the catalogue for an edition independently of any photo, so manual add
+// works before (or without) a scan. Never wipes the setlist.
+async function loadCatalogue(edition) {
   try {
-    const res = await fetch(`${API_BASE}/api/parse`, { method: "POST", body: form });
-    if (!res.ok) {
-      const detail = (await res.json().catch(() => ({}))).detail;
-      throw new Error(detail || `Server error (${res.status})`);
-    }
-    state = await res.json();
-    state.rows.forEach((row) => (row.removed = false));
-    renderResults();
-    // Hide the photo so the match list is the prominent thing; the controls
-    // row lets the user reveal it again or take a new one.
-    previewWrap.hidden = true;
-    photoControls.hidden = false;
-    togglePhoto.textContent = "🖼 Show photo";
-  } catch (err) {
-    errorBox.textContent = err.message;
-    errorBox.hidden = false;
-    // Keep the image visible so the user can see what failed, but still offer
-    // the controls to hide it or retake.
-    photoControls.hidden = false;
-    togglePhoto.textContent = "🙈 Hide photo";
-  } finally {
-    scanOverlay.hidden = true;
+    const res = await fetch(
+      `${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    app.edition = data.edition;
+    app.catalogue = data.catalogue;
+    app.catalogueGeneratedAt = data.catalogue_generated_at;
+    renderSetlist();
+  } catch {
+    /* leave any previously loaded catalogue in place */
   }
-});
+}
+
+editionSelect.addEventListener("change", () => loadCatalogue(editionSelect.value));
 
 function normalizeText(s) {
   // Mirror the accent-insensitive matching the backend does in matcher.py, so
@@ -139,7 +153,7 @@ function normalizeText(s) {
 function searchCatalogue(query, limit = 8) {
   const terms = normalizeText(query.trim()).split(/\s+/).filter(Boolean);
   if (!terms.length) return [];
-  return state.catalogue
+  return app.catalogue
     .filter((entry) => {
       const haystack = normalizeText(`${entry.title} ${entry.artist || ""}`);
       return terms.every((term) => haystack.includes(term));
@@ -149,15 +163,17 @@ function searchCatalogue(query, limit = 8) {
 
 // A small custom combobox. We rolled our own instead of a native <datalist>
 // because datalist support is unreliable on the mobile browsers this app
-// targets (no dropdown on iOS Safari, flaky on Android).
-function buildSongPicker(row) {
+// targets (no dropdown on iOS Safari, flaky on Android). Shared by the per-row
+// correction picker and the standalone "add a song" field so the two can't
+// drift apart.
+function makeCombobox({ placeholder, onPick }) {
   const wrap = document.createElement("div");
   wrap.className = "song-picker";
 
   const input = document.createElement("input");
   input.className = "song-picker-input";
   input.type = "text";
-  input.placeholder = "Correct song…";
+  input.placeholder = placeholder;
   input.autocomplete = "off";
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
@@ -176,6 +192,12 @@ function buildSongPicker(row) {
     menu.replaceChildren();
     input.setAttribute("aria-expanded", "false");
     active = -1;
+  }
+
+  function pick(entry) {
+    input.value = "";
+    close();
+    onPick(entry);
   }
 
   function renderMenu() {
@@ -197,7 +219,7 @@ function buildSongPicker(row) {
         // instead of the field closing first (works for mouse and touch).
         li.addEventListener("pointerdown", (ev) => {
           ev.preventDefault();
-          setMatch(row, entry);
+          pick(entry);
         });
         return li;
       })
@@ -224,7 +246,7 @@ function buildSongPicker(row) {
       renderMenu();
     } else if (ev.key === "Enter" && active >= 0) {
       ev.preventDefault();
-      setMatch(row, matches[active]);
+      pick(matches[active]);
     } else if (ev.key === "Escape") {
       close();
     }
@@ -237,29 +259,157 @@ function buildSongPicker(row) {
   return wrap;
 }
 
+function buildSongPicker(row) {
+  return makeCombobox({
+    placeholder: "Correct song…",
+    onPick: (entry) => setMatch(row, entry),
+  });
+}
+
+// The standalone add field lives outside any row and creates a new confirmed
+// setlist entry instead of correcting an existing one.
+function mountManualAdd() {
+  manualAddHost.replaceChildren(
+    makeCombobox({ placeholder: "Add a tune by name…", onPick: addManualEntry })
+  );
+}
+
+function addManualEntry(entry) {
+  app.setlist.push({
+    uid: newUid(),
+    source: "manual",
+    raw_title: entry.display,
+    raw_page: entry.page,
+    notes: null,
+    crossed_out: false,
+    status: "confirmed",
+    method: "none",
+    confidence: 1,
+    match: entry,
+    alternatives: [],
+    explanation: "Added manually",
+    removed: false,
+  });
+  renderSetlist();
+  persist();
+}
+
 function setMatch(row, entry) {
   row.match = entry;
   row.status = entry ? "confirmed" : "unmatched";
   row.explanation = entry ? "Manually selected" : "";
   row.alternatives = [];
-  renderResults();
+  rerender();
+  persist();
 }
 
-function renderResults() {
-  // The suggestions/crossed-out toggles now live in the always-open settings
-  // panel, so a change can fire before any photo has been scanned.
-  if (!state) return;
-  editionNote.textContent =
-    `Matched against “${state.edition.title}” ` +
-    `(generated ${state.catalogue_generated_at?.slice(0, 10) || "unknown"})`;
-
-  rowsList.replaceChildren(...state.rows.map(renderRow));
-  resultsSection.hidden = false;
+// --- Photo scan -> review sheet --------------------------------------------
+function rowToEntry(row) {
+  return { ...row, uid: newUid(), source: "scan", removed: false };
 }
 
-function renderRow(row, index) {
+photoInput.addEventListener("change", async () => {
+  const file = photoInput.files[0];
+  if (!file) return;
+  preview.src = URL.createObjectURL(file);
+  previewWrap.hidden = false;
+  errorBox.hidden = true;
+  scanOverlay.hidden = false;
+
+  const form = new FormData();
+  form.append("image", file);
+  form.append("edition", editionSelect.value);
+  // Tuning knobs from the settings panel — the API clamps/ignores anything out
+  // of range and falls back to its configured defaults.
+  if (modelSelect.value) form.append("model", modelSelect.value);
+  form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
+  form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
+  if (maxImageEdge.value) form.append("max_image_edge", maxImageEdge.value);
+  try {
+    const res = await fetch(`${API_BASE}/api/parse`, { method: "POST", body: form });
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => ({}))).detail;
+      throw new Error(detail || `Server error (${res.status})`);
+    }
+    const data = await res.json();
+    // Refresh catalogue/edition metadata from the parse response.
+    app.edition = data.edition;
+    app.catalogue = data.catalogue;
+    app.catalogueGeneratedAt = data.catalogue_generated_at;
+    // Scanned rows go to the review sheet to be validated before merging.
+    app.review = { entries: data.rows.map(rowToEntry) };
+    openReview();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.hidden = false;
+  } finally {
+    scanOverlay.hidden = true;
+    // Reset so re-selecting the same file re-fires `change`.
+    photoInput.value = "";
+  }
+});
+
+function openReview() {
+  addSection.hidden = true;
+  reviewSection.hidden = false;
+  renderReview();
+  reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeReview() {
+  reviewSection.hidden = true;
+  addSection.hidden = false;
+  previewWrap.hidden = true;
+  app.review = null;
+}
+
+function renderReview() {
+  if (!app.review) return;
+  const kept = app.review.entries.filter((e) => !e.removed).length;
+  reviewConfirm.textContent = `➕ Add ${kept} to setlist`;
+  reviewConfirm.disabled = kept === 0;
+  reviewRows.replaceChildren(
+    ...app.review.entries.map((e, i) => renderRow(e, i, "review"))
+  );
+}
+
+reviewConfirm.addEventListener("click", () => {
+  if (!app.review) return;
+  const kept = app.review.entries.filter((e) => !e.removed);
+  app.setlist.push(...kept);
+  closeReview();
+  renderSetlist();
+  persist();
+});
+
+reviewCancel.addEventListener("click", closeReview);
+
+// --- Rendering -------------------------------------------------------------
+function rerender() {
+  renderSetlist();
+  if (app.review) renderReview();
+}
+
+function renderSetlist() {
+  if (app.edition) {
+    editionNote.textContent =
+      `Matched against “${app.edition.title}” ` +
+      `(generated ${app.catalogueGeneratedAt?.slice(0, 10) || "unknown"})`;
+  } else {
+    editionNote.textContent = "";
+  }
+  const hasRows = app.setlist.length > 0;
+  setlistEmpty.hidden = hasRows;
+  clearButton.hidden = !hasRows;
+  setlistRows.replaceChildren(
+    ...app.setlist.map((e, i) => renderRow(e, i, "setlist"))
+  );
+}
+
+function renderRow(row, index, context) {
   const li = document.createElement("li");
   li.className = `row-card ${row.status}`;
+  li.dataset.uid = row.uid;
   if (row.crossed_out) li.classList.add("crossed");
   if (row.removed) li.classList.add("removed");
 
@@ -317,13 +467,41 @@ function renderRow(row, index) {
 
   const tools = document.createElement("div");
   tools.className = "row-tools";
+
+  // Reorder controls only make sense on the setlist (the running order), not in
+  // the review sheet where rows are still being validated.
+  if (context === "setlist") {
+    const handle = document.createElement("button");
+    handle.className = "drag-handle";
+    handle.type = "button";
+    handle.textContent = "⠿";
+    handle.title = "Drag to reorder";
+    handle.setAttribute("aria-label", "Drag to reorder");
+    wireDrag(handle, li);
+
+    const up = document.createElement("button");
+    up.textContent = "↑";
+    up.title = "Move up";
+    up.disabled = index === 0;
+    up.onclick = () => moveEntry(index, -1);
+
+    const down = document.createElement("button");
+    down.textContent = "↓";
+    down.title = "Move down";
+    down.disabled = index === app.setlist.length - 1;
+    down.onclick = () => moveEntry(index, 1);
+
+    tools.append(handle, up, down);
+  }
+
   const picker = buildSongPicker(row);
   const removeButton = document.createElement("button");
   removeButton.textContent = row.removed ? "↩️" : "🗑";
   removeButton.title = row.removed ? "Restore row" : "Remove row";
   removeButton.onclick = () => {
     row.removed = !row.removed;
-    renderResults();
+    rerender();
+    persist();
   };
   tools.append(picker, removeButton);
   li.appendChild(tools);
@@ -331,8 +509,83 @@ function renderRow(row, index) {
   return li;
 }
 
+// --- Reorder (up/down + drag) ----------------------------------------------
+function moveEntry(index, delta) {
+  const target = index + delta;
+  if (target < 0 || target >= app.setlist.length) return;
+  const [item] = app.setlist.splice(index, 1);
+  app.setlist.splice(target, 0, item);
+  renderSetlist();
+  persist();
+}
+
+function dragAfterElement(container, y) {
+  const els = [...container.querySelectorAll(".row-card:not(.dragging)")];
+  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+  for (const child of els) {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      closest = { offset, element: child };
+    }
+  }
+  return closest.element;
+}
+
+// Pointer-events drag so touch works on the mobile browsers this app targets
+// (HTML5 drag-and-drop is desktop-only on touch). We reorder the DOM live and
+// read the final order back into the array on drop.
+function wireDrag(handle, li) {
+  handle.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    li.classList.add("dragging");
+    // Capture keeps touch from scrolling the page; move/up listen on the
+    // document so events keep flowing even as we reorder the row in the DOM.
+    try {
+      handle.setPointerCapture(ev.pointerId);
+    } catch {
+      /* capture unsupported — document listeners still work */
+    }
+
+    const onMove = (e) => {
+      const after = dragAfterElement(setlistRows, e.clientY);
+      if (after == null) setlistRows.appendChild(li);
+      else if (after !== li) setlistRows.insertBefore(li, after);
+    };
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      li.classList.remove("dragging");
+      commitDomOrder();
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  });
+}
+
+function commitDomOrder() {
+  const order = [...setlistRows.querySelectorAll(".row-card")].map(
+    (el) => el.dataset.uid
+  );
+  app.setlist.sort((a, b) => order.indexOf(a.uid) - order.indexOf(b.uid));
+  renderSetlist();
+  persist();
+}
+
+// --- Clear + export --------------------------------------------------------
+clearButton.addEventListener("click", () => {
+  if (!app.setlist.length) return;
+  if (!confirm("Clear the whole setlist and start over?")) return;
+  app.setlist = [];
+  renderSetlist();
+  persist();
+});
+
 function exportedRows() {
-  return state.rows.filter(
+  return app.setlist.filter(
     (row) => !row.removed && (includeCrossed.checked || !row.crossed_out)
   );
 }
@@ -345,6 +598,11 @@ function exportText() {
         : `?? ${row.raw_title}${row.raw_page ? ` (p.${row.raw_page})` : ""}`
     )
     .join("\n");
+}
+
+// Drop the internal UI/provenance fields from the exported JSON.
+function stripInternal({ uid, source, removed, ...rest }) {
+  return rest;
 }
 
 document.getElementById("copy").addEventListener("click", async () => {
@@ -366,7 +624,11 @@ document.getElementById("copy").addEventListener("click", async () => {
 });
 
 document.getElementById("download").addEventListener("click", () => {
-  const payload = { ...state, rows: exportedRows() };
+  const payload = {
+    edition: app.edition,
+    catalogue_generated_at: app.catalogueGeneratedAt,
+    rows: exportedRows().map(stripInternal),
+  };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -374,3 +636,12 @@ document.getElementById("download").addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
+
+// --- Init ------------------------------------------------------------------
+(async function init() {
+  restore();
+  mountManualAdd();
+  renderSetlist();
+  await loadEditions();
+  loadCatalogue(editionSelect.value);
+})();
