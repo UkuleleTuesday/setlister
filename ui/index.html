@@ -8,10 +8,24 @@
 </head>
 <body>
   <header>
+    <button id="share-toggle" class="share-toggle" type="button"
+            aria-label="Share session" aria-expanded="false" aria-controls="share-panel">🔗</button>
     <button id="settings-toggle" class="settings-toggle" type="button"
             aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
     <h1>🎶 Whiteboard of Wishes</h1>
     <p class="subtitle">Snap the request board, get the setlist.</p>
+
+    <!-- In-session popover (mirrors the settings panel, anchored top-left).
+         Only shown once a session is active; tapping Share while local-only
+         creates a session instead of opening this. -->
+    <div id="share-panel" class="share-panel" role="dialog" aria-label="Session sharing" hidden>
+      <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
+      <p class="note">Anyone with the link can view and edit these lists live.</p>
+      <div class="actions">
+        <button id="share-link">🔗 Share link</button>
+        <button id="share-leave" class="secondary">Leave session</button>
+      </div>
+    </div>
 
     <div id="settings-panel" class="settings-panel" role="dialog" aria-label="Settings" hidden>
       <label class="field">
