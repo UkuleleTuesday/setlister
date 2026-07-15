@@ -1,5 +1,7 @@
 # Setlister
 
+**Live app:** https://ukuleletuesday.github.io/setlister/
+
 Proof of concept for turning photos of the Ukulele Tuesday song-request
 whiteboard — the "whiteboard of wishes" — into a clean, reviewable setlist,
 matched against the active UT songbook.
