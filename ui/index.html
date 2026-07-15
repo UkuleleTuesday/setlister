@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>UT Request Board Parser</title>
+  <meta name="theme-color" content="#faf7f2">
+  <title>Whiteboard of Wishes · Ukulele Tuesday</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,7 +24,9 @@
       <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
       <p class="note">Anyone with the link can view and edit these lists live.</p>
       <div class="actions">
-        <button id="share-link">🔗 Share link</button>
+        <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
+             ships text-only fallbacks. -->
+        <button id="share-link">Share link</button>
         <button id="share-leave" class="secondary">Leave session</button>
       </div>
     </div>
@@ -68,8 +72,8 @@
       <div class="field">
         <span>Export setlist</span>
         <div class="actions">
-          <button id="copy">📋 Copy list</button>
-          <button id="download">⬇️ Download JSON</button>
+          <button id="copy">Copy list</button>
+          <button id="download">Download JSON</button>
         </div>
       </div>
     </div>
@@ -99,7 +103,9 @@
     <section id="add">
       <div id="manual-add" class="manual-add"></div>
       <div class="or-divider"><span>or</span></div>
-      <label class="camera-button" for="photo-input">📷 Snap the request board</label>
+      <!-- A real button (not a label) so it's reachable and activatable with a
+           keyboard / switch access; it forwards the tap to the hidden input. -->
+      <button id="camera-button" class="camera-button" type="button">Snap the request board</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
@@ -110,7 +116,7 @@
           <div class="scan-corner tr"></div>
           <div class="scan-corner bl"></div>
           <div class="scan-corner br"></div>
-          <div class="scan-status"><span class="dot"></span>Reading the board…</div>
+          <div class="scan-status"><span class="dot"></span><span id="scan-status-text">Reading the board…</span></div>
         </div>
       </div>
       <div id="error" class="error" hidden></div>
@@ -123,7 +129,7 @@
       <p class="note">Fix any misreads, drop what you don't want, then add them to your requests.</p>
       <ul id="review-rows"></ul>
       <div class="actions">
-        <button id="review-confirm">➕ Add to requests</button>
+        <button id="review-confirm">Add to requests</button>
         <button id="review-cancel" class="secondary">Cancel</button>
       </div>
     </section>
