@@ -1,5 +1,6 @@
 import * as sync from "./sync.js";
 import { isValidSessionId } from "./session-id.js";
+import { icon, iconLabel } from "./icons.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -38,6 +39,16 @@ const photoLightboxImg = document.getElementById("photo-lightbox-img");
 const photoLightboxClose = document.getElementById("photo-lightbox-close");
 const cameraButton = document.getElementById("camera-button");
 const scanStatusText = document.getElementById("scan-status-text");
+
+// Swap the static buttons' emoji placeholders for the SVG icon set as soon as
+// the module runs (index.html ships text-only fallbacks).
+settingsToggle.replaceChildren(icon("settings"));
+shareToggle.replaceChildren(icon("share"));
+photoLightboxClose.replaceChildren(icon("close"));
+cameraButton.replaceChildren(...iconLabel("camera", "Snap the request board"));
+shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
+document.getElementById("copy").replaceChildren(...iconLabel("copy", "Copy list"));
+document.getElementById("download").replaceChildren(...iconLabel("download", "Download JSON"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
@@ -353,15 +364,19 @@ async function copyToClipboard(text) {
   }
 }
 
-// Transient label swap (same pattern as the export "Copy list" button).
+// Transient confirmation swap: the button shows a check + message, then
+// restores its original icon+label content (stashed as markup so the SVG
+// icon survives the round-trip).
 function flashButton(button, message) {
-  const original = button.dataset.label ?? button.textContent;
-  button.dataset.label = original;
-  button.textContent = message;
   clearTimeout(Number(button.dataset.flashTimer));
+  if (!("originalHtml" in button.dataset)) {
+    button.dataset.originalHtml = button.innerHTML;
+  }
+  button.replaceChildren(...iconLabel("check", message));
   button.dataset.flashTimer = String(
     setTimeout(() => {
-      button.textContent = button.dataset.label;
+      button.innerHTML = button.dataset.originalHtml;
+      delete button.dataset.originalHtml;
     }, 1500)
   );
 }
@@ -381,7 +396,7 @@ async function shareSessionLink() {
     return;
   }
   await copyToClipboard(url);
-  flashButton(shareLinkButton, "✅ Link copied");
+  flashButton(shareLinkButton, "Link copied");
 }
 
 // Tap Share: open the popover if already sharing, otherwise create a session
@@ -396,7 +411,7 @@ async function onShareTap(event) {
   }
   errorBox.hidden = true;
   shareToggle.disabled = true;
-  shareToggle.textContent = "⏳";
+  shareToggle.replaceChildren(icon("loader", "spin"));
   try {
     const id = await sync.createSession(sessionState, applyRemoteState);
     persist();
@@ -410,7 +425,7 @@ async function onShareTap(event) {
     );
   } finally {
     shareToggle.disabled = false;
-    shareToggle.textContent = "🔗";
+    shareToggle.replaceChildren(icon("share"));
   }
 }
 
@@ -869,7 +884,7 @@ document.addEventListener("keydown", (event) => {
 function renderReview() {
   if (!app.review) return;
   const kept = app.review.entries.filter((e) => !e.removed).length;
-  reviewConfirm.textContent = `➕ Add ${kept} to requests`;
+  reviewConfirm.replaceChildren(...iconLabel("add", `Add ${kept} to requests`));
   reviewConfirm.disabled = kept === 0;
   reviewRows.replaceChildren(
     ...app.review.entries.map((e, i) => renderRow(e, i, "review"))
@@ -956,7 +971,7 @@ function renderRow(row, index, context) {
     const warn = document.createElement("button");
     warn.type = "button";
     warn.className = "warn-icon";
-    warn.textContent = "⚠️";
+    warn.appendChild(icon("warn"));
     const reason = row.explanation || "Needs a check";
     warn.title = `${reason} — tap to see the photo`;
     warn.setAttribute("aria-label", `${reason}. Show the scanned photo to check this match.`);
@@ -1020,26 +1035,28 @@ function renderRow(row, index, context) {
     const handle = document.createElement("button");
     handle.className = "drag-handle";
     handle.type = "button";
-    handle.textContent = "⠿";
+    handle.appendChild(icon("drag"));
     handle.title = "Drag to reorder";
     handle.setAttribute("aria-label", "Drag to reorder");
     wireDrag(handle, li);
 
     const up = document.createElement("button");
-    up.textContent = "↑";
+    up.appendChild(icon("move-up"));
     up.title = "Move up";
+    up.setAttribute("aria-label", "Move up");
     up.disabled = index === 0;
     up.onclick = () => moveEntry(index, -1);
 
     const down = document.createElement("button");
-    down.textContent = "↓";
+    down.appendChild(icon("move-down"));
     down.title = "Move down";
+    down.setAttribute("aria-label", "Move down");
     down.disabled = index === app.upNext.length - 1;
     down.onclick = () => moveEntry(index, 1);
 
     // Send a queued tune back to the Requests pool without deleting it.
     const demoteButton = document.createElement("button");
-    demoteButton.textContent = "⬇️";
+    demoteButton.appendChild(icon("demote"));
     demoteButton.title = "Move to Requests";
     demoteButton.setAttribute("aria-label", "Move to Requests");
     demoteButton.onclick = () => demote(row.uid);
@@ -1050,7 +1067,7 @@ function renderRow(row, index, context) {
   // A request is promoted into the running order; no reorder in the pool.
   if (context === "requests") {
     const promoteButton = document.createElement("button");
-    promoteButton.textContent = "⬆️";
+    promoteButton.appendChild(icon("promote"));
     promoteButton.title = "Move to Up next";
     promoteButton.setAttribute("aria-label", "Move to Up next");
     promoteButton.onclick = () => promote(row.uid);
@@ -1068,7 +1085,7 @@ function renderRow(row, index, context) {
   if (context === "upnext" || context === "requests") {
     const playedButton = document.createElement("button");
     playedButton.type = "button";
-    playedButton.textContent = "✓";
+    playedButton.appendChild(icon("played"));
     playedButton.className = "check-button" + (row.played ? " active" : "");
     playedButton.title = row.played ? "Mark not played" : "Mark played";
     playedButton.setAttribute("aria-label", playedButton.title);
@@ -1079,7 +1096,7 @@ function renderRow(row, index, context) {
     // out, kept in the export) rather than the review sheet's hard removal.
     const binButton = document.createElement("button");
     binButton.type = "button";
-    binButton.textContent = "🗑";
+    binButton.appendChild(icon("bin"));
     binButton.className = "bin-button" + (row.binned ? " active" : "");
     binButton.title = row.binned ? "Un-bin" : "Bin";
     binButton.setAttribute("aria-label", binButton.title);
@@ -1089,8 +1106,9 @@ function renderRow(row, index, context) {
     tools.append(playedButton, binButton);
   } else {
     const removeButton = document.createElement("button");
-    removeButton.textContent = row.removed ? "↩️" : "🗑";
+    removeButton.appendChild(icon(row.removed ? "restore" : "bin"));
     removeButton.title = row.removed ? "Restore row" : "Remove row";
+    removeButton.setAttribute("aria-label", removeButton.title);
     removeButton.onclick = () => {
       row.removed = !row.removed;
       rerender();
@@ -1110,7 +1128,13 @@ function renderRow(row, index, context) {
     const hint = document.createElement("div");
     hint.className = "swipe-hint";
     hint.setAttribute("aria-hidden", "true");
-    hint.innerHTML = '<span class="swipe-hint-left">✓</span><span class="swipe-hint-right">🗑</span>';
+    const hintLeft = document.createElement("span");
+    hintLeft.className = "swipe-hint-left";
+    hintLeft.appendChild(icon("played"));
+    const hintRight = document.createElement("span");
+    hintRight.className = "swipe-hint-right";
+    hintRight.appendChild(icon("bin"));
+    hint.append(hintLeft, hintRight);
     li.insertBefore(hint, body);
     wireSwipe(li, body, row);
   }
@@ -1360,7 +1384,7 @@ function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest 
 
 document.getElementById("copy").addEventListener("click", async () => {
   await copyToClipboard(exportText());
-  flashButton(document.getElementById("copy"), "✅ Copied!");
+  flashButton(document.getElementById("copy"), "Copied!");
 });
 
 document.getElementById("download").addEventListener("click", () => {

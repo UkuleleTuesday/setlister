@@ -11,6 +11,18 @@
 
 * { box-sizing: border-box; }
 
+/* Lucide control icons (see icons.js): stroke follows the button's text
+   colour, size follows its font-size, so one rule serves every context. */
+svg.icon {
+  width: 1.2em; height: 1.2em; flex-shrink: 0;
+  vertical-align: -0.22em;
+}
+svg.icon.spin { animation: icon-spin 1s linear infinite; }
+@keyframes icon-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  svg.icon.spin { animation: none; }
+}
+
 [hidden] { display: none !important; }
 
 body {
@@ -31,6 +43,7 @@ header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
   width: 2.4rem; height: 2.4rem; padding: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.3rem; line-height: 1; cursor: pointer;
+  color: #444;
   background: var(--card); border: 1px solid #ccc; border-radius: 50%;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
 }
@@ -51,6 +64,7 @@ header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
   width: 2.4rem; height: 2.4rem; padding: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.25rem; line-height: 1; cursor: pointer;
+  color: #444;
   background: var(--card); border: 1px solid #ccc; border-radius: 50%;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
 }
@@ -127,7 +141,8 @@ footer#edition-note:empty { display: none; }
 }
 
 .camera-button {
-  display: block; width: 100%; text-align: center; padding: 0.9rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  width: 100%; text-align: center; padding: 0.9rem;
   background: #4a148c; color: white; border: none; border-radius: 10px;
   font-family: inherit; font-size: 1.05rem; cursor: pointer; user-select: none;
 }
@@ -286,7 +301,9 @@ footer#edition-note:empty { display: none; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 1.15rem; font-size: 1.4rem; border-radius: 10px;
 }
-.swipe-hint span { opacity: 0; }
+.swipe-hint span { opacity: 0; display: flex; align-items: center; }
+.swipe-hint-left { color: var(--confirmed); }
+.swipe-hint-right { color: var(--conflict); }
 .row-card.swipe-right .swipe-hint { background: rgba(46, 125, 50, 0.18); }
 .row-card.swipe-right .swipe-hint-left { opacity: var(--swipe-progress, 0); }
 .row-card.swipe-left .swipe-hint { background: rgba(198, 40, 40, 0.14); }
@@ -300,6 +317,8 @@ footer#edition-note:empty { display: none; }
   border: none; background: none; padding: 0; margin: 0;
   font: inherit; font-size: 0.9em; line-height: 1; cursor: zoom-in;
   vertical-align: baseline; position: relative;
+  /* Amber replaces the emoji's built-in colour now the glyph is an SVG. */
+  color: var(--review);
 }
 /* The icon glyph is tiny but it's the key "check this match" affordance —
    give it the full 44px hit area. */
@@ -361,8 +380,10 @@ footer#edition-note:empty { display: none; }
 .row-tools { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.5rem; }
 .row-tools button {
   border: none; background: none; font-size: 1.05rem; cursor: pointer; padding: 0.3rem;
-  position: relative;
+  position: relative; color: #555;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
 }
+.row-tools button .icon { width: 1.25rem; height: 1.25rem; }
 /* Phone touch targets must be ≥44px (AGENTS.md): extend every row tool's
    tappable area with a transparent pseudo-element, keeping the icons compact. */
 .row-tools button::before {
@@ -378,9 +399,11 @@ footer#edition-note:empty { display: none; }
   width: 1.7rem; height: 1.7rem; line-height: 1;
 }
 .row-tools .bin-button.active {
-  background: #fbe4e4; border-radius: 999px;
+  background: #fbe4e4; color: var(--conflict); border-radius: 999px;
   width: 1.7rem; height: 1.7rem; line-height: 1;
 }
+.row-tools .check-button.active .icon,
+.row-tools .bin-button.active .icon { width: 1rem; height: 1rem; }
 
 /* Drag handle for reordering the setlist. touch-action:none keeps a touch-drag
    from scrolling the page instead of grabbing the row. */
@@ -424,6 +447,7 @@ footer#edition-note:empty { display: none; }
 .actions button {
   flex: 1; padding: 0.8rem; font-size: 1rem; border: none; border-radius: 10px;
   background: #4a148c; color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
 }
 .actions button:active { opacity: 0.85; }
 .actions button:disabled { opacity: 0.45; cursor: default; }
