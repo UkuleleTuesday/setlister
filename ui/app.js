@@ -36,8 +36,14 @@ const maxImageEdge = document.getElementById("max-image-edge");
 const photoLightbox = document.getElementById("photo-lightbox");
 const photoLightboxImg = document.getElementById("photo-lightbox-img");
 const photoLightboxClose = document.getElementById("photo-lightbox-close");
+const cameraButton = document.getElementById("camera-button");
+const scanStatusText = document.getElementById("scan-status-text");
 
 const STORAGE_KEY = "setlister.v1";
+// The catalogue is cached separately from the lists: it's ~20KB of derived
+// data that lets manual search work instantly on revisit (and ride out a slow
+// Cloud Function cold start) while a fresh copy loads in the background.
+const CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
 
 // The two lists are the durable, primary objects. Adds (by name or snap) land in
 // `requests`, the incoming pool; the user promotes entries into `upNext`, the
@@ -57,7 +63,16 @@ let app = {
   review: null,
 };
 
-showSuggestions.addEventListener("change", rerender);
+showSuggestions.addEventListener("change", () => {
+  rerender();
+  persist();
+});
+
+// Settings survive a reload like the lists do — losing a toggle you set last
+// Tuesday reads as a bug at the club.
+for (const control of [modelSelect, disableThinking, sendCatalogue, includeCrossed, maxImageEdge]) {
+  control.addEventListener("change", persist);
+}
 
 // Remember the name across sessions so provenance survives a reload.
 playerName.addEventListener("input", () => {
@@ -118,6 +133,14 @@ function persist() {
         // Persist the active session id so a reload silently rejoins (see
         // init()). null when local-only.
         sessionId: sync.getSessionId(),
+        settings: {
+          model: modelSelect.value,
+          disableThinking: disableThinking.checked,
+          sendCatalogue: sendCatalogue.checked,
+          showSuggestions: showSuggestions.checked,
+          includeCrossed: includeCrossed.checked,
+          maxImageEdge: maxImageEdge.value,
+        },
       })
     );
   } catch {
@@ -153,8 +176,48 @@ function restore() {
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
     if (typeof saved.sessionId === "string") storedSessionId = saved.sessionId;
+    if (saved.settings && typeof saved.settings === "object") {
+      const s = saved.settings;
+      if (typeof s.model === "string") modelSelect.value = s.model;
+      if (typeof s.disableThinking === "boolean") disableThinking.checked = s.disableThinking;
+      if (typeof s.sendCatalogue === "boolean") sendCatalogue.checked = s.sendCatalogue;
+      if (typeof s.showSuggestions === "boolean") showSuggestions.checked = s.showSuggestions;
+      if (typeof s.includeCrossed === "boolean") includeCrossed.checked = s.includeCrossed;
+      if (typeof s.maxImageEdge === "string") maxImageEdge.value = s.maxImageEdge;
+    }
   } catch {
     /* corrupt payload — start fresh */
+  }
+}
+
+// --- Catalogue cache ---------------------------------------------------------
+// Search should work the moment the app opens: hydrate from the last-seen
+// catalogue, then let the network fetch replace it.
+function restoreCatalogueCache() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CATALOGUE_CACHE_KEY) || "null");
+    if (!saved || !Array.isArray(saved.catalogue) || !saved.catalogue.length) return;
+    app.catalogue = saved.catalogue;
+    if (!app.edition) app.edition = saved.edition;
+    app.catalogueGeneratedAt = saved.generatedAt || "";
+    catalogueStatus = "ready";
+  } catch {
+    /* corrupt cache — the network load will repopulate it */
+  }
+}
+
+function saveCatalogueCache() {
+  try {
+    localStorage.setItem(
+      CATALOGUE_CACHE_KEY,
+      JSON.stringify({
+        edition: app.edition,
+        catalogue: app.catalogue,
+        generatedAt: app.catalogueGeneratedAt,
+      })
+    );
+  } catch {
+    /* storage full or blocked — cache is best-effort */
   }
 }
 
@@ -393,6 +456,22 @@ sync.onStatusChange((status) => {
 });
 
 // --- Loading editions + catalogue ------------------------------------------
+// Drives the song-picker's placeholder states: "loading" until a catalogue is
+// available (cache or network), "error" when the fetch failed and there's
+// nothing to search — so an empty dropdown never masquerades as "no matches".
+let catalogueStatus = "loading";
+
+// The editions listing only knows ids (real titles live in each edition's
+// manifest), so prettify the slug for display: "wexford-2026" -> "Wexford 2026".
+// A real title is preferred whenever the API sends one.
+function editionLabel(e) {
+  if (e.title && e.title !== e.id) return e.title;
+  return e.id
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 async function loadEditions() {
   try {
     const res = await fetch(`${API_BASE}/api/editions`);
@@ -401,7 +480,7 @@ async function loadEditions() {
       ...data.editions.map((e) => {
         const option = document.createElement("option");
         option.value = e.id;
-        option.textContent = e.id;
+        option.textContent = editionLabel(e);
         option.selected = e.id === (app.edition?.id || "current");
         return option;
       })
@@ -418,14 +497,23 @@ async function loadCatalogue(edition) {
     const res = await fetch(
       `${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      if (!app.catalogue.length) catalogueStatus = "error";
+      refreshPickers();
+      return;
+    }
     const data = await res.json();
     app.edition = data.edition;
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
+    catalogueStatus = "ready";
+    saveCatalogueCache();
     renderUpNext();
+    refreshPickers();
   } catch {
     /* leave any previously loaded catalogue in place */
+    if (!app.catalogue.length) catalogueStatus = "error";
+    refreshPickers();
   }
 }
 
@@ -451,14 +539,26 @@ function searchCatalogue(query, limit = 8) {
     .slice(0, limit);
 }
 
+// Open pickers re-run their query when the catalogue (finally) arrives — text
+// typed during a slow load must not silently read as "no such song". Entries
+// self-prune once their input leaves the DOM (rows re-render constantly).
+const pickerRefreshers = new Set();
+
+function refreshPickers() {
+  for (const refresh of pickerRefreshers) refresh();
+}
+
 // A small custom combobox. We rolled our own instead of a native <datalist>
 // because datalist support is unreliable on the mobile browsers this app
 // targets (no dropdown on iOS Safari, flaky on Android). Shared by the per-row
 // correction picker and the standalone "add a song" field so the two can't
 // drift apart.
+let comboboxSeq = 0;
 function makeCombobox({ placeholder, onPick }) {
   const wrap = document.createElement("div");
   wrap.className = "song-picker";
+
+  const menuId = `song-picker-menu-${++comboboxSeq}`;
 
   const input = document.createElement("input");
   input.className = "song-picker-input";
@@ -468,9 +568,11 @@ function makeCombobox({ placeholder, onPick }) {
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-expanded", "false");
+  input.setAttribute("aria-controls", menuId);
 
   const menu = document.createElement("ul");
   menu.className = "song-picker-menu";
+  menu.id = menuId;
   menu.setAttribute("role", "listbox");
   menu.hidden = true;
 
@@ -481,6 +583,7 @@ function makeCombobox({ placeholder, onPick }) {
     menu.hidden = true;
     menu.replaceChildren();
     input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
     active = -1;
   }
 
@@ -490,11 +593,30 @@ function makeCombobox({ placeholder, onPick }) {
     onPick(entry);
   }
 
+  // Explain an empty result list instead of showing nothing: no catalogue yet,
+  // catalogue unreachable, or a genuine no-match.
+  function emptyStateMessage() {
+    if (catalogueStatus === "loading") return "Loading the songbook…";
+    if (catalogueStatus === "error") return "Couldn't load the songbook — check your connection";
+    return `No matches for “${input.value.trim()}”`;
+  }
+
   function renderMenu() {
-    if (!matches.length) return close();
+    if (!matches.length) {
+      if (!input.value.trim()) return close();
+      const status = document.createElement("li");
+      status.className = "song-picker-status";
+      status.textContent = emptyStateMessage();
+      menu.replaceChildren(status);
+      menu.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      input.removeAttribute("aria-activedescendant");
+      return;
+    }
     menu.replaceChildren(
       ...matches.map((entry, i) => {
         const li = document.createElement("li");
+        li.id = `${menuId}-opt-${i}`;
         li.className = "song-picker-option" + (i === active ? " active" : "");
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", i === active ? "true" : "false");
@@ -516,9 +638,25 @@ function makeCombobox({ placeholder, onPick }) {
     );
     menu.hidden = false;
     input.setAttribute("aria-expanded", "true");
+    // Screen readers track the arrow-key highlight through this.
+    if (active >= 0) input.setAttribute("aria-activedescendant", `${menuId}-opt-${active}`);
+    else input.removeAttribute("aria-activedescendant");
   }
 
   input.addEventListener("input", () => {
+    matches = searchCatalogue(input.value);
+    active = -1;
+    renderMenu();
+  });
+
+  pickerRefreshers.add(function refresh() {
+    if (!input.isConnected) {
+      pickerRefreshers.delete(refresh);
+      return;
+    }
+    // Only refresh a picker the user is actually in — don't pop menus open
+    // under an unfocused field.
+    if (document.activeElement !== input || !input.value.trim()) return;
     matches = searchCatalogue(input.value);
     active = -1;
     renderMenu();
@@ -601,9 +739,38 @@ function rowToEntry(row) {
   return { ...row, uid: newUid(), source: "scan", addedBy: app.name, removed: false, played: false, binned: false };
 }
 
+// The camera control is a real <button> for keyboard/switch access; forward
+// activation to the hidden file input.
+cameraButton.addEventListener("click", () => photoInput.click());
+
+// Long waits (cold start + parse) feel shorter with signs of life. The copy
+// advances rather than cycling, and stops on the last message.
+const SCAN_MESSAGES = [
+  "Reading the board…",
+  "Deciphering the handwriting…",
+  "Matching against the songbook…",
+  "Nearly there…",
+];
+let scanMessageTimer = null;
+function startScanStatus() {
+  let i = 0;
+  scanStatusText.textContent = SCAN_MESSAGES[0];
+  scanMessageTimer = setInterval(() => {
+    i = Math.min(i + 1, SCAN_MESSAGES.length - 1);
+    scanStatusText.textContent = SCAN_MESSAGES[i];
+  }, 4000);
+}
+function stopScanStatus() {
+  clearInterval(scanMessageTimer);
+  scanMessageTimer = null;
+}
+
 photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
+  // A fresh scan replaces the previous photo — release the old object URL
+  // before minting a new one (they otherwise live until the tab closes).
+  if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
   // Keep the object URL around: the review sheet lets you re-open this photo
   // (via a row's ⚠️ icon) to eyeball a match against the actual handwriting.
   const imageUrl = URL.createObjectURL(file);
@@ -611,6 +778,7 @@ photoInput.addEventListener("change", async () => {
   previewWrap.hidden = false;
   errorBox.hidden = true;
   scanOverlay.hidden = false;
+  startScanStatus();
   // Bring the photo (and its scanning animation) into view — it can sit below
   // the setlist, so scroll to it while the board is being read.
   previewWrap.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -636,12 +804,22 @@ photoInput.addEventListener("change", async () => {
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
     // Scanned rows go to the review sheet to be validated before merging.
+    catalogueStatus = "ready";
+    saveCatalogueCache();
+    refreshPickers();
     app.review = { entries: data.rows.map(rowToEntry), imageUrl };
     openReview();
   } catch (err) {
-    errorBox.textContent = err.message;
+    // A fetch that never reached the server rejects with a TypeError and an
+    // unhelpful message ("Failed to fetch") — translate it for humans. Server
+    // errors carry a user-facing `detail` and pass through.
+    errorBox.textContent =
+      err instanceof TypeError
+        ? "Couldn't reach the server — check your signal and try again."
+        : err.message;
     errorBox.hidden = false;
   } finally {
+    stopScanStatus();
     scanOverlay.hidden = true;
     // Reset so re-selecting the same file re-fires `change`.
     photoInput.value = "";
@@ -660,6 +838,8 @@ function closeReview() {
   addSection.hidden = false;
   previewWrap.hidden = true;
   closePhotoLightbox();
+  // The photo is only reachable from the review sheet — release it with it.
+  if (app.review?.imageUrl) URL.revokeObjectURL(app.review.imageUrl);
   app.review = null;
 }
 
@@ -705,7 +885,11 @@ reviewConfirm.addEventListener("click", () => {
   persist();
 });
 
-reviewCancel.addEventListener("click", closeReview);
+// Cancelling throws away a whole scan (and the wait for it) — one stray tap
+// shouldn't do that silently.
+reviewCancel.addEventListener("click", () => {
+  if (confirm("Discard this scan?")) closeReview();
+});
 
 // --- Rendering -------------------------------------------------------------
 function rerender() {
@@ -1196,6 +1380,9 @@ document.getElementById("download").addEventListener("click", () => {
 // --- Init ------------------------------------------------------------------
 (async function init() {
   restore();
+  // Hydrate search from the cached catalogue immediately; the network fetch
+  // below replaces it (a Cloud Function cold start can take several seconds).
+  restoreCatalogueCache();
   playerName.value = app.name;
   mountManualAdd();
   renderUpNext();
@@ -1205,6 +1392,10 @@ document.getElementById("download").addEventListener("click", () => {
   // chunk unfetched for local-only users.
   await resolveSession();
   updateShareUi();
-  await loadEditions();
-  loadCatalogue(editionSelect.value);
+  // Editions and catalogue are independent requests — don't waterfall them.
+  // The stored edition id (if any) is what the select would show anyway.
+  await Promise.all([
+    loadEditions(),
+    loadCatalogue(app.edition?.id || editionSelect.value),
+  ]);
 })();

@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>UT Request Board Parser</title>
+  <meta name="theme-color" content="#faf7f2">
+  <title>Whiteboard of Wishes · Ukulele Tuesday</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -99,7 +101,9 @@
     <section id="add">
       <div id="manual-add" class="manual-add"></div>
       <div class="or-divider"><span>or</span></div>
-      <label class="camera-button" for="photo-input">📷 Snap the request board</label>
+      <!-- A real button (not a label) so it's reachable and activatable with a
+           keyboard / switch access; it forwards the tap to the hidden input. -->
+      <button id="camera-button" class="camera-button" type="button">📷 Snap the request board</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
@@ -110,7 +114,7 @@
           <div class="scan-corner tr"></div>
           <div class="scan-corner bl"></div>
           <div class="scan-corner br"></div>
-          <div class="scan-status"><span class="dot"></span>Reading the board…</div>
+          <div class="scan-status"><span class="dot"></span><span id="scan-status-text">Reading the board…</span></div>
         </div>
       </div>
       <div id="error" class="error" hidden></div>
