@@ -388,6 +388,15 @@ footer#edition-note:empty { display: none; }
 /* The wider gap keeps the 44px hit areas (below) from overlapping so much
    that neighbouring tools steal each other's taps. */
 .row-tools { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.5rem; }
+/* On the two working lists, right-align the action buttons so played/bin (and
+   promote/demote) fall into the same columns whether or not the row also has a
+   drag handle — the handle only exists on Up next, and left-alignment would
+   otherwise shove Up next's actions out of line with Requests'. The handle is a
+   grab affordance, not an action, so it stays pinned to the left edge via an
+   auto margin. Scoped to .swipeable (Up next / Requests); review and bin rows
+   have their own tool sets. */
+.row-card.swipeable .row-tools { justify-content: flex-end; }
+.row-card.swipeable .drag-handle { margin-right: auto; }
 .row-tools button {
   border: none; background: none; font-size: 1.05rem; cursor: pointer; padding: 0.3rem;
   position: relative; color: #555;
