@@ -1152,24 +1152,27 @@ function renderRow(row, index, context) {
   body.appendChild(tools);
   li.appendChild(body);
 
-  // Swipe right = played, left = bin — the fast one-thumb path on a phone. The
-  // hint sits behind the body and is revealed as the body slides. `swipeable`
-  // gates the clipping/relative styles so it can't clip the review sheet's
-  // song-picker dropdown (that context is never swipeable).
+  // Swipe is the fast one-thumb path on a phone. The action depends on the list:
+  // in Requests, swipe right promotes to Up next (else bins); in Up next, swipe
+  // left demotes back to Requests (else marks played). The hint sits behind the
+  // body and is revealed as the body slides, so its icons follow suit.
+  // `swipeable` gates the clipping/relative styles so it can't clip the review
+  // sheet's song-picker dropdown (that context is never swipeable).
   if (context === "upnext" || context === "requests") {
     li.classList.add("swipeable");
     const hint = document.createElement("div");
     hint.className = "swipe-hint";
     hint.setAttribute("aria-hidden", "true");
+    // hintLeft shows on swipe right; hintRight shows on swipe left.
     const hintLeft = document.createElement("span");
     hintLeft.className = "swipe-hint-left";
-    hintLeft.appendChild(icon("played"));
+    hintLeft.appendChild(icon(context === "requests" ? "promote" : "played"));
     const hintRight = document.createElement("span");
     hintRight.className = "swipe-hint-right";
-    hintRight.appendChild(icon("bin"));
+    hintRight.appendChild(icon(context === "upnext" ? "demote" : "bin"));
     hint.append(hintLeft, hintRight);
     li.insertBefore(hint, body);
-    wireSwipe(li, body, row);
+    wireSwipe(li, body, row, context);
   }
 
   return li;
@@ -1298,12 +1301,12 @@ function commitDomOrder() {
   persist();
 }
 
-// --- Swipe to mark played / bin --------------------------------------------
+// --- Swipe to move / mark played / bin -------------------------------------
 // Horizontal-swipe sibling of wireDrag (pointer events so touch works). The
-// `body` (.row-body) tracks the finger; committing past a threshold toggles the
-// state. Swipe right = played, left = bin. Vertical intent is handed back to the
-// page (touch-action: pan-y) so the list still scrolls.
-function wireSwipe(li, body, row) {
+// `body` (.row-body) tracks the finger; committing past a threshold fires the
+// context's action (see settle). Vertical intent is handed back to the page
+// (touch-action: pan-y) so the list still scrolls.
+function wireSwipe(li, body, row, context) {
   const ACTIVATE = 8; // px of travel before we decide it's a swipe, not a tap
   li.addEventListener("pointerdown", (ev) => {
     // Buttons and the drag handle own their own gestures — don't hijack them.
@@ -1331,10 +1334,16 @@ function wireSwipe(li, body, row) {
 
     const settle = (dx) => {
       const commit = 0.35 * li.clientWidth;
-      // A committed toggle re-renders the whole list, so this li is discarded —
-      // no snap-back needed. Otherwise animate the body back to rest.
-      if (dx >= commit) return togglePlayed(row);
-      if (dx <= -commit) return toggleBinned(row);
+      // A committed action re-renders both lists, so this li is discarded — no
+      // snap-back needed. Otherwise animate the body back to rest. Right in
+      // Requests promotes to Up next; left in Up next demotes back; the other
+      // direction in each list keeps the played/bin toggle.
+      if (dx >= commit) {
+        return context === "requests" ? promote(row.uid) : togglePlayed(row);
+      }
+      if (dx <= -commit) {
+        return context === "upnext" ? demote(row.uid) : toggleBinned(row);
+      }
       body.style.transition = "";
       body.style.transform = "";
       li.classList.remove("swiping", "swipe-right", "swipe-left");
