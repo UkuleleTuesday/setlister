@@ -1212,6 +1212,9 @@ function wireDrag(handle, li) {
     // can't yank the row out from under the finger; sync applies it on release.
     sync.setGestureActive(true);
     li.classList.add("dragging");
+    // Where within the row the finger landed, so we can keep that exact point
+    // pinned under the pointer as it moves (no jump on the first move).
+    const grabY = ev.clientY - li.getBoundingClientRect().top;
     // Capture keeps touch from scrolling the page; move/up listen on the
     // document so events keep flowing even as we reorder the row in the DOM.
     try {
@@ -1221,15 +1224,27 @@ function wireDrag(handle, li) {
     }
 
     const onMove = (e) => {
+      // Reorder the DOM as the row crosses its neighbours' midpoints. The
+      // dragging row is excluded from dragAfterElement's measurements, so its
+      // lifted transform never confuses the hit-testing.
       const after = dragAfterElement(upnextRows, e.clientY);
       if (after == null) upnextRows.appendChild(li);
       else if (after !== li) upnextRows.insertBefore(li, after);
+      // Lift the row to follow the finger 1:1. We clear the transform to read
+      // the row's true in-flow position (getBoundingClientRect includes the
+      // current transform), then translate it back under the grab point. This
+      // makes the drag obviously "live" from the first pixel, and the gap it
+      // leaves in the list marks where it will land.
+      li.style.transform = "none";
+      const top = li.getBoundingClientRect().top;
+      li.style.transform = `translateY(${e.clientY - grabY - top}px)`;
     };
     const onUp = () => {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onUp);
       li.classList.remove("dragging");
+      li.style.transform = "";
       commitDomOrder();
       // Order committed + pushed; now let any deferred snapshot apply.
       sync.setGestureActive(false);
