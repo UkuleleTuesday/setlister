@@ -1065,6 +1065,12 @@ function renderRow(row, index, context) {
     handle.setAttribute("aria-label", "Reorder — drag, or press up/down arrow keys");
     wireDrag(handle, li);
     wireKeyboardReorder(handle, row);
+    // The handle is a full-height grab strip down the card's left edge, not a
+    // button in the tools row: a big thumb target for reordering on mobile. It
+    // lives as the body's first child so it can be absolutely positioned over
+    // the left gutter that `has-handle` opens up.
+    body.classList.add("has-handle");
+    body.insertBefore(handle, body.firstChild);
 
     // Send a queued tune back to the Requests pool without deleting it.
     const demoteButton = document.createElement("button");
@@ -1073,7 +1079,7 @@ function renderRow(row, index, context) {
     demoteButton.setAttribute("aria-label", "Move to Requests");
     demoteButton.onclick = () => demote(row.uid);
 
-    tools.append(handle, demoteButton);
+    tools.append(demoteButton);
   }
 
   // A request is promoted into the running order; no reorder in the pool.

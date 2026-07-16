@@ -388,15 +388,12 @@ footer#edition-note:empty { display: none; }
 /* The wider gap keeps the 44px hit areas (below) from overlapping so much
    that neighbouring tools steal each other's taps. */
 .row-tools { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.5rem; }
-/* On the two working lists, right-align the action buttons so played/bin (and
-   promote/demote) fall into the same columns whether or not the row also has a
-   drag handle — the handle only exists on Up next, and left-alignment would
-   otherwise shove Up next's actions out of line with Requests'. The handle is a
-   grab affordance, not an action, so it stays pinned to the left edge via an
-   auto margin. Scoped to .swipeable (Up next / Requests); review and bin rows
+/* On the two working lists, right-align the action buttons so promote/demote
+   and played/bin fall into the same columns across both lists. (The drag handle
+   is no longer part of this row — it's a full-height strip down the left edge,
+   see below.) Scoped to .swipeable (Up next / Requests); review and bin rows
    have their own tool sets. */
 .row-card.swipeable .row-tools { justify-content: flex-end; }
-.row-card.swipeable .drag-handle { margin-right: auto; }
 .row-tools button {
   border: none; background: none; font-size: 1.05rem; cursor: pointer; padding: 0.3rem;
   position: relative; color: #555;
@@ -424,16 +421,29 @@ footer#edition-note:empty { display: none; }
 .row-tools .check-button.active .icon,
 .row-tools .bin-button.active .icon { width: 1rem; height: 1rem; }
 
-/* Drag handle for reordering the setlist. touch-action:none keeps a touch-drag
-   from scrolling the page instead of grabbing the row. */
+/* Drag handle for reordering the setlist. It's a full-height grab strip down
+   the card's left edge (not a button in the tools row) so it's a big, easy
+   thumb target on mobile. `has-handle` opens a matching left gutter in the body
+   for the strip to sit in. touch-action:none keeps a touch-drag from scrolling
+   the page instead of grabbing the row. */
+.row-body.has-handle { padding-left: 3rem; }
 .drag-handle {
+  /* Not inside .row-tools, so it doesn't inherit that block's button reset. */
+  appearance: none; -webkit-appearance: none; border: none; padding: 0; margin: 0;
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2.4rem;
+  display: flex; align-items: center; justify-content: center;
   /* ≥3:1 non-text contrast for an interactive control (was #999). */
   color: #767676; cursor: grab; touch-action: none; line-height: 1;
+  /* A faint tint marks the strip as its own grab zone; rounding hugs the card's
+     left corners (it sits over the status stripe, which Up next doesn't need —
+     the handle itself signals "this row is reorderable"). */
+  background: rgba(0, 0, 0, 0.035); border-radius: 10px 0 0 10px;
 }
-.drag-handle:active { cursor: grabbing; }
-/* The handle now doubles as the keyboard reorder control (↑/↓ nudge the row),
+.drag-handle .icon { width: 1.4rem; height: 1.4rem; }
+.drag-handle:active { cursor: grabbing; background: rgba(0, 0, 0, 0.06); }
+/* The handle also doubles as the keyboard reorder control (↑/↓ nudge the row),
    so it needs a visible focus ring for keyboard users. */
-.drag-handle:focus-visible { outline: 2px solid #4a148c; outline-offset: 2px; border-radius: 4px; }
+.drag-handle:focus-visible { outline: 2px solid #4a148c; outline-offset: -2px; border-radius: 10px 0 0 10px; }
 /* While dragging the row lifts off the list and tracks the finger 1:1 (the
    translateY is set inline from JS). We raise it above its neighbours, drop a
    pronounced shadow and nudge the scale so it reads as "picked up" the instant
