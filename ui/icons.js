@@ -6,14 +6,14 @@
 // small — Vite tree-shakes everything unused.
 
 import {
-  ArrowDownToLine,
-  ArrowUpToLine,
   Camera,
   Check,
   ClipboardList,
   Download,
   GripVertical,
   Link,
+  ListMinus,
+  ListPlus,
   LoaderCircle,
   Plus,
   RotateCcw,
@@ -25,12 +25,14 @@ import {
 } from "lucide";
 
 // Semantic names decouple call sites from the icon set: "promote" reads as
-// intent, ArrowUpToLine is an implementation detail we can swap later.
+// intent, the specific lucide glyph is an implementation detail we can swap.
 const ICONS = {
-  // Promote/demote move a row across lists — the bar marks the "destination
-  // edge" so the intent reads as "send to the other list", not "nudge one slot".
-  promote: ArrowUpToLine,
-  demote: ArrowDownToLine,
+  // Promote/demote move a row across the two lists (not a one-slot nudge), so
+  // they borrow the "add to / remove from queue" idiom rather than a bare
+  // arrow: +list = put it in the running order, −list = drop it back to the
+  // pool. The bin icon owns deletion, so −list can't be misread as "remove".
+  promote: ListPlus,
+  demote: ListMinus,
   played: Check,
   check: Check,
   bin: Trash2,
