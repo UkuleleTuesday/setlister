@@ -303,8 +303,9 @@ footer#edition-note:empty { display: none; }
 .row-card.crossed .match-title,
 .row-card.binned .match-title { text-decoration: line-through; }
 
-/* Swipe reveal: ✓ on the left (swipe right = played), 🗑 on the right (swipe
-   left = bin). Opacity ramps with --swipe-progress, set by wireSwipe. */
+/* Swipe reveal: the left icon shows on swipe right (promote in Requests, else
+   played), the right icon on swipe left (demote in Up next, else bin). Icons are
+   picked per-list in renderRow. Opacity ramps with --swipe-progress. */
 .swipe-hint {
   position: absolute; inset: 0; z-index: 0;
   display: flex; align-items: center; justify-content: space-between;
