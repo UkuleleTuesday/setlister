@@ -421,7 +421,19 @@ footer#edition-note:empty { display: none; }
   color: #767676; cursor: grab; touch-action: none; line-height: 1;
 }
 .drag-handle:active { cursor: grabbing; }
-.row-card.dragging { opacity: 0.6; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+/* While dragging the row lifts off the list and tracks the finger 1:1 (the
+   translateY is set inline from JS). We raise it above its neighbours, drop a
+   pronounced shadow and nudge the scale so it reads as "picked up" the instant
+   it's grabbed — before it has moved far enough to swap places. transition:none
+   keeps it glued to the pointer instead of lagging behind. The gap it leaves in
+   the list is the drop target. */
+.row-card.dragging {
+  position: relative; z-index: 5;
+  opacity: 0.95; transform-origin: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transition: none; cursor: grabbing;
+  will-change: transform;
+}
 
 /* Custom song-picker combobox (replaces the native <datalist>, which is
    unreliable on the mobile browsers this app targets). */
