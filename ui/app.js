@@ -1103,10 +1103,13 @@ function renderRow(row, index, context) {
     tools.append(unbinButton);
   }
 
-  // Live tracking lives on the two working lists. Check off a tune once it's
-  // been played (fades it out); bin one you're skipping (moves it to the Bin).
-  // The review sheet has no gig to track, so it keeps the plain remove/restore.
-  if (context === "upnext" || context === "requests") {
+  // Live tracking lives on the two working lists, but each shows only the
+  // action that matches its swipe, so the tap buttons stay in lockstep with the
+  // gestures: Up next checks a tune off as played (swipe-right); Requests bins
+  // one you don't want (swipe-left). "Skip a queued song" therefore funnels
+  // through Requests (demote, then bin) rather than duplicating both actions on
+  // both lists. The review sheet has no gig to track, so it keeps remove/restore.
+  if (context === "upnext") {
     const playedButton = document.createElement("button");
     playedButton.type = "button";
     playedButton.appendChild(icon("played"));
@@ -1116,6 +1119,8 @@ function renderRow(row, index, context) {
     playedButton.setAttribute("aria-pressed", String(!!row.played));
     playedButton.onclick = () => togglePlayed(row);
 
+    tools.append(playedButton);
+  } else if (context === "requests") {
     // The trash icon reads as "bin" — reuse it for the bin action here (cross
     // out, kept in the export) rather than the review sheet's hard removal.
     const binButton = document.createElement("button");
@@ -1127,7 +1132,7 @@ function renderRow(row, index, context) {
     binButton.setAttribute("aria-pressed", String(!!row.binned));
     binButton.onclick = () => toggleBinned(row);
 
-    tools.append(playedButton, binButton);
+    tools.append(binButton);
   } else if (context === "review") {
     const removeButton = document.createElement("button");
     removeButton.appendChild(icon(row.removed ? "restore" : "bin"));
