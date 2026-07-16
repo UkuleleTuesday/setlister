@@ -10,8 +10,6 @@ import {
   ArrowUpToLine,
   Camera,
   Check,
-  ChevronDown,
-  ChevronUp,
   ClipboardList,
   Download,
   GripVertical,
@@ -29,10 +27,8 @@ import {
 // Semantic names decouple call sites from the icon set: "promote" reads as
 // intent, ArrowUpToLine is an implementation detail we can swap later.
 const ICONS = {
-  "move-up": ChevronUp,
-  "move-down": ChevronDown,
   // Promote/demote move a row across lists — the bar marks the "destination
-  // edge" so they can't be confused with the plain reorder chevrons.
+  // edge" so the intent reads as "send to the other list", not "nudge one slot".
   promote: ArrowUpToLine,
   demote: ArrowDownToLine,
   played: Check,
