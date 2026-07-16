@@ -14,6 +14,8 @@ const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
 const requestsRows = document.getElementById("requests-rows");
 const requestsEmpty = document.getElementById("requests-empty");
+const binSection = document.getElementById("bin");
+const binRows = document.getElementById("bin-rows");
 const clearButton = document.getElementById("clear");
 const reviewSection = document.getElementById("review");
 const reviewRows = document.getElementById("review-rows");
@@ -251,6 +253,7 @@ function applyRemoteState(state) {
   if (state.edition) app.edition = state.edition;
   renderUpNext();
   renderRequests();
+  renderBin();
   persist();
 }
 
@@ -524,6 +527,7 @@ async function loadCatalogue(edition) {
     catalogueStatus = "ready";
     saveCatalogueCache();
     renderUpNext();
+    renderBin();
     refreshPickers();
   } catch {
     /* leave any previously loaded catalogue in place */
@@ -910,6 +914,7 @@ reviewCancel.addEventListener("click", () => {
 function rerender() {
   renderUpNext();
   renderRequests();
+  renderBin();
   if (app.review) renderReview();
 }
 
@@ -925,21 +930,37 @@ function renderEditionNote() {
 
 function renderUpNext() {
   renderEditionNote();
-  upnextEmpty.hidden = app.upNext.length > 0;
+  // Binned rows are lifted out into the Bin section, so the empty note keys off
+  // the *visible* (non-binned) rows, not the raw list length.
+  upnextEmpty.hidden = app.upNext.some((e) => !e.binned);
   // "Start over" wipes both lists, so it's relevant whenever either has rows.
   clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
+  // Map over the full list (skipping binned rows) so the index handed to
+  // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
-    ...app.upNext.map((e, i) => renderRow(e, i, "upnext"))
+    ...app.upNext
+      .map((e, i) => (e.binned ? null : renderRow(e, i, "upnext")))
+      .filter(Boolean)
   );
 }
 
 function renderRequests() {
-  requestsEmpty.hidden = app.requests.length > 0;
+  requestsEmpty.hidden = app.requests.some((e) => !e.binned);
   // The clear button's visibility also depends on the requests list.
   clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
   requestsRows.replaceChildren(
-    ...app.requests.map((e, i) => renderRow(e, i, "requests"))
+    ...app.requests
+      .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
+      .filter(Boolean)
   );
+}
+
+// The Bin gathers every binned row from both working lists (they stay in their
+// home arrays so un-binning restores them in place). Hidden while empty.
+function renderBin() {
+  const binned = [...app.upNext, ...app.requests].filter((e) => e.binned);
+  binSection.hidden = binned.length === 0;
+  binRows.replaceChildren(...binned.map((e, i) => renderRow(e, i, "bin")));
 }
 
 function renderRow(row, index, context) {
@@ -1079,9 +1100,21 @@ function renderRow(row, index, context) {
     tools.append(buildSongPicker(row));
   }
 
+  // In the Bin, the only action is to lift a song back out — un-binning flips
+  // the flag and the row reappears in its home list at its original spot.
+  if (context === "bin") {
+    const unbinButton = document.createElement("button");
+    unbinButton.type = "button";
+    unbinButton.appendChild(icon("restore"));
+    unbinButton.title = "Un-bin";
+    unbinButton.setAttribute("aria-label", "Un-bin");
+    unbinButton.onclick = () => toggleBinned(row);
+    tools.append(unbinButton);
+  }
+
   // Live tracking lives on the two working lists. Check off a tune once it's
-  // been played (fades it out); bin one you're skipping (crosses it out). The
-  // review sheet has no gig to track, so it keeps the plain remove/restore.
+  // been played (fades it out); bin one you're skipping (moves it to the Bin).
+  // The review sheet has no gig to track, so it keeps the plain remove/restore.
   if (context === "upnext" || context === "requests") {
     const playedButton = document.createElement("button");
     playedButton.type = "button";
@@ -1104,7 +1137,7 @@ function renderRow(row, index, context) {
     binButton.onclick = () => toggleBinned(row);
 
     tools.append(playedButton, binButton);
-  } else {
+  } else if (context === "review") {
     const removeButton = document.createElement("button");
     removeButton.appendChild(icon(row.removed ? "restore" : "bin"));
     removeButton.title = row.removed ? "Restore row" : "Remove row";
@@ -1355,6 +1388,7 @@ clearButton.addEventListener("click", () => {
   app.requests = [];
   renderUpNext();
   renderRequests();
+  renderBin();
   persist();
 });
 
@@ -1411,6 +1445,7 @@ document.getElementById("download").addEventListener("click", () => {
   mountManualAdd();
   renderUpNext();
   renderRequests();
+  renderBin();
   // Auto-rejoin a shared session (URL param or stored id) before loading the
   // catalogue: joining swaps in the remote lists, and this keeps the Firestore
   // chunk unfetched for local-only users.

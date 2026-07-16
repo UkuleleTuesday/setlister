@@ -233,7 +233,7 @@ footer#edition-note:empty { display: none; }
   background: #ffebee; color: var(--conflict); font-size: 0.92rem;
 }
 
-#upnext h2, #requests h2, #review h2 { margin: 1.2rem 0 0.3rem; font-size: 1.1rem; }
+#upnext h2, #requests h2, #review h2, #bin h2 { margin: 1.2rem 0 0.3rem; font-size: 1.1rem; }
 .note { color: #666; font-size: 0.85rem; margin: 0.2rem 0 0.8rem; }
 .toggle { display: flex; align-items: center; gap: 0.4rem; }
 
@@ -262,7 +262,16 @@ footer#edition-note:empty { display: none; }
   content: ""; flex: 1; height: 1px; background: #ddd;
 }
 
-#upnext-rows, #requests-rows, #review-rows { list-style: none; margin: 0; padding: 0; }
+#upnext-rows, #requests-rows, #review-rows, #bin-rows { list-style: none; margin: 0; padding: 0; }
+
+/* The Bin is a quiet graveyard at the bottom of the page: a muted heading and
+   softened cards. Every row here is binned, so drop the aggressive line-through
+   (that strike is the signal for a bin action *inside* the working lists) and
+   just fade the whole card, leaving the "Un-bin" restore control readable. */
+#bin { margin-top: 1.4rem; }
+#bin h2 { color: #888; }
+#bin-rows .row-card { opacity: 0.6; }
+#bin-rows .match-title { text-decoration: none; }
 
 .row-card {
   border-radius: 10px; margin-bottom: 0.6rem;
