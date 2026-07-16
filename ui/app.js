@@ -1053,27 +1053,18 @@ function renderRow(row, index, context) {
   // Reorder controls only make sense on Up next (the running order), not in the
   // Requests pool or the review sheet where rows are still being validated.
   if (context === "upnext") {
+    // Drag is the primary reorder gesture (pointer/touch); arrow keys on the
+    // focused handle are the keyboard-accessible equivalent, so we no longer
+    // need the separate move-up/move-down buttons — which read as a third and
+    // fourth arrow next to the demote arrow and invited confusion.
     const handle = document.createElement("button");
     handle.className = "drag-handle";
     handle.type = "button";
     handle.appendChild(icon("drag"));
-    handle.title = "Drag to reorder";
-    handle.setAttribute("aria-label", "Drag to reorder");
+    handle.title = "Drag or press ↑/↓ to reorder";
+    handle.setAttribute("aria-label", "Reorder — drag, or press up/down arrow keys");
     wireDrag(handle, li);
-
-    const up = document.createElement("button");
-    up.appendChild(icon("move-up"));
-    up.title = "Move up";
-    up.setAttribute("aria-label", "Move up");
-    up.disabled = index === 0;
-    up.onclick = () => moveEntry(index, -1);
-
-    const down = document.createElement("button");
-    down.appendChild(icon("move-down"));
-    down.title = "Move down";
-    down.setAttribute("aria-label", "Move down");
-    down.disabled = index === app.upNext.length - 1;
-    down.onclick = () => moveEntry(index, 1);
+    wireKeyboardReorder(handle, row);
 
     // Send a queued tune back to the Requests pool without deleting it.
     const demoteButton = document.createElement("button");
@@ -1082,7 +1073,7 @@ function renderRow(row, index, context) {
     demoteButton.setAttribute("aria-label", "Move to Requests");
     demoteButton.onclick = () => demote(row.uid);
 
-    tools.append(handle, up, down, demoteButton);
+    tools.append(handle, demoteButton);
   }
 
   // A request is promoted into the running order; no reorder in the pool.
@@ -1236,6 +1227,28 @@ function dragAfterElement(container, y) {
     }
   }
   return closest.element;
+}
+
+// Keyboard-accessible sibling of wireDrag: with the drag handle focused, the
+// up/down arrow keys nudge the row one slot, mirroring what drag does with a
+// pointer. We re-look-up the row's live index each keypress (the list shifts
+// as it moves) and return focus to the same row's handle after the re-render,
+// so a keyboard user can move a song several slots without losing their place.
+function wireKeyboardReorder(handle, row) {
+  handle.addEventListener("keydown", (ev) => {
+    let delta = 0;
+    if (ev.key === "ArrowUp") delta = -1;
+    else if (ev.key === "ArrowDown") delta = 1;
+    else return;
+    ev.preventDefault();
+    const index = app.upNext.indexOf(row);
+    if (index === -1) return;
+    moveEntry(index, delta);
+    const moved = upnextRows.querySelector(
+      `[data-uid="${row.uid}"] .drag-handle`
+    );
+    if (moved) moved.focus();
+  });
 }
 
 // Pointer-events drag so touch works on the mobile browsers this app targets

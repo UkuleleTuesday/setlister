@@ -422,6 +422,9 @@ footer#edition-note:empty { display: none; }
   color: #767676; cursor: grab; touch-action: none; line-height: 1;
 }
 .drag-handle:active { cursor: grabbing; }
+/* The handle now doubles as the keyboard reorder control (↑/↓ nudge the row),
+   so it needs a visible focus ring for keyboard users. */
+.drag-handle:focus-visible { outline: 2px solid #4a148c; outline-offset: 2px; border-radius: 4px; }
 /* While dragging the row lifts off the list and tracks the finger 1:1 (the
    translateY is set inline from JS). We raise it above its neighbours, drop a
    pronounced shadow and nudge the scale so it reads as "picked up" the instant
