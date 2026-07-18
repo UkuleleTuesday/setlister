@@ -19,8 +19,9 @@ let _promise = null;
  *   - `db`  is the Firestore database instance
  *   - `fx`  is a namespace of Firestore helper functions so callers never
  *           need to import firebase directly:
- *           { doc, getDoc, onSnapshot, updateDoc, runTransaction,
- *             serverTimestamp, deleteField, Timestamp }
+ *           { doc, collection, getDoc, onSnapshot, setDoc, updateDoc,
+ *             deleteDoc, runTransaction, serverTimestamp, deleteField,
+ *             Timestamp }
  *
  * On the first call the Firebase SDK chunks are fetched; subsequent calls
  * return the memoized result instantly.
@@ -48,9 +49,12 @@ async function _init() {
     getFirestore: _getFirestore,
     connectFirestoreEmulator,
     doc,
+    collection,
     getDoc,
     onSnapshot,
+    setDoc,
     updateDoc,
+    deleteDoc,
     runTransaction,
     serverTimestamp,
     deleteField,
@@ -72,9 +76,12 @@ async function _init() {
 
   const fx = {
     doc,
+    collection,
     getDoc,
     onSnapshot,
+    setDoc,
     updateDoc,
+    deleteDoc,
     runTransaction,
     serverTimestamp,
     deleteField,

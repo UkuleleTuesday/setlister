@@ -1,4 +1,5 @@
 import * as sync from "./sync.js";
+import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
 import { icon, iconLabel } from "./icons.js";
 
@@ -31,6 +32,10 @@ const sharePanel = document.getElementById("share-panel");
 const shareSessionIdEl = document.getElementById("share-session-id");
 const shareLinkButton = document.getElementById("share-link");
 const shareLeaveButton = document.getElementById("share-leave");
+const shareCountBadge = document.getElementById("share-count-badge");
+const sharePresence = document.getElementById("share-presence");
+const sharePresenceCount = document.getElementById("share-presence-count");
+const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
 const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
@@ -92,10 +97,13 @@ for (const control of [modelSelect, disableThinking, sendCatalogue, includeCross
   control.addEventListener("change", persist);
 }
 
-// Remember the name across sessions so provenance survives a reload.
+// Remember the name across sessions so provenance survives a reload. In a
+// shared session, also push it to the presence roster so overriding your
+// generated default name shows up for everyone immediately.
 playerName.addEventListener("input", () => {
   app.name = playerName.value;
   persist();
+  presence.refreshPresence();
 });
 
 // Settings live in a panel behind the gear icon; toggle it and close on
@@ -342,19 +350,60 @@ function setSharePanelOpen(open) {
   shareToggle.setAttribute("aria-expanded", String(open));
 }
 
+// How many people (including us) presence currently reports in the session.
+// Drives the count badge and is folded into the share button's aria-label.
+let connectedCount = 0;
+
 // Reflect the current session state on the button (active ring/dot) and in the
 // popover (session id). Wired to sync's status callback so TTL expiry, leaves,
 // and connects all keep the UI honest.
 function updateShareUi() {
   const id = sync.getSessionId();
   shareToggle.classList.toggle("active", !!id);
-  shareToggle.setAttribute(
-    "aria-label",
-    id ? `Sharing session ${id} — tap for options` : "Share session"
-  );
+  let label;
+  if (!id) label = "Share session";
+  else if (connectedCount > 1)
+    label = `Sharing session ${id} — ${connectedCount} people here, tap for options`;
+  else label = `Sharing session ${id} — tap for options`;
+  shareToggle.setAttribute("aria-label", label);
   if (id) shareSessionIdEl.textContent = id;
   else setSharePanelOpen(false); // no session → nothing to show
 }
+
+// Render the "who's here" roster into the share panel and the count badge on
+// the share button. Wired to presence.onRoster, so it re-renders whenever a
+// peer joins, leaves, or renames. self shows first, tagged "(you)".
+function renderPresence(roster) {
+  connectedCount = roster.length;
+  const id = sync.getSessionId();
+  const showBadge = !!id && connectedCount > 0;
+  shareCountBadge.hidden = !showBadge;
+  shareCountBadge.textContent = showBadge ? String(connectedCount) : "";
+
+  if (!id || !connectedCount) {
+    sharePresence.hidden = true;
+    sharePresenceList.replaceChildren();
+  } else {
+    sharePresence.hidden = false;
+    sharePresenceCount.textContent = String(connectedCount);
+    sharePresenceList.replaceChildren(
+      ...roster.map((peer) => {
+        const li = document.createElement("li");
+        li.className = "share-presence-item";
+        const dot = document.createElement("span");
+        dot.className = "presence-dot";
+        dot.setAttribute("aria-hidden", "true");
+        const name = document.createElement("span");
+        name.className = "presence-name";
+        name.textContent = peer.isSelf ? `${peer.name} (you)` : peer.name;
+        li.append(dot, name);
+        return li;
+      })
+    );
+  }
+  updateShareUi();
+}
+presence.onRoster(renderPresence);
 
 async function copyToClipboard(text) {
   try {
@@ -465,17 +514,29 @@ document.addEventListener("keydown", (event) => {
 
 // Keep the UI in sync when the engine changes state on its own — most
 // importantly when the remote doc expires (TTL) and we drop to local-only.
+// Presence is bound to the same lifecycle: start heartbeating on connect, stop
+// (and retract our doc) on leave/expiry.
 sync.onStatusChange((status) => {
-  if (status.status === "expired") {
+  if (status.status === "connected") {
+    presence.startPresence(status.id, () => app.name);
+  } else if (status.status === "expired") {
+    presence.stopPresence();
     storedSessionId = null;
     setSessionParam(null);
     persist();
     showSessionError(
       "This shared session has expired. Your lists are still here, just local now."
     );
+  } else if (status.status === "left") {
+    presence.stopPresence();
   }
   updateShareUi();
 });
+
+// Best-effort: retract our presence when the tab closes so peers see us go
+// promptly. pagehide fires more reliably than beforeunload on mobile; if it's
+// missed, the staleness window + TTL retire the doc anyway.
+window.addEventListener("pagehide", presence.removeOnUnload);
 
 // --- Loading editions + catalogue ------------------------------------------
 // Drives the song-picker's placeholder states: "loading" until a catalogue is

@@ -9,8 +9,11 @@ rules_version = '2';
 // defence is a closed schema (hasOnly locks the key set) + deny-by-default
 // everywhere else + a hard TTL cap so no document can live forever.
 //
-// v1 schema is CLOSED. Do NOT add `presence` or any other field here — that is
-// a droppable follow-up (#32), which would extend these rules itself.
+// The session doc's v1 schema stays CLOSED — do NOT add `presence` or any other
+// field to it. "Who's here" presence (#32) deliberately lives in a SIBLING
+// subcollection, `sessions/{id}/presence/{clientId}`, so the frozen doc is
+// untouched and a churning heartbeat never rewrites (and so extends the TTL of)
+// the durable state.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -18,6 +21,16 @@ service cloud.firestore {
       allow read: if true;                        // public by design
       allow create, update: if isValidSession(id);
       allow delete: if false;                     // cleanup is the TTL's job
+
+      // Ephemeral presence heartbeats. Same unauthenticated posture as the
+      // parent: readable by anyone with the id, and each client owns its own
+      // doc (keyed by a client id). Unlike the parent, delete is allowed so a
+      // client can retract its own presence on leave.
+      match /presence/{clientId} {
+        allow read: if true;
+        allow create, update: if isValidPresence();
+        allow delete: if true;
+      }
     }
 
     // Deny-by-default: everything not matched above is closed.
@@ -43,4 +56,17 @@ function isValidSession(id) {
     && d.expiresAt <= request.time + duration.value(31, 'd');
   // `edition` (map | null) is intentionally not type-constrained: hasOnly
   // already caps the key set, and null vs map is validated client-side.
+}
+
+// A presence heartbeat: a short display name plus two timestamps. Closed key
+// set + a bounded name length, and a hard cap on the doc's lifetime so an
+// abandoned heartbeat can't outlive the TTL sweep.
+function isValidPresence() {
+  let d = request.resource.data;
+  return d.keys().hasOnly(['name', 'updatedAt', 'expiresAt'])
+    && d.name is string
+    && d.name.size() <= 60
+    && d.updatedAt is timestamp
+    && d.expiresAt is timestamp
+    && d.expiresAt <= request.time + duration.value(1, 'h');
 }
