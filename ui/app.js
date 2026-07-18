@@ -56,6 +56,9 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the request board"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 document.getElementById("copy").replaceChildren(...iconLabel("copy", "Copy list"));
 document.getElementById("download").replaceChildren(...iconLabel("download", "Download JSON"));
+// Append a rotating chevron to the Advanced <summary> so it reads as a toggle,
+// not a static heading — the same pattern used by the played/binned row groups.
+document.querySelector(".settings-advanced > summary").append(icon("chevron", "advanced-chevron"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
