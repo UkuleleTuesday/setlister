@@ -84,6 +84,17 @@ The app deploys automatically on every merge to `main`
   It calls the function cross-origin; allowed origins are configured via
   `CORS_ALLOWED_ORIGINS` (see `.env.deploy`).
 
+Every pull request also gets a **UI preview environment** on GitHub Pages
+(`deploy-ui` job, using [`rossjrw/pr-preview-action`](https://github.com/rossjrw/pr-preview-action)).
+CI builds the PR's `ui/dist` and publishes it to
+`https://ukuleletuesday.github.io/setlister/pr-preview/pr-<N>/`, then posts the
+link as a comment on the PR. Because Vite builds with relative asset URLs
+(`base: "./"`), the same build works under that subpath, and the preview shares
+the production `github.io` origin so no extra CORS entry is needed. The `main`
+deploy uses `clean-exclude: pr-preview/` so publishing production never wipes
+open previews, and the preview is removed automatically when the PR is merged or
+closed (`cleanup-ui-preview` job).
+
 The endpoint is public but guarded: uploads are capped at 20 MB, `/api/parse`
 is rate-limited per IP (in-process fixed window), and the function runs with
 `--max-instances 1` to bound worst-case Vertex AI spend (expected traffic is a
