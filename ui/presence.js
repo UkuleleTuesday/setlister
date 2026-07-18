@@ -37,25 +37,16 @@ const PRESENCE_TTL_MS = 5 * 60 * 1000;
 const CLIENT_ID_KEY = "setlister.clientId.v1";
 const ANON_NAME_KEY = "setlister.anonName.v1";
 
-// Friendly default identities so an unnamed peer still reads as a person, not a
-// blank. Kept separate from session-id.js's wordlists (different vibe: these
-// name a someone, not a session) but the same say-it-aloud spirit.
-const ANON_ADJECTIVES = [
-  "Merry", "Sunny", "Jolly", "Breezy", "Mellow", "Chirpy", "Plucky", "Snappy",
-  "Jazzy", "Funky", "Groovy", "Bouncy", "Lively", "Peppy", "Nifty", "Dandy",
-  "Cosmic", "Dreamy", "Golden", "Ruby", "Minty", "Honey", "Spicy", "Zesty",
-  "Brave", "Clever", "Witty", "Quirky", "Giddy", "Eager", "Bold", "Nimble",
-  "Humming", "Dancing", "Skipping", "Roaming", "Glowing", "Sparkly", "Dapper",
-  "Spiffy", "Jaunty", "Chipper", "Sprightly", "Wandering",
-];
-
-const ANON_NOUNS = [
+// Default identities for peers who haven't set a name: "Anonymous <Animal>".
+// The "Anonymous" prefix reads clearly as a placeholder (not a chosen name),
+// and the animal keeps each one distinct and easy to say across a pub table.
+const ANON_ANIMALS = [
   "Otter", "Badger", "Hedgehog", "Robin", "Sparrow", "Finch", "Lark", "Wren",
-  "Penguin", "Dolphin", "Walrus", "Seagull", "Songbird", "Cricket", "Busker",
-  "Minstrel", "Troubadour", "Sailor", "Banjo", "Kazoo", "Fiddle", "Ukulele",
-  "Harmonica", "Tambourine", "Maraca", "Bongo", "Whistle", "Piccolo", "Cello",
-  "Bugle", "Muffin", "Crumpet", "Scone", "Biscuit", "Pretzel", "Bagel",
-  "Cupcake", "Acorn", "Pebble", "Lantern", "Compass", "Anchor", "Teapot",
+  "Penguin", "Dolphin", "Walrus", "Seagull", "Fox", "Owl", "Heron", "Magpie",
+  "Squirrel", "Mole", "Newt", "Toad", "Frog", "Hare", "Stoat", "Weasel",
+  "Puffin", "Kestrel", "Swift", "Swan", "Goose", "Duck", "Moorhen", "Curlew",
+  "Bumblebee", "Cricket", "Ladybird", "Dragonfly", "Seal", "Porpoise",
+  "Dormouse", "Shrew", "Vole", "Ferret", "Pheasant", "Mallard",
 ];
 
 function randomIndex(length) {
@@ -103,19 +94,19 @@ export function getClientId() {
 let volatileClientId = null;
 
 // The default display name for this device when "Your name" is left blank.
-// Generated once and remembered, so you stay the same "Jolly Otter" across
+// Generated once and remembered, so you stay the same "Anonymous Otter" across
 // reloads until you type a real name to override it.
 export function getAnonName() {
   try {
     let name = localStorage.getItem(ANON_NAME_KEY);
     if (!name) {
-      name = `${pick(ANON_ADJECTIVES)} ${pick(ANON_NOUNS)}`;
+      name = `Anonymous ${pick(ANON_ANIMALS)}`;
       localStorage.setItem(ANON_NAME_KEY, name);
     }
     return name;
   } catch {
     if (!volatileAnonName) {
-      volatileAnonName = `${pick(ANON_ADJECTIVES)} ${pick(ANON_NOUNS)}`;
+      volatileAnonName = `Anonymous ${pick(ANON_ANIMALS)}`;
     }
     return volatileAnonName;
   }
