@@ -50,22 +50,6 @@
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
       </label>
-      <label class="field">
-        <span>Model</span>
-        <select id="model">
-          <option value="" selected>default (gemini-2.5-flash)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
-        </select>
-      </label>
-      <label class="field toggle">
-        <input type="checkbox" id="disable-thinking" checked>
-        <span>Disable model thinking (faster)</span>
-      </label>
-      <label class="field toggle">
-        <input type="checkbox" id="send-catalogue" checked>
-        <span>Send songbook to model (better handwriting reads)</span>
-      </label>
       <label class="field toggle">
         <input type="checkbox" id="show-suggestions">
         <span>Show alternative suggestions</span>
@@ -74,11 +58,6 @@
         <input type="checkbox" id="include-crossed">
         <span>Include crossed-out rows in export</span>
       </label>
-      <label class="field">
-        <span>Max image edge (px)</span>
-        <input type="number" id="max-image-edge" min="256" max="4096" step="128"
-               placeholder="1600">
-      </label>
       <div class="field">
         <span>Export setlist</span>
         <div class="actions">
@@ -86,6 +65,32 @@
           <button id="download">Download JSON</button>
         </div>
       </div>
+      <!-- Developer/tuning knobs folded away so the panel reads as a settings
+           menu for musicians, not a prompt-engineering console. -->
+      <details class="settings-advanced">
+        <summary>Advanced</summary>
+        <label class="field">
+          <span>Model</span>
+          <select id="model">
+            <option value="" selected>default (gemini-2.5-flash)</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
+          </select>
+        </label>
+        <label class="field toggle">
+          <input type="checkbox" id="disable-thinking" checked>
+          <span>Disable model thinking (faster)</span>
+        </label>
+        <label class="field toggle">
+          <input type="checkbox" id="send-catalogue" checked>
+          <span>Send songbook to model (better handwriting reads)</span>
+        </label>
+        <label class="field">
+          <span>Max image edge (px)</span>
+          <input type="number" id="max-image-edge" min="256" max="4096" step="128"
+                 placeholder="1600">
+        </label>
+      </details>
     </div>
   </header>
 
