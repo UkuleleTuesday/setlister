@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # `closed` is needed so the PR-preview cleanup job runs when a PR is
+    # merged or closed and removes its pr-preview/pr-<N>/ directory.
+    types: [opened, reopened, synchronize, closed]
   push:
     branches: [main]
   workflow_dispatch:
@@ -13,6 +16,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -105,6 +109,7 @@ jobs:
         run: npx --yes firebase-tools deploy --only firestore:rules --project "$GCP_PROJECT_ID"
 
   build-ui:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,10 +129,17 @@ jobs:
 
   deploy-ui:
     needs: [test, build-ui]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # Runs for the production deploy (push to main) and for PR previews
+    # (opened/reopened/synchronize). The `closed` event is handled by the
+    # cleanup-ui-preview job instead.
+    if: >-
+      github.event.action != 'closed' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     permissions:
       contents: write # pushes the gh-pages branch
+      pull-requests: write # posts/updates the preview URL comment on PRs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -141,7 +153,34 @@ jobs:
       - name: Build UI
         run: npm run build
         working-directory: ui
-      - name: Deploy UI to GitHub Pages
+      # Production deploy: publish ui/dist to the gh-pages root. clean-exclude
+      # keeps the pr-preview/ subtree so open PR previews survive a main deploy.
+      - name: Deploy UI to GitHub Pages (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: ui/dist
+          clean-exclude: pr-preview/
+      # PR preview: publish ui/dist to pr-preview/pr-<N>/ on gh-pages and post
+      # a sticky comment with the preview URL.
+      - name: Deploy PR preview (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ui/dist
+
+  cleanup-ui-preview:
+    name: Cleanup UI Preview
+    # When a PR is merged or closed, remove its pr-preview/pr-<N>/ directory
+    # from gh-pages and update the preview comment.
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # pushes the gh-pages branch
+      pull-requests: write # updates the preview URL comment
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove PR preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ui/dist
