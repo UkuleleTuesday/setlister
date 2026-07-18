@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#faf7f2">
   <title>Whiteboard of Wishes · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-BNPtYthe.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-kyb6_Vd0.css">
+  <script type="module" crossorigin src="./assets/index-DnaHiqGv.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CikwM7zn.css">
 </head>
 <body>
   <header>
@@ -88,6 +88,11 @@
         <h2>Up next</h2>
         <button id="clear" class="link-button" type="button" hidden>Start over</button>
       </div>
+      <!-- Played songs collapse into a one-line count here (the set plays from
+           the top, so the list "consumes itself"); tap to expand for the
+           night's history and the un-play control. Hidden until a song is
+           played. Populated by renderGroup(). -->
+      <div id="played-group" class="row-group" hidden></div>
       <ul id="upnext-rows"></ul>
       <p id="upnext-empty" class="note">Nothing queued yet — promote a request below.</p>
     </section>
@@ -98,6 +103,10 @@
       <h2>Requests</h2>
       <ul id="requests-rows"></ul>
       <p id="requests-empty" class="note">No requests yet — snap the board or add one below.</p>
+      <!-- Binned songs (swipe-left / trash icon) collapse into the same
+           one-line disclosure as played songs — kept and recoverable, without
+           a whole extra section to scroll past. Populated by renderGroup(). -->
+      <div id="bin-group" class="row-group" hidden></div>
     </section>
 
     <!-- Two ways to add a request: type a song name, or snap the whiteboard. -->
@@ -135,13 +144,6 @@
       </div>
     </section>
 
-    <!-- The Bin: songs skipped at the gig (swipe-left / trash icon) are moved
-         out of the working lists and gathered here, kept and recoverable. Hidden
-         until something is binned. -->
-    <section id="bin" hidden>
-      <h2>Bin</h2>
-      <ul id="bin-rows"></ul>
-    </section>
   </main>
 
   <!-- Which songbook edition rows were matched against, and when it was
