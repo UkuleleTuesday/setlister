@@ -6,13 +6,16 @@
   <meta name="theme-color" content="#faf7f2">
   <title>Whiteboard of Wishes · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-DnaHiqGv.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CikwM7zn.css">
+  <script type="module" crossorigin src="./assets/index-Dye7Ukq-.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-g0jXeDMC.css">
 </head>
 <body>
   <header>
     <button id="share-toggle" class="share-toggle" type="button"
             aria-label="Share session" aria-expanded="false" aria-controls="share-panel">🔗</button>
+    <!-- Live count of people connected to the session, pinned to the share
+         button's corner. Populated by app.js; hidden when local-only. -->
+    <span id="share-count-badge" class="share-count-badge" aria-hidden="true" hidden></span>
     <button id="settings-toggle" class="settings-toggle" type="button"
             aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
     <h1>🎶 Whiteboard of Wishes</h1>
@@ -24,6 +27,13 @@
     <div id="share-panel" class="share-panel" role="dialog" aria-label="Session sharing" hidden>
       <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
       <p class="note">Anyone with the link can view and edit these lists live.</p>
+      <!-- "Who's here": the live roster of people connected to this session.
+           Populated by renderPresence(); "you" is marked, and unnamed peers
+           show their generated default name. -->
+      <div id="share-presence" class="share-presence" hidden>
+        <p class="share-presence-head">Here now · <span id="share-presence-count">1</span></p>
+        <ul id="share-presence-list"></ul>
+      </div>
       <div class="actions">
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
