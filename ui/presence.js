@@ -37,9 +37,19 @@ const PRESENCE_TTL_MS = 5 * 60 * 1000;
 const CLIENT_ID_KEY = "setlister.clientId.v1";
 const ANON_NAME_KEY = "setlister.anonName.v1";
 
-// Default identities for peers who haven't set a name: "Anonymous <Animal>".
-// The "Anonymous" prefix reads clearly as a placeholder (not a chosen name),
-// and the animal keeps each one distinct and easy to say across a pub table.
+// Default identities for peers who haven't set a name:
+// "Anonymous <Adjective> <Animal>". The "Anonymous" prefix reads clearly as a
+// placeholder (not a chosen name), while the adjective + animal keep each one
+// distinct and easy to say across a pub table.
+const ANON_ADJECTIVES = [
+  "Merry", "Sunny", "Jolly", "Breezy", "Mellow", "Chirpy", "Plucky", "Snappy",
+  "Jazzy", "Funky", "Groovy", "Bouncy", "Lively", "Peppy", "Nifty", "Dandy",
+  "Cosmic", "Dreamy", "Golden", "Ruby", "Minty", "Honey", "Spicy", "Zesty",
+  "Brave", "Clever", "Witty", "Quirky", "Giddy", "Eager", "Bold", "Nimble",
+  "Humming", "Dancing", "Skipping", "Roaming", "Glowing", "Sparkly", "Dapper",
+  "Spiffy", "Jaunty", "Chipper", "Sprightly", "Wandering",
+];
+
 const ANON_ANIMALS = [
   "Otter", "Badger", "Hedgehog", "Robin", "Sparrow", "Finch", "Lark", "Wren",
   "Penguin", "Dolphin", "Walrus", "Seagull", "Fox", "Owl", "Heron", "Magpie",
@@ -94,19 +104,23 @@ export function getClientId() {
 let volatileClientId = null;
 
 // The default display name for this device when "Your name" is left blank.
-// Generated once and remembered, so you stay the same "Anonymous Otter" across
-// reloads until you type a real name to override it.
+// Generated once and remembered, so you stay the same "Anonymous Bouncy Otter"
+// across reloads until you type a real name to override it.
+function makeAnonName() {
+  return `Anonymous ${pick(ANON_ADJECTIVES)} ${pick(ANON_ANIMALS)}`;
+}
+
 export function getAnonName() {
   try {
     let name = localStorage.getItem(ANON_NAME_KEY);
     if (!name) {
-      name = `Anonymous ${pick(ANON_ANIMALS)}`;
+      name = makeAnonName();
       localStorage.setItem(ANON_NAME_KEY, name);
     }
     return name;
   } catch {
     if (!volatileAnonName) {
-      volatileAnonName = `Anonymous ${pick(ANON_ANIMALS)}`;
+      volatileAnonName = makeAnonName();
     }
     return volatileAnonName;
   }
