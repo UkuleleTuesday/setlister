@@ -233,7 +233,7 @@ footer#edition-note:empty { display: none; }
   background: #ffebee; color: var(--conflict); font-size: 0.92rem;
 }
 
-#upnext h2, #requests h2, #review h2, #bin h2 { margin: 1.2rem 0 0.3rem; font-size: 1.1rem; }
+#upnext h2, #requests h2, #review h2 { margin: 1.2rem 0 0.3rem; font-size: 1.1rem; }
 .note { color: #666; font-size: 0.85rem; margin: 0.2rem 0 0.8rem; }
 .toggle { display: flex; align-items: center; gap: 0.4rem; }
 
@@ -262,16 +262,33 @@ footer#edition-note:empty { display: none; }
   content: ""; flex: 1; height: 1px; background: #ddd;
 }
 
-#upnext-rows, #requests-rows, #review-rows, #bin-rows { list-style: none; margin: 0; padding: 0; }
+#upnext-rows, #requests-rows, #review-rows, .group-rows { list-style: none; margin: 0; padding: 0; }
 
-/* The Bin is a quiet graveyard at the bottom of the page: a muted heading and
-   softened cards. Every row here is binned, so drop the aggressive line-through
-   (that strike is the signal for a bin action *inside* the working lists) and
-   just fade the whole card, leaving the "Un-bin" restore control readable. */
-#bin { margin-top: 1.4rem; }
-#bin h2 { color: #888; }
-#bin-rows .row-card { opacity: 0.6; }
-#bin-rows .match-title { text-decoration: none; }
+/* Collapsed groups: played songs above Up next, binned songs below Requests.
+   A single tappable summary line ("3 played") replaces a whole stacked section,
+   so the page never grows as the night's history does. The dashed outline
+   echoes the empty-state notes: quiet, not a card. */
+.row-group { margin: 0 0 0.6rem; }
+#bin-group { margin: 0.2rem 0 0; }
+.group-toggle {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  /* ≥44px tap target — house hard constraint. */
+  min-height: 44px; padding: 0.5rem 0.8rem;
+  border: 1px dashed #ccc; border-radius: 10px; background: none;
+  color: #666; font: inherit; font-size: 0.9rem; text-align: left;
+  cursor: pointer;
+}
+.group-chevron { margin-left: auto; transition: transform 0.15s ease; }
+.group-toggle[aria-expanded="true"] .group-chevron { transform: rotate(180deg); }
+.group-rows { margin-top: 0.6rem; }
+/* Every row in a group is already in its named state, so drop the aggressive
+   line-through (that strike is the signal *inside* the working lists) and just
+   soften the card, leaving the restore control readable. */
+.group-rows .row-card { opacity: 0.6; }
+.group-rows .match-title { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) {
+  .group-chevron { transition: none; }
+}
 
 .row-card {
   border-radius: 10px; margin-bottom: 0.6rem;
@@ -297,8 +314,10 @@ footer#edition-note:empty { display: none; }
 .row-card.needs_review .row-body,
 .row-card.conflict .row-body { border-left-color: var(--confirmed); }
 .row-card.removed { opacity: 0.45; }
-/* Played (checked off): fade the whole card. Binned: cross out the title, same
-   treatment as a whiteboard "crossed out". */
+/* Played rows normally live in the collapsed played group, but the fade keeps
+   any straggler (e.g. synced from an older client into Requests) legible as
+   "done". Binned: cross out the title, same treatment as a whiteboard
+   "crossed out". */
 .row-card.played { opacity: 0.5; }
 .row-card.crossed .match-title,
 .row-card.binned .match-title { text-decoration: line-through; }
@@ -391,9 +410,10 @@ footer#edition-note:empty { display: none; }
 /* On the two working lists, right-align the action buttons so promote/demote
    and played/bin fall into the same columns across both lists. (The drag handle
    is no longer part of this row — it's a full-height strip down the left edge,
-   see below.) Scoped to .swipeable (Up next / Requests); review and bin rows
-   have their own tool sets. */
-.row-card.swipeable .row-tools { justify-content: flex-end; }
+   see below.) Group rows (played/bin) follow suit so their restore control
+   lands in the same column; review rows have their own tool set. */
+.row-card.swipeable .row-tools,
+.group-rows .row-tools { justify-content: flex-end; }
 .row-tools button {
   border: none; background: none; font-size: 1.05rem; cursor: pointer; padding: 0.3rem;
   position: relative; color: #555;

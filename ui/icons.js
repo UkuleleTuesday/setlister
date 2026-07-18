@@ -8,6 +8,7 @@
 import {
   Camera,
   Check,
+  ChevronDown,
   ClipboardList,
   Download,
   GripVertical,
@@ -46,6 +47,7 @@ const ICONS = {
   download: Download,
   add: Plus,
   close: X,
+  chevron: ChevronDown,
   loader: LoaderCircle,
 };
 

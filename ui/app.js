@@ -14,8 +14,8 @@ const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
 const requestsRows = document.getElementById("requests-rows");
 const requestsEmpty = document.getElementById("requests-empty");
-const binSection = document.getElementById("bin");
-const binRows = document.getElementById("bin-rows");
+const playedGroup = document.getElementById("played-group");
+const binGroup = document.getElementById("bin-group");
 const clearButton = document.getElementById("clear");
 const reviewSection = document.getElementById("review");
 const reviewRows = document.getElementById("review-rows");
@@ -74,6 +74,11 @@ let app = {
   upNext: [],
   requests: [],
   review: null,
+  // Whether the collapsed played/bin groups are expanded. Pure UI state: not
+  // persisted (a reload starts collapsed) and not synced (each peer keeps
+  // their own view).
+  playedOpen: false,
+  binOpen: false,
 };
 
 showSuggestions.addEventListener("change", () => {
@@ -253,7 +258,6 @@ function applyRemoteState(state) {
   if (state.edition) app.edition = state.edition;
   renderUpNext();
   renderRequests();
-  renderBin();
   persist();
 }
 
@@ -527,7 +531,7 @@ async function loadCatalogue(edition) {
     catalogueStatus = "ready";
     saveCatalogueCache();
     renderUpNext();
-    renderBin();
+    renderRequests();
     refreshPickers();
   } catch {
     /* leave any previously loaded catalogue in place */
@@ -914,7 +918,6 @@ reviewCancel.addEventListener("click", () => {
 function rerender() {
   renderUpNext();
   renderRequests();
-  renderBin();
   if (app.review) renderReview();
 }
 
@@ -930,18 +933,33 @@ function renderEditionNote() {
 
 function renderUpNext() {
   renderEditionNote();
-  // Binned rows are lifted out into the Bin section, so the empty note keys off
-  // the *visible* (non-binned) rows, not the raw list length.
-  upnextEmpty.hidden = app.upNext.some((e) => !e.binned);
+  // Played and binned rows are lifted out into their collapsed groups, so the
+  // empty note keys off the rows still *visible* in the running order.
+  upnextEmpty.hidden = app.upNext.some((e) => !e.binned && !e.played);
   // "Start over" wipes both lists, so it's relevant whenever either has rows.
   clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
-  // Map over the full list (skipping binned rows) so the index handed to
+  // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
     ...app.upNext
-      .map((e, i) => (e.binned ? null : renderRow(e, i, "upnext")))
+      .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, "upnext")))
       .filter(Boolean)
   );
+  // The set plays from the top, so played songs collapse into a one-line count
+  // *above* the list and Up next always starts at the next tune. Expanding
+  // shows the night's history (array order = play order) and the un-play
+  // control that rescues a stray swipe-right.
+  renderGroup(playedGroup, {
+    iconName: "played",
+    noun: "played",
+    rows: app.upNext.filter((e) => e.played),
+    open: app.playedOpen,
+    onToggle: () => {
+      app.playedOpen = !app.playedOpen;
+      renderUpNext();
+    },
+    context: "played",
+  });
 }
 
 function renderRequests() {
@@ -953,14 +971,52 @@ function renderRequests() {
       .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
       .filter(Boolean)
   );
+  // The bin group replaces the old standalone Bin section: every binned row
+  // from both working lists (they stay in their home arrays so un-binning
+  // restores them in place), collapsed to one line at the foot of Requests —
+  // where binning happens.
+  renderGroup(binGroup, {
+    iconName: "bin",
+    noun: "binned",
+    rows: [...app.upNext, ...app.requests].filter((e) => e.binned),
+    open: app.binOpen,
+    onToggle: () => {
+      app.binOpen = !app.binOpen;
+      renderRequests();
+    },
+    context: "bin",
+  });
 }
 
-// The Bin gathers every binned row from both working lists (they stay in their
-// home arrays so un-binning restores them in place). Hidden while empty.
-function renderBin() {
-  const binned = [...app.upNext, ...app.requests].filter((e) => e.binned);
-  binSection.hidden = binned.length === 0;
-  binRows.replaceChildren(...binned.map((e, i) => renderRow(e, i, "bin")));
+// A collapsed one-line disclosure ("3 played" / "2 binned") instead of another
+// stacked section: on a phone the count is always visible but the rows only on
+// demand, so the group costs one row of screen no matter how long the night
+// gets. Hidden entirely while empty.
+function renderGroup(container, { iconName, noun, rows, open, onToggle, context }) {
+  container.replaceChildren();
+  container.hidden = rows.length === 0;
+  if (container.hidden) return;
+
+  const listId = `${container.id}-rows`;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "group-toggle";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-controls", listId);
+  const label = document.createElement("span");
+  label.className = "group-label";
+  label.textContent = `${rows.length} ${noun}`;
+  toggle.append(icon(iconName), label, icon("chevron", "group-chevron"));
+  toggle.onclick = onToggle;
+  container.appendChild(toggle);
+
+  if (open) {
+    const list = document.createElement("ul");
+    list.id = listId;
+    list.className = "group-rows";
+    list.append(...rows.map((e, i) => renderRow(e, i, context)));
+    container.appendChild(list);
+  }
 }
 
 function renderRow(row, index, context) {
@@ -1097,8 +1153,8 @@ function renderRow(row, index, context) {
     tools.append(buildSongPicker(row));
   }
 
-  // In the Bin, the only action is to lift a song back out — un-binning flips
-  // the flag and the row reappears in its home list at its original spot.
+  // In the bin group, the only action is to lift a song back out — un-binning
+  // flips the flag and the row reappears in its home list at its original spot.
   if (context === "bin") {
     const unbinButton = document.createElement("button");
     unbinButton.type = "button";
@@ -1107,6 +1163,18 @@ function renderRow(row, index, context) {
     unbinButton.setAttribute("aria-label", "Un-bin");
     unbinButton.onclick = () => toggleBinned(row);
     tools.append(unbinButton);
+  }
+
+  // Likewise in the played group: un-play is the rescue for a stray
+  // swipe-right, popping the row back into the running order.
+  if (context === "played") {
+    const unplayButton = document.createElement("button");
+    unplayButton.type = "button";
+    unplayButton.appendChild(icon("restore"));
+    unplayButton.title = "Mark not played";
+    unplayButton.setAttribute("aria-label", "Mark not played");
+    unplayButton.onclick = () => togglePlayed(row);
+    tools.append(unplayButton);
   }
 
   // Live tracking lives on the two working lists, but each shows only the
@@ -1218,8 +1286,15 @@ function demote(uid) {
 }
 
 // --- Reorder Up next (up/down + drag) --------------------------------------
+// Played/binned rows sit interleaved in the array but not in the visible list,
+// so a one-slot move must land past the next *visible* neighbour — otherwise
+// the row burrows invisibly through a hidden cluster one keypress at a time.
 function moveEntry(index, delta) {
-  const target = index + delta;
+  const hidden = (e) => e.played || e.binned;
+  let target = index + delta;
+  while (target >= 0 && target < app.upNext.length && hidden(app.upNext[target])) {
+    target += delta;
+  }
   if (target < 0 || target >= app.upNext.length) return;
   const [item] = app.upNext.splice(index, 1);
   app.upNext.splice(target, 0, item);
@@ -1320,6 +1395,10 @@ function commitDomOrder() {
   const order = [...upnextRows.querySelectorAll(".row-card")].map(
     (el) => el.dataset.uid
   );
+  // Played/binned rows aren't in #upnext-rows, so indexOf gives them -1 and
+  // the (stable) sort parks them at the front in their existing order. That's
+  // relied on: played songs belong at the top conceptually, and binned rows
+  // are position-agnostic until un-binned.
   app.upNext.sort((a, b) => order.indexOf(a.uid) - order.indexOf(b.uid));
   renderUpNext();
   persist();
@@ -1436,7 +1515,6 @@ clearButton.addEventListener("click", () => {
   app.requests = [];
   renderUpNext();
   renderRequests();
-  renderBin();
   persist();
 });
 
@@ -1493,7 +1571,6 @@ document.getElementById("download").addEventListener("click", () => {
   mountManualAdd();
   renderUpNext();
   renderRequests();
-  renderBin();
   // Auto-rejoin a shared session (URL param or stored id) before loading the
   // catalogue: joining swaps in the remote lists, and this keeps the Firestore
   // chunk unfetched for local-only users.
