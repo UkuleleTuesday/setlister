@@ -11,10 +11,13 @@
 // Liveness is a heartbeat: every HEARTBEAT_MS the client rewrites its own doc
 // with a fresh server timestamp. Readers treat a peer as "here now" only while
 // its updatedAt is within ONLINE_WINDOW_MS, so a client that closes the tab
-// without cleanly leaving fades from every other roster within a minute. The
-// short expiresAt lets Firestore's TTL sweep the abandoned doc from storage
-// later (belt-and-braces on top of the client-side staleness filter and the
-// best-effort delete on leave / pagehide).
+// without cleanly leaving fades from every other roster after that window. The
+// window is deliberately generous (minutes, not seconds): this is a
+// glance-at-it-occasionally club setlist, so a peer who steps away shouldn't
+// blink out just because they haven't touched their phone recently — the
+// best-effort delete on leave / pagehide still removes them promptly when they
+// actually go. The expiresAt lets Firestore's TTL sweep the abandoned doc from
+// storage later (belt-and-braces on top of the client-side staleness filter).
 //
 // Firebase loads lazily through firebase.js — importing this module does NOT
 // pull the Firestore SDK; only startPresence() does, and only inside an already
@@ -22,17 +25,22 @@
 
 import { getFirestore } from "./firebase.js";
 
-// Rewrite our own heartbeat this often. Comfortably below ONLINE_WINDOW_MS so a
-// single dropped write doesn't flap us offline in other people's rosters.
-const HEARTBEAT_MS = 20 * 1000;
+// Rewrite our own heartbeat this often. Comfortably below ONLINE_WINDOW_MS so
+// even a couple of dropped writes don't flap us offline in other people's
+// rosters. Low frequency keeps Firestore writes cheap for a page left open.
+const HEARTBEAT_MS = 2 * 60 * 1000;
 
-// A peer is "here now" while its last heartbeat is this recent. Must exceed
-// HEARTBEAT_MS with margin to tolerate a missed beat / a little clock skew.
-const ONLINE_WINDOW_MS = 50 * 1000;
+// A peer is "here now" while its last heartbeat is this recent. Generous by
+// design (see the module header): well above HEARTBEAT_MS so a missed beat or
+// two — a locked phone, a flaky connection — doesn't drop someone who's still
+// around.
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 // Cap the stored doc's lifetime so Firestore TTL can reap it if a client
-// vanishes without deleting. Must be <= the 1h cap in firestore.rules.
-const PRESENCE_TTL_MS = 5 * 60 * 1000;
+// vanishes without deleting. Kept above ONLINE_WINDOW_MS so storage cleanup
+// never retires a doc a peer would still count as online, and well under the
+// 1h cap in firestore.rules.
+const PRESENCE_TTL_MS = 10 * 60 * 1000;
 
 const CLIENT_ID_KEY = "setlister.clientId.v1";
 const ANON_NAME_KEY = "setlister.anonName.v1";
