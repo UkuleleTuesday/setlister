@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#faf7f2">
   <title>Whiteboard of Wishes · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-BVQsrwxf.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-g0jXeDMC.css">
+  <script type="module" crossorigin src="./assets/index-CsNMqlZ3.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BuS-l-Gp.css">
 </head>
 <body>
   <header>
@@ -27,6 +27,12 @@
     <div id="share-panel" class="share-panel" role="dialog" aria-label="Session sharing" hidden>
       <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
       <p class="note">Anyone with the link can view and edit these lists live.</p>
+      <!-- Whether this night appears in the club's session list. NOT a privacy
+           control: the link works either way (see firestore.rules). -->
+      <label class="field toggle">
+        <input type="checkbox" id="share-listed">
+        <span>Show in the club's session list</span>
+      </label>
       <!-- "Who's here": the live roster of people connected to this session.
            Populated by renderPresence(); "you" is marked, and unnamed peers
            show their generated default name. -->
@@ -38,7 +44,6 @@
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
         <button id="share-link">Share link</button>
-        <button id="share-leave" class="secondary">Leave session</button>
       </div>
     </div>
 
@@ -91,12 +96,52 @@
   </header>
 
   <main>
+    <!-- Home: the club's session history. Shown whenever the URL carries no
+         ?session= param — the app is a session picker until you pick one. -->
+    <section id="home" hidden>
+      <h2>Sessions</h2>
+      <button id="new-session" class="primary-action" type="button">New session</button>
+      <div id="home-error" class="error" hidden></div>
+
+      <!-- One-time carry-over for lists left in localStorage from before every
+           session became a shared one. Offered, never silently discarded. -->
+      <div id="carryover" class="carryover" hidden>
+        <p id="carryover-text" class="note"></p>
+        <div class="actions">
+          <button id="carryover-start">Start a session with it</button>
+          <button id="carryover-discard" class="secondary">Discard</button>
+        </div>
+      </div>
+
+      <ul id="session-list" class="session-list"></ul>
+      <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
+      <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
+    </section>
+
+    <!-- Everything below is one session's working state. Wrapped so the view
+         swap is a single attribute toggle — #review owns its own `hidden`, so
+         toggling the sections individually would resurrect a stale scan. -->
+    <div id="session-view" hidden>
+
+    <!-- Session-level navigation in one bar: out to the list, the night's name
+         (tap to rename), and straight into a new night. These replace "Start
+         over" — leaving a set is how you stop working on it, rather than
+         wiping it for everyone else in the room. -->
+    <div class="session-bar">
+      <button id="back-home" class="link-button" type="button">All sessions</button>
+      <button id="session-name" class="session-name" type="button"
+              aria-label="Rename this session"></button>
+      <input id="session-name-input" class="session-name-input" type="text"
+             maxlength="80" enterkeyhint="done" autocomplete="off"
+             aria-label="Session name" hidden>
+      <button id="new-session-here" class="link-button" type="button">New</button>
+    </div>
+
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
     <section id="upnext">
       <div class="setlist-head">
         <h2>Up next</h2>
-        <button id="clear" class="link-button" type="button" hidden>Start over</button>
       </div>
       <!-- Played songs collapse into a one-line count here (the set plays from
            the top, so the list "consumes itself"); tap to expand for the
@@ -154,7 +199,35 @@
       </div>
     </section>
 
+    </div><!-- /#session-view -->
   </main>
+
+  <!-- Starting a night: confirm the name (prefilled with today's date) and
+       whether it joins the club's list. A centred sheet over a tap-anywhere
+       backdrop, like the photo lightbox — it's a decision, not a menu hanging
+       off a header button. -->
+  <div id="new-session-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="new-session-title">
+    <div class="sheet">
+      <h2 id="new-session-title">New session</h2>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="new-session-name" maxlength="80"
+               enterkeyhint="done" autocomplete="off">
+      </label>
+      <label class="field toggle">
+        <input type="checkbox" id="new-session-listed" checked>
+        <span>Show in the club's session list</span>
+      </label>
+      <p class="note">Anyone with the link can still open it either way.</p>
+      <div id="new-session-error" class="error" hidden></div>
+      <div class="actions">
+        <button id="new-session-start">Start</button>
+        <button id="new-session-cancel" class="secondary">Cancel</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
 
   <!-- Which songbook edition rows were matched against, and when it was
        generated. A quiet page footer: provenance, not part of the running
