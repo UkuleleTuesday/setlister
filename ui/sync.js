@@ -6,10 +6,19 @@
 // real sharing UI arrives in #30. Until then a debug hook
 // (`window.setlisterSync`) lets the console and Playwright exercise it.
 //
-// The Firestore doc is the complete v1 schema validated by firestore.rules
-// (#26) — do NOT add fields:
+// The Firestore doc's schema is validated by firestore.rules (#26) — adding a
+// field here means editing the rules' hasOnly list in the same change:
 //   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
-//     edition, createdAt, updatedAt, expiresAt }
+//     edition, name, createdBy, listed, createdAt, updatedAt }
+//
+// `name` / `createdBy` / `listed` are session METADATA (#77), not list state:
+// they're deliberately outside serialize()/syncFields()/diff() so the debounced
+// row push never touches them, and they're written by their own small helpers
+// instead. A listed session also has a `sessionIndex/{id}` row (see
+// session-index.js) written in the same transaction that mints the session.
+//
+// Sessions are kept forever, so nothing writes `expiresAt` any more; legacy
+// docs get theirs stripped on first push (see flushPush).
 //
 // Firebase loads lazily through firebase.js (#27): importing this module does
 // NOT pull the Firestore SDK — only the first create/join call does, via
@@ -26,10 +35,7 @@
 
 import { getFirestore } from "./firebase.js";
 import { generateSessionId } from "./session-id.js";
-
-// Sessions live for 30 days; firestore.rules caps expiresAt at now + 31d, so
-// this stays comfortably under the limit even with a little clock skew.
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+import { INDEX_COLLECTION, indexEntryData } from "./session-index.js";
 
 // Coalesce a burst of local mutations (e.g. a drag that fires many moves, or
 // rapid taps) into a single remote write.
@@ -59,11 +65,17 @@ let gestureActive = false;
 let deferredSnapshot = null;
 
 let statusCallback = null;
+let metaCallback = null;
+
+// The session's display metadata as last seen on the server. Kept so the UI can
+// ask without a re-read, and so setSessionListed() knows what to copy into a
+// freshly created index row.
+let meta = { name: "", createdBy: "", listed: false };
 
 // --- Status --------------------------------------------------------------
 // #30 consumes this to reflect connection state in the UI. Payload shapes:
 //   { status: "connected", id }   — create/join succeeded, listener attached
-//   { status: "expired", id }     — remote doc vanished (TTL); now local-only
+//   { status: "expired", id }     — remote doc vanished (it was deleted)
 //   { status: "left" }            — leaveSession()
 //   { status: "error", error }    — snapshot/write error
 export function onStatusChange(cb) {
@@ -74,6 +86,36 @@ function emitStatus(payload) {
   if (statusCallback) statusCallback(payload);
 }
 
+// --- Session metadata ------------------------------------------------------
+// Name / creator / listed-ness travel on the session doc but outside the synced
+// list state, so they get their own channel: the snapshot listener emits them
+// whenever they change, which is what makes a peer's rename land live.
+export function onMetaChange(cb) {
+  metaCallback = cb;
+}
+
+export function getMeta() {
+  return { ...meta };
+}
+
+function readMeta(data) {
+  return {
+    name: typeof data?.name === "string" ? data.name : "",
+    createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
+    listed: data?.listed === true,
+  };
+}
+
+function emitMeta(data) {
+  const next = readMeta(data);
+  const changed =
+    next.name !== meta.name ||
+    next.createdBy !== meta.createdBy ||
+    next.listed !== meta.listed;
+  meta = next;
+  if (changed && metaCallback) metaCallback({ ...meta });
+}
+
 export function getSessionId() {
   return sessionId;
 }
@@ -82,7 +124,7 @@ export function getSessionId() {
 // App state {upNext, requests, edition} <-> the Firestore doc's row map + two
 // order arrays. Rows carry stable uids and embed their catalogue match, so the
 // map is self-contained.
-function serialize(state) {
+export function serialize(state) {
   const rows = {};
   for (const row of state.upNext) rows[row.uid] = row;
   for (const row of state.requests) rows[row.uid] = row;
@@ -98,7 +140,9 @@ function serialize(state) {
 // concurrent move+edit merge (per-row + whole-array LWW). Drop order uids with
 // no row, dedupe, and append any orphan rows (in neither order array) to
 // requests so nothing silently disappears — the next push heals the doc.
-function deserialize(remote) {
+// Exported for ui/tests: this healing is the safety net that stops a merge
+// losing songs, and it's worth pinning down without a live Firestore.
+export function deserialize(remote) {
   const rows = remote && typeof remote.rows === "object" && remote.rows ? remote.rows : {};
   const upNextOrder = Array.isArray(remote?.upNextOrder) ? remote.upNextOrder : [];
   const requestsOrder = Array.isArray(remote?.requestsOrder) ? remote.requestsOrder : [];
@@ -144,9 +188,14 @@ function deepCopy(obj) {
 // candidate doc; if it already exists, regenerate and retry (ids are only
 // ~10k combos, so collisions are rare but possible); otherwise write the full
 // serialized state and return the id. `applyStateFn` powers the live listener.
-export async function createSession(getState, applyStateFn) {
+//
+// `sessionMeta` is { name, createdBy, listed }. When listed, the history row is
+// written in the SAME transaction, so there can never be a session without its
+// listing or a listing without its session.
+export async function createSession(getState, applyStateFn, sessionMeta) {
   const { db, fx } = await getFirestore();
   const serialized = serialize(getState());
+  const next = readMeta(sessionMeta);
   let id = null;
 
   await fx.runTransaction(db, async (tx) => {
@@ -161,10 +210,18 @@ export async function createSession(getState, applyStateFn) {
           upNextOrder: serialized.upNextOrder,
           requestsOrder: serialized.requestsOrder,
           edition: serialized.edition,
+          name: next.name,
+          createdBy: next.createdBy,
+          listed: next.listed,
           createdAt: fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
-          expiresAt: expiresAt(fx),
         });
+        if (next.listed) {
+          tx.set(
+            fx.doc(db, INDEX_COLLECTION, candidate),
+            indexEntryData({ name: next.name, createdBy: next.createdBy }, fx)
+          );
+        }
         id = candidate;
         return;
       }
@@ -175,8 +232,10 @@ export async function createSession(getState, applyStateFn) {
   sessionId = id;
   applyState = applyStateFn;
   lastRemote = deepCopy(serialized);
+  meta = next;
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
+  if (metaCallback) metaCallback({ ...meta });
   return id;
 }
 
@@ -205,6 +264,47 @@ export async function joinSession(id, applyStateFn) {
   applyStateFn(deserialize(remote));
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
+  // Sessions created before #77 carry no metadata at all; the caller derives a
+  // name from createdAt and backfills. Hand it the raw createdAt for that.
+  meta = readMeta(remote);
+  if (metaCallback) metaCallback({ ...meta });
+  return { createdAt: remote?.createdAt?.toDate ? remote.createdAt.toDate() : null };
+}
+
+// --- Metadata writes -------------------------------------------------------
+// Rename. The session doc is the source of truth; the history row mirrors it,
+// and is only touched when the session is actually listed.
+export async function setSessionName(name) {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  const trimmed = String(name || "").slice(0, 80);
+  const batch = fx.writeBatch(db);
+  batch.update(fx.doc(db, "sessions", id), { name: trimmed, updatedAt: fx.serverTimestamp() });
+  if (meta.listed) {
+    batch.update(fx.doc(db, INDEX_COLLECTION, id), { name: trimmed });
+  }
+  await batch.commit();
+  meta = { ...meta, name: trimmed };
+}
+
+// List / un-list. Unlisted only removes the history row — the session stays
+// world-readable by id, exactly like every other session. This is advertising,
+// not access control (see firestore.rules).
+export async function setSessionListed(listed) {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  const batch = fx.writeBatch(db);
+  batch.update(fx.doc(db, "sessions", id), { listed, updatedAt: fx.serverTimestamp() });
+  const indexRef = fx.doc(db, INDEX_COLLECTION, id);
+  if (listed) {
+    batch.set(indexRef, indexEntryData({ name: meta.name, createdBy: meta.createdBy }, fx));
+  } else {
+    batch.delete(indexRef);
+  }
+  await batch.commit();
+  meta = { ...meta, listed };
 }
 
 // Stop listening and forget everything. Kept idempotent so the snapshot
@@ -223,6 +323,7 @@ function teardown() {
   applyState = null;
   pendingState = null;
   deferredSnapshot = null;
+  meta = { name: "", createdBy: "", listed: false };
 }
 
 export function leaveSession() {
@@ -242,9 +343,9 @@ function attachListener(db, fx) {
       if (snap.metadata.hasPendingWrites) return;
 
       if (!snap.exists()) {
-        // The doc was deleted remotely — only the TTL can do this (rules deny
-        // client deletes). Leave gracefully but keep local state so the user
-        // keeps working; #30 surfaces the "expired" status.
+        // The doc was deleted remotely. With the TTL gone and client deletes
+        // denied by the rules this should be unreachable, but a session that
+        // silently stops syncing is far worse than one that says so.
         const goneId = sessionId;
         teardown();
         emitStatus({ status: "expired", id: goneId });
@@ -268,6 +369,7 @@ function attachListener(db, fx) {
 function applyRemote(remote) {
   lastRemote = deepCopy(syncFields(remote));
   applyState(deserialize(remote));
+  emitMeta(remote);
 }
 
 // app.js flips this around drags/swipes (see wireDrag / wireSwipe). On release
@@ -308,7 +410,12 @@ async function flushPush() {
   if (!updates) return; // nothing actually changed — don't churn the doc
 
   updates.updatedAt = fx.serverTimestamp();
-  updates.expiresAt = expiresAt(fx);
+  // Drain the legacy TTL field: sessions are kept forever now, but a doc
+  // created before #77 still carries an expiresAt that the (soon-disabled) TTL
+  // policy would sweep. A no-op on docs that don't have it, and it never
+  // triggers a write on its own — diff() still returns null when nothing
+  // changed, so this only rides along with a real edit.
+  updates.expiresAt = fx.deleteField();
   // Optimistic: assume the write lands so the next diff is against what we just
   // sent. The echo snapshot (hasPendingWrites) is skipped, so this is the only
   // place lastRemote advances on the push side.
@@ -325,7 +432,8 @@ async function flushPush() {
 // One updateDoc payload with dotted paths: changed/added rows as
 // `rows.<uid>`, removed rows as deleteField(), order arrays only when changed.
 // Returns null when nothing changed so the caller can skip the write entirely.
-function diff(prev, next, fx) {
+// Exported for ui/tests (a stub `fx` is enough to exercise it).
+export function diff(prev, next, fx) {
   const updates = {};
   let changed = false;
   const prevRows = prev?.rows || {};
@@ -356,8 +464,4 @@ function diff(prev, next, fx) {
     changed = true;
   }
   return changed ? updates : null;
-}
-
-function expiresAt(fx) {
-  return fx.Timestamp.fromMillis(Date.now() + SESSION_TTL_MS);
 }

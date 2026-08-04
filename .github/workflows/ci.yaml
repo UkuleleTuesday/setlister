@@ -127,8 +127,35 @@ jobs:
         run: npm run build
         working-directory: ui
 
+  test-ui:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      # The Firestore emulator is a Java process the CLI downloads on first run.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: ui
+      # firestore.rules is the app's entire access-control layer (the browser
+      # writes Firestore directly), so the suite runs against the emulator —
+      # a rules regression must fail CI, not production.
+      - name: Run UI tests against the Firestore emulator
+        run: npm run test:emulator
+        working-directory: ui
+
   deploy-ui:
-    needs: [test, build-ui]
+    needs: [test, test-ui, build-ui]
     # Runs for the production deploy (push to main) and for PR previews
     # (opened/reopened/synchronize). The `closed` event is handled by the
     # cleanup-ui-preview job instead.

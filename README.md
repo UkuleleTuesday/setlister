@@ -18,6 +18,12 @@ Take a photo of the board, and the app:
    order by promoting requests into it (and can add songs by name too),
    then copy/export the result.
 
+The app opens on the club's **session history**: past nights, named by date and
+tagged with whoever started them, plus a button to start tonight's. A session is
+shared and live — everyone in the room edits the same lists — and stays in the
+history afterwards. Sessions can be started unlisted, which keeps them out of
+that list; the share link still works, so this is discoverability, not privacy.
+
 The web UI is **mobile-first**: the whole point is to pull out a phone at the
 club, snap the board, and build the setlist on the spot. Design and test UI
 changes for a phone (touch targets, tap-to-dismiss, safe-area insets, small
@@ -63,8 +69,21 @@ uv run ruff format .
 
 The `ui/` app is built with [Vite](https://vite.dev/) — `index.html` + `app.js`
 + `style.css`, npm-managed, no other framework. Run `npm ci` then `npm run dev`
-in `ui/` to start the Vite dev server on port 3000. There is no automated JS
-test suite: verify UI changes by driving the real page in a phone-sized,
+in `ui/` to start the Vite dev server on port 3000.
+
+```bash
+cd ui
+npm test              # pure unit tests (no emulator)
+npm run test:emulator # everything, incl. the firestore.rules suite
+```
+
+`ui/tests/rules.test.js` runs against the Firestore emulator and covers
+[`firestore.rules`](./firestore.rules) — the app's entire access-control layer,
+since the browser writes Firestore directly. `npm test` alone will fail it with
+a connection error, which is deliberate: a skipped security suite must not look
+like a passing one. CI runs `test:emulator`.
+
+Everything else is still verified by hand: drive the real page in a phone-sized,
 touch-enabled browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }`
 at a ~390px viewport, using `.tap()`) and confirm there are no console errors.
 
@@ -100,14 +119,26 @@ is rate-limited per IP (in-process fixed window), and the function runs with
 `--max-instances 1` to bound worst-case Vertex AI spend (expected traffic is a
 handful of photos per club night, so one instance is plenty).
 
-- **Firestore (session sharing)** — realtime collaborative sessions store a
-  single doc `sessions/{sessionId}` that the browser reads/writes directly via
-  the Firebase Web SDK, so [`firestore.rules`](./firestore.rules) is the entire
+- **Firestore (sessions)** — every setlist is a realtime collaborative session
+  stored as `sessions/{sessionId}`, plus a tiny `sessionIndex/{sessionId}`
+  listing row (name, who started it, when) that the home screen queries to show
+  the club's history. The browser reads/writes both directly via the Firebase
+  Web SDK, so [`firestore.rules`](./firestore.rules) is the entire
   access-control layer (deliberately unauthenticated — closed schema +
-  deny-by-default + a hard TTL cap). Rules deploy automatically on merge to main
-  (`deploy-rules` job). A TTL policy on `expiresAt` expires stale sessions.
-  Local development runs the Firestore emulator on port **8081** (8080 is the
-  Python API): `npx firebase-tools emulators:start --only firestore`.
+  deny-by-default). Rules deploy automatically on merge to main
+  (`deploy-rules` job) and are covered by `ui/tests/rules.test.js`.
+  **Sessions are kept forever** — the app opens on past nights, so nothing
+  expires them. Local development runs the Firestore emulator on port **8081**
+  (8080 is the Python API): `npx firebase-tools emulators:start --only
+  firestore`.
+
+  Accepted risks, unchanged in kind but larger in blast radius now that
+  documents are immortal: anyone with the app URL can read the session list,
+  open any session, edit it, rename it, or un-list it. Session documents
+  themselves can never be deleted by a client. The real fix is authentication;
+  until then the bounds are the closed schema, the 80-character name cap, the
+  60-entry list query, and the budget alert below — which should now cover
+  Firestore, not just Vertex AI.
 
 ### One-time setup
 
@@ -140,12 +171,23 @@ gcloud firestore databases create --location=europe-west1 \
 firebase apps:create web setlister --project=songbook-generator
 firebase apps:sdkconfig web --project=songbook-generator   # print the config
 
-# TTL policy so expired sessions are cleaned up automatically.
-gcloud firestore fields ttls update expiresAt \
-  --collection-group=sessions --enable-ttl --project=songbook-generator
-
 # Then re-run ./deploy-gcs.sh so the deployer SA gains the Firebase rules roles.
 ```
+
+**If this project was provisioned before session history shipped**, it has a TTL
+policy on `expiresAt` that must be turned off — otherwise the sweep keeps
+deleting sessions created by older builds, and the club's history loses its
+oldest nights. Deploying the rules alone does *not* stop it:
+
+```bash
+gcloud firestore fields ttls list --project=songbook-generator   # check first
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=sessions --disable-ttl --project=songbook-generator
+```
+
+This targets the `sessions` collection group only. Presence heartbeats live in
+the separate `presence` collection group and keep whatever policy they have —
+they are meant to expire.
 
 Open rules mean usage is the blast radius — confirm a GCP **budget alert** is
 set on the project.
