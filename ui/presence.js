@@ -222,6 +222,10 @@ export async function startPresence(id, nameFn) {
   if (sessionId !== id) return; // left/switched while awaiting the SDK
 
   await writeHeartbeat();
+  // Re-check: leaving is one tap away (back out to the session list), and
+  // stopPresence() nulls sessionId mid-await, which would build a doc path with
+  // a null segment below.
+  if (sessionId !== id) return;
 
   const colRef = fx.collection(db, "sessions", sessionId, "presence");
   unsubscribe = fx.onSnapshot(

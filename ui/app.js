@@ -1,6 +1,12 @@
 import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
+import {
+  defaultSessionName,
+  disambiguate,
+  ensureIndexEntry,
+  listSessions,
+} from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 
 const editionSelect = document.getElementById("edition");
@@ -17,7 +23,6 @@ const requestsRows = document.getElementById("requests-rows");
 const requestsEmpty = document.getElementById("requests-empty");
 const playedGroup = document.getElementById("played-group");
 const binGroup = document.getElementById("bin-group");
-const clearButton = document.getElementById("clear");
 const reviewSection = document.getElementById("review");
 const reviewRows = document.getElementById("review-rows");
 const reviewConfirm = document.getElementById("review-confirm");
@@ -31,7 +36,7 @@ const shareToggle = document.getElementById("share-toggle");
 const sharePanel = document.getElementById("share-panel");
 const shareSessionIdEl = document.getElementById("share-session-id");
 const shareLinkButton = document.getElementById("share-link");
-const shareLeaveButton = document.getElementById("share-leave");
+const shareListedToggle = document.getElementById("share-listed");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
@@ -46,6 +51,27 @@ const photoLightboxImg = document.getElementById("photo-lightbox-img");
 const photoLightboxClose = document.getElementById("photo-lightbox-close");
 const cameraButton = document.getElementById("camera-button");
 const scanStatusText = document.getElementById("scan-status-text");
+const homeSection = document.getElementById("home");
+const sessionView = document.getElementById("session-view");
+const newSessionButton = document.getElementById("new-session");
+const newSessionHereButton = document.getElementById("new-session-here");
+const homeError = document.getElementById("home-error");
+const sessionListEl = document.getElementById("session-list");
+const sessionListStatus = document.getElementById("session-list-status");
+const sessionListRetry = document.getElementById("session-list-retry");
+const carryoverBox = document.getElementById("carryover");
+const carryoverText = document.getElementById("carryover-text");
+const carryoverStart = document.getElementById("carryover-start");
+const carryoverDiscard = document.getElementById("carryover-discard");
+const backHomeButton = document.getElementById("back-home");
+const sessionNameButton = document.getElementById("session-name");
+const sessionNameInput = document.getElementById("session-name-input");
+const sheet = document.getElementById("new-session-sheet");
+const sheetName = document.getElementById("new-session-name");
+const sheetListed = document.getElementById("new-session-listed");
+const sheetError = document.getElementById("new-session-error");
+const sheetStart = document.getElementById("new-session-start");
+const sheetCancel = document.getElementById("new-session-cancel");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -54,6 +80,8 @@ shareToggle.replaceChildren(icon("share"));
 photoLightboxClose.replaceChildren(icon("close"));
 cameraButton.replaceChildren(...iconLabel("camera", "Snap the request board"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
+newSessionButton.replaceChildren(...iconLabel("add", "New session"));
+backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 document.getElementById("copy").replaceChildren(...iconLabel("copy", "Copy list"));
 document.getElementById("download").replaceChildren(...iconLabel("download", "Download JSON"));
 
@@ -201,7 +229,12 @@ function restore() {
     }
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
-    if (typeof saved.sessionId === "string") storedSessionId = saved.sessionId;
+    // Lists with no session behind them can only come from a build predating
+    // #77. Computed ONCE, here at boot: after leaving a session persist()
+    // legitimately writes lists with a null sessionId, and re-deriving this
+    // later would resurrect the carry-over card every time.
+    hasCarryover =
+      !saved.sessionId && (app.upNext.length > 0 || app.requests.length > 0);
     if (saved.settings && typeof saved.settings === "object") {
       const s = saved.settings;
       if (typeof s.model === "string") modelSelect.value = s.model;
@@ -249,9 +282,13 @@ function saveCatalogueCache() {
 
 // --- Session sharing wiring ------------------------------------------------
 // The durable state sync lives in sync.js; app.js only feeds it state and
-// applies remote updates. storedSessionId is the id restored from localStorage,
-// used by init() to auto-rejoin on reload.
-let storedSessionId = null;
+// applies remote updates.
+//
+// Every set of lists now belongs to a session (#77) — there is no local-only
+// mode to fall back to. `hasCarryover` is the one exception: lists left in
+// localStorage by a build from before that change, offered on the home screen
+// so a night in progress isn't silently swallowed by the new session list.
+let hasCarryover = false;
 
 function sessionState() {
   return { upNext: app.upNext, requests: app.requests, edition: app.edition };
@@ -277,72 +314,135 @@ function sessionUrl(id) {
   return url.toString();
 }
 
-// Add / remove the `?session=` param in the address bar without a navigation,
-// preserving any other query params and the hash.
-function setSessionParam(id) {
-  const url = new URL(location.href);
-  if (id) url.searchParams.set("session", id);
-  else url.searchParams.delete("session");
-  history.replaceState(null, "", url.toString());
-}
-
 function showSessionError(message) {
   errorBox.textContent = message;
   errorBox.hidden = false;
 }
 
-// Resolve which session to join on load: a `?session=` URL param wins (someone
-// opened a share link), else the stored id (silent auto-rejoin after a reload).
-async function resolveSession() {
-  const fromUrl = new URLSearchParams(location.search).get("session");
-  const stored = storedSessionId;
-  const target = fromUrl || stored;
-  if (!target) return;
+function showHomeError(message) {
+  homeError.textContent = message;
+  homeError.hidden = false;
+}
 
-  // A malformed share link can't be a real session — treat it as not-found
-  // without touching Firestore.
-  if (fromUrl && !isValidSessionId(fromUrl)) {
-    showSessionError(
-      "That share link doesn’t look right — you’re working locally."
-    );
-    setSessionParam(null);
+// --- Routing ---------------------------------------------------------------
+// Two views, one page, no router: `?session=<id>` in the URL means "show that
+// session", no param means "show the history list". The URL is the only source
+// of truth, which is what makes the phone's Back button (and iOS edge-swipe)
+// work for free — see the popstate listener below.
+function currentRouteId() {
+  return new URLSearchParams(location.search).get("session");
+}
+
+function setView(view) {
+  const home = view === "home";
+  homeSection.hidden = !home;
+  sessionView.hidden = home;
+  // Sharing and the edition footnote are both about a session you're in.
+  shareToggle.hidden = home;
+  editionNote.hidden = home;
+  if (home) {
+    setSharePanelOpen(false);
+    shareCountBadge.hidden = true;
+  }
+  setSettingsOpen(false); // settings stay reachable in both views, just closed
+}
+
+// pushState for anything the user did (so Back retraces it), replaceState for
+// load-time normalisation and error recovery (which shouldn't be re-enterable).
+function navigateTo(id, { replace = false, cameFromHome = false } = {}) {
+  const url = new URL(location.href);
+  if (id) url.searchParams.set("session", id);
+  else url.searchParams.delete("session");
+  const state = { cameFromHome };
+  if (replace) history.replaceState(state, "", url.toString());
+  else history.pushState(state, "", url.toString());
+  return applyRoute(id);
+}
+
+// Apply whatever the URL says. Safe to call repeatedly: popstate can re-fire
+// the route we're already on.
+async function applyRoute(id) {
+  // Already connected to this session: nothing to join, but still make sure
+  // we're showing it. Both a re-fired popstate and the hop straight from
+  // createSession land here.
+  if (id && id === sync.getSessionId()) {
+    setView("session");
     return;
   }
 
-  // Joining replaces the local lists (#29). Guard that behind a confirm when a
-  // share link would clobber non-empty local work — but not for the silent
-  // auto-rejoin of our own stored session.
-  if (
-    fromUrl &&
-    fromUrl !== stored &&
-    (app.upNext.length || app.requests.length)
-  ) {
-    if (
-      !confirm(`Join session “${fromUrl}”? This replaces your current lists.`)
-    ) {
-      setSessionParam(null); // declined — strip the param, stay local
-      return;
+  if (!id) {
+    // ORDER MATTERS. leaveSession() first: clearing the lists before detaching
+    // would push the empty lists through persist() -> notifyLocalChange() and
+    // wipe the session for everyone still in it. Once sync has torn down,
+    // pushTimer/pendingState are cleared and flushPush early-returns, so
+    // nothing can escape.
+    const wasInSession = sync.getSessionId() !== null;
+    sync.leaveSession();
+    if (wasInSession) {
+      // Only a session's lists are ours to drop. On a cold open there was never
+      // a session, and whatever is in localStorage is carry-over the user still
+      // has to decide about.
+      app.upNext = [];
+      app.requests = [];
+      closeReview();
+      persist();
+      renderUpNext();
+      renderRequests();
     }
+    renderCarryover();
+    setView("home");
+    updateShareUi();
+    refreshSessionList();
+    return;
+  }
+
+  // A malformed share link can't be a real session — say so without touching
+  // Firestore.
+  if (!isValidSessionId(id)) {
+    sync.leaveSession();
+    showHomeError("That share link doesn’t look right.");
+    await navigateTo(null, { replace: true });
+    return;
   }
 
   try {
-    await sync.joinSession(target, applyRemoteState);
-    // Make sure the param is present even on silent auto-rejoin, so the link in
-    // the address bar is shareable straight away.
-    setSessionParam(sync.getSessionId());
+    const { createdAt } = await sync.joinSession(id, applyRemoteState);
     persist();
-  } catch {
-    storedSessionId = null;
-    persist();
-    if (fromUrl) {
-      showSessionError(
-        "That shared session wasn’t found — it may have expired. Your lists are still here, just local now."
-      );
-      setSessionParam(null);
+    setView("session");
+    updateShareUi();
+    // Sessions created before #77 carry no name: derive one from when they
+    // started, and quietly backfill their history row so they stop being
+    // invisible. Best-effort — never blocks opening the session.
+    const meta = sync.getMeta();
+    if (!meta.name) {
+      const derived = defaultSessionName(createdAt || new Date());
+      renderSessionMeta({ ...meta, name: derived });
+      ensureIndexEntry(id, { name: derived, createdBy: "", createdAt });
+    } else {
+      renderSessionMeta(meta);
     }
+  } catch (err) {
+    sync.leaveSession();
+    showHomeError(
+      err?.notFound
+        ? "That session wasn’t found — it may have been deleted."
+        : `Couldn’t open that session — ${err.message}`
+    );
+    await navigateTo(null, { replace: true });
   }
-  updateShareUi();
 }
+
+// Android's hardware Back and iOS's edge-swipe both land here.
+window.addEventListener("popstate", () => {
+  applyRoute(currentRouteId());
+});
+
+// Prefer a real history.back() when we know home is the previous entry, so
+// bouncing between the list and a session doesn't grow the stack forever.
+backHomeButton.addEventListener("click", () => {
+  if (history.state?.cameFromHome) history.back();
+  else navigateTo(null);
+});
 
 // --- Share button + session popover ----------------------------------------
 function setSharePanelOpen(open) {
@@ -355,7 +455,7 @@ function setSharePanelOpen(open) {
 let connectedCount = 0;
 
 // Reflect the current session state on the button (active ring/dot) and in the
-// popover (session id). Wired to sync's status callback so TTL expiry, leaves,
+// popover (session id). Wired to sync's status callback so leaves, deletions
 // and connects all keep the UI honest.
 function updateShareUi() {
   const id = sync.getSessionId();
@@ -369,6 +469,17 @@ function updateShareUi() {
   if (id) shareSessionIdEl.textContent = id;
   else setSharePanelOpen(false); // no session → nothing to show
 }
+
+// The session's name and listed-ness, wherever they're shown: the bar above the
+// lists, and the toggle in the share popover. Driven by sync.onMetaChange, so a
+// peer's rename lands here live.
+function renderSessionMeta(meta) {
+  sessionNameButton.replaceChildren(
+    ...iconLabel("rename", meta.name || sync.getSessionId() || "")
+  );
+  shareListedToggle.checked = meta.listed;
+}
+sync.onMetaChange(renderSessionMeta);
 
 // Render the "who's here" roster into the share panel and the count badge on
 // the share button. Wired to presence.onRoster, so it re-renders whenever a
@@ -455,48 +566,33 @@ async function shareSessionLink() {
   flashButton(shareLinkButton, "Link copied");
 }
 
-// Tap Share: open the popover if already sharing, otherwise create a session
-// and offer the link. Creating loads the Firestore chunk lazily, so the first
-// tap can take a beat — disable + show a spinner glyph meanwhile.
-async function onShareTap(event) {
+// Tap Share: the popover is now purely in-session (every set of lists already
+// belongs to a session), so this just opens it.
+function onShareTap(event) {
   event.stopPropagation();
   setSettingsOpen(false);
-  if (sync.getSessionId()) {
-    setSharePanelOpen(sharePanel.hidden);
-    return;
-  }
-  errorBox.hidden = true;
-  shareToggle.disabled = true;
-  shareToggle.replaceChildren(icon("loader", "spin"));
-  try {
-    const id = await sync.createSession(sessionState, applyRemoteState);
-    persist();
-    setSessionParam(id);
-    updateShareUi();
-    setSharePanelOpen(true); // reveal the in-session popover as confirmation
-    await shareSessionLink();
-  } catch (err) {
-    showSessionError(
-      `Couldn’t start a shared session — ${err.message}. You’re still working locally.`
-    );
-  } finally {
-    shareToggle.disabled = false;
-    shareToggle.replaceChildren(icon("share"));
-  }
+  setSharePanelOpen(sharePanel.hidden);
 }
 
-function leaveSessionUi() {
-  sync.leaveSession();
-  storedSessionId = null;
-  setSessionParam(null);
-  persist();
-  updateShareUi();
-  setSharePanelOpen(false);
+// List / un-list this night. Un-listing removes it from the club's list only —
+// the link keeps working, which the panel's own copy says out loud.
+async function onListedToggle() {
+  const listed = shareListedToggle.checked;
+  errorBox.hidden = true;
+  shareListedToggle.disabled = true;
+  try {
+    await sync.setSessionListed(listed);
+  } catch (err) {
+    shareListedToggle.checked = !listed; // revert: the write didn't land
+    showSessionError(`Couldn’t update the session list — ${err.message}`);
+  } finally {
+    shareListedToggle.disabled = false;
+  }
 }
 
 shareToggle.addEventListener("click", onShareTap);
 shareLinkButton.addEventListener("click", shareSessionLink);
-shareLeaveButton.addEventListener("click", leaveSessionUi);
+shareListedToggle.addEventListener("change", onListedToggle);
 
 // Same forgiving dismissal as the settings popover: tap outside or Escape.
 document.addEventListener("click", (event) => {
@@ -513,20 +609,16 @@ document.addEventListener("keydown", (event) => {
 });
 
 // Keep the UI in sync when the engine changes state on its own — most
-// importantly when the remote doc expires (TTL) and we drop to local-only.
-// Presence is bound to the same lifecycle: start heartbeating on connect, stop
-// (and retract our doc) on leave/expiry.
+// importantly when the remote doc goes away underneath us. Presence is bound to
+// the same lifecycle: start heartbeating on connect, stop (and retract our doc)
+// on leave.
 sync.onStatusChange((status) => {
   if (status.status === "connected") {
     presence.startPresence(status.id, () => app.name);
   } else if (status.status === "expired") {
     presence.stopPresence();
-    storedSessionId = null;
-    setSessionParam(null);
-    persist();
-    showSessionError(
-      "This shared session has expired. Your lists are still here, just local now."
-    );
+    showHomeError("That session is no longer there — it looks like it was deleted.");
+    navigateTo(null, { replace: true });
   } else if (status.status === "left") {
     presence.stopPresence();
   }
@@ -537,6 +629,202 @@ sync.onStatusChange((status) => {
 // promptly. pagehide fires more reliably than beforeunload on mobile; if it's
 // missed, the staleness window + TTL retire the doc anyway.
 window.addEventListener("pagehide", presence.removeOnUnload);
+
+// --- Home view: the club's session history ---------------------------------
+function renderSessionList(entries) {
+  sessionListEl.replaceChildren(
+    ...disambiguate(entries).map((entry) => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "session-item";
+      button.dataset.id = entry.id;
+
+      const name = document.createElement("span");
+      name.className = "session-item-name";
+      name.textContent = entry.label;
+
+      const meta = document.createElement("span");
+      meta.className = "session-item-meta";
+      meta.textContent = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+
+      button.append(name, meta);
+      li.appendChild(button);
+      return li;
+    })
+  );
+}
+
+// The list and "New session" are independent paths: a failed query must never
+// stop someone starting tonight's set.
+async function refreshSessionList() {
+  sessionListRetry.hidden = true;
+  sessionListStatus.hidden = false;
+  sessionListStatus.textContent = "Loading sessions…";
+  try {
+    const entries = await listSessions();
+    renderSessionList(entries);
+    sessionListStatus.hidden = entries.length > 0;
+    sessionListStatus.textContent = entries.length
+      ? ""
+      : "No sessions yet — start one above.";
+  } catch {
+    sessionListEl.replaceChildren();
+    sessionListStatus.hidden = false;
+    sessionListStatus.textContent = "Couldn’t load past sessions.";
+    sessionListRetry.hidden = false;
+  }
+}
+
+sessionListEl.addEventListener("click", (event) => {
+  const button = event.target.closest(".session-item");
+  if (button) navigateTo(button.dataset.id, { cameFromHome: true });
+});
+sessionListRetry.addEventListener("click", refreshSessionList);
+
+// --- New session sheet ------------------------------------------------------
+// Whether Start should carry the carry-over lists into the new session, or
+// begin empty (the normal case — a new night shouldn't inherit last week's
+// leftovers).
+let sheetSeedsCarryover = false;
+
+function openSheet({ seedCarryover = false } = {}) {
+  sheetSeedsCarryover = seedCarryover;
+  sheetError.hidden = true;
+  sheetName.value = defaultSessionName();
+  sheetListed.checked = true;
+  sheet.hidden = false;
+  homeError.hidden = true;
+  // Don't autofocus: on a phone that throws up the keyboard and hides the
+  // toggle. The prefilled date is usually the answer — tap Start and go.
+}
+
+function closeSheet() {
+  sheet.hidden = true;
+  sheetStart.disabled = false;
+  sheetStart.replaceChildren(document.createTextNode("Start"));
+}
+
+async function onSheetStart() {
+  const name = sheetName.value.trim() || defaultSessionName();
+  const listed = sheetListed.checked;
+  const seed = sheetSeedsCarryover;
+  sheetError.hidden = true;
+  sheetStart.disabled = true;
+  sheetStart.replaceChildren(icon("loader", "spin"));
+  try {
+    // Creating loads the Firestore chunk lazily, so the first tap can take a
+    // beat — hence the spinner above.
+    const id = await sync.createSession(
+      () => (seed ? sessionState() : { upNext: [], requests: [], edition: app.edition }),
+      applyRemoteState,
+      { name, createdBy: presence.displayName(app.name), listed }
+    );
+    if (!seed) {
+      app.upNext = [];
+      app.requests = [];
+      renderUpNext();
+      renderRequests();
+    }
+    hasCarryover = false;
+    carryoverBox.hidden = true;
+    persist();
+    closeSheet();
+    await navigateTo(id, { cameFromHome: homeSection.hidden === false });
+    renderSessionMeta(sync.getMeta());
+    updateShareUi();
+  } catch (err) {
+    // Keep the sheet open with the user's name intact so Start is one tap away
+    // once they're back on wifi. There is no local-only mode to fall back to.
+    sheetError.textContent = `Couldn’t start a session — ${err.message}`;
+    sheetError.hidden = false;
+    sheetStart.disabled = false;
+    sheetStart.replaceChildren(document.createTextNode("Start"));
+  }
+}
+
+newSessionButton.addEventListener("click", () => openSheet());
+newSessionHereButton.addEventListener("click", () => openSheet());
+sheetStart.addEventListener("click", onSheetStart);
+sheetCancel.addEventListener("click", closeSheet);
+// Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
+// bonus, never the only way out.
+sheet.addEventListener("click", (event) => {
+  if (event.target === sheet) closeSheet();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !sheet.hidden) closeSheet();
+});
+sheetName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    onSheetStart();
+  }
+});
+
+// --- Rename the current session --------------------------------------------
+function startRename() {
+  sessionNameInput.value = sync.getMeta().name || "";
+  sessionNameButton.hidden = true;
+  sessionNameInput.hidden = false;
+  sessionNameInput.focus();
+  sessionNameInput.select();
+}
+
+function endRename() {
+  sessionNameInput.hidden = true;
+  sessionNameButton.hidden = false;
+}
+
+async function commitRename() {
+  const name = sessionNameInput.value.trim();
+  const previous = sync.getMeta();
+  endRename();
+  if (!name || name === previous.name) return;
+  renderSessionMeta({ ...previous, name }); // optimistic: the write is a round trip
+  try {
+    await sync.setSessionName(name);
+  } catch (err) {
+    renderSessionMeta(previous);
+    showSessionError(`Couldn’t rename the session — ${err.message}`);
+  }
+}
+
+sessionNameButton.addEventListener("click", startRename);
+sessionNameInput.addEventListener("blur", commitRename);
+sessionNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    sessionNameInput.blur(); // blur commits, so both paths agree
+  } else if (event.key === "Escape") {
+    sessionNameInput.value = sync.getMeta().name || "";
+    endRename();
+  }
+});
+
+// --- Carry-over from before sessions were mandatory -------------------------
+function renderCarryover() {
+  if (!hasCarryover) {
+    carryoverBox.hidden = true;
+    return;
+  }
+  const count = app.upNext.length + app.requests.length;
+  carryoverText.textContent =
+    `You have a list from before that isn’t in a session yet ` +
+    `(${count} ${count === 1 ? "song" : "songs"}).`;
+  carryoverBox.hidden = false;
+}
+
+carryoverStart.addEventListener("click", () => openSheet({ seedCarryover: true }));
+carryoverDiscard.addEventListener("click", () => {
+  app.upNext = [];
+  app.requests = [];
+  hasCarryover = false;
+  carryoverBox.hidden = true;
+  persist();
+  renderUpNext();
+  renderRequests();
+});
 
 // --- Loading editions + catalogue ------------------------------------------
 // Drives the song-picker's placeholder states: "loading" until a catalogue is
@@ -997,8 +1285,6 @@ function renderUpNext() {
   // Played and binned rows are lifted out into their collapsed groups, so the
   // empty note keys off the rows still *visible* in the running order.
   upnextEmpty.hidden = app.upNext.some((e) => !e.binned && !e.played);
-  // "Start over" wipes both lists, so it's relevant whenever either has rows.
-  clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
@@ -1025,8 +1311,6 @@ function renderUpNext() {
 
 function renderRequests() {
   requestsEmpty.hidden = app.requests.some((e) => !e.binned);
-  // The clear button's visibility also depends on the requests list.
-  clearButton.hidden = app.upNext.length === 0 && app.requests.length === 0;
   requestsRows.replaceChildren(
     ...app.requests
       .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
@@ -1563,21 +1847,11 @@ function wireSwipe(li, body, row, context) {
   });
 }
 
-// --- Clear + export --------------------------------------------------------
-clearButton.addEventListener("click", () => {
-  if (!app.upNext.length && !app.requests.length) return;
-  // While sharing, "Start over" wipes the lists for everyone in the session,
-  // so spell that out in the confirm.
-  const prompt = sync.getSessionId()
-    ? "Clear Up next and Requests for everyone in this shared session and start over?"
-    : "Clear Up next and Requests and start over?";
-  if (!confirm(prompt)) return;
-  app.upNext = [];
-  app.requests = [];
-  renderUpNext();
-  renderRequests();
-  persist();
-});
+// --- Export ----------------------------------------------------------------
+// (There is deliberately no "Start over" any more: every set now belongs to a
+// shared session, so wiping both lists meant wiping the night for everyone in
+// the room, with no undo. A fresh start is a new session — cheap, and it leaves
+// the old one in the club's history.)
 
 // Export covers both lists, running order first: Up next, then any requests
 // still waiting in the pool.
@@ -1632,14 +1906,21 @@ document.getElementById("download").addEventListener("click", () => {
   mountManualAdd();
   renderUpNext();
   renderRequests();
-  // Auto-rejoin a shared session (URL param or stored id) before loading the
-  // catalogue: joining swaps in the remote lists, and this keeps the Firestore
-  // chunk unfetched for local-only users.
-  await resolveSession();
+  renderCarryover();
+
+  // Paint the right view before any network work so a cold open shows the
+  // session list (with its own loading note) straight away. The route lives in
+  // the URL, so a mid-gig reload lands back in the session it was in.
+  const routeId = currentRouteId();
+  setView(routeId ? "session" : "home");
   updateShareUi();
-  // Editions and catalogue are independent requests — don't waterfall them.
-  // The stored edition id (if any) is what the select would show anyway.
+
+  // Routing, editions and the catalogue are independent requests — don't
+  // waterfall them. Firestore is now on the critical path for every user (the
+  // session list needs it), so it must not gate the catalogue the way the old
+  // local-only-friendly ordering did.
   await Promise.all([
+    navigateTo(routeId, { replace: true }),
     loadEditions(),
     loadCatalogue(app.edition?.id || editionSelect.value),
   ]);

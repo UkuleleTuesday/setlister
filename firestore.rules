@@ -7,20 +7,27 @@ rules_version = '2';
 // Deliberately unauthenticated (see the epic's "accepted risks"): anyone can
 // read any session, and anyone who knows/guesses an id can write it. The
 // defence is a closed schema (hasOnly locks the key set) + deny-by-default
-// everywhere else + a hard TTL cap so no document can live forever.
+// everywhere else.
 //
-// The session doc's v1 schema stays CLOSED — do NOT add `presence` or any other
-// field to it. "Who's here" presence (#32) deliberately lives in a SIBLING
-// subcollection, `sessions/{id}/presence/{clientId}`, so the frozen doc is
-// untouched and a churning heartbeat never rewrites (and so extends the TTL of)
-// the durable state.
+// Sessions are now KEPT FOREVER (#77): the app opens on the club's session
+// history, so a night that disappears after 30 days is a bug, not a feature.
+// New clients write no `expiresAt` at all and strip it from legacy docs on
+// first write. The field stays in the allowed key set purely so docs created
+// before that change (and browsers still running a cached bundle) keep
+// validating through the rollout.
+//
+// Two sibling collections keep the session doc small and stable:
+//   - sessions/{id}/presence/{clientId} — "who's here" heartbeats (#32), so a
+//     churning beat never rewrites the durable state.
+//   - sessionIndex/{id} — the ~120-byte listing row the home screen reads, so
+//     listing history doesn't download every session's rows.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     match /sessions/{id} {
       allow read: if true;                        // public by design
       allow create, update: if isValidSession(id);
-      allow delete: if false;                     // cleanup is the TTL's job
+      allow delete: if false;                     // history is kept forever
 
       // Ephemeral presence heartbeats. Same unauthenticated posture as the
       // parent: readable by anyone with the id, and each client owns its own
@@ -31,6 +38,29 @@ service cloud.firestore {
         allow create, update: if isValidPresence();
         allow delete: if true;
       }
+    }
+
+    // Club-wide session history (#77). One tiny doc per LISTED session, same id
+    // as the session it points at, written in the same transaction that mints
+    // the session. The home screen queries this collection instead of
+    // `sessions` because the Web SDK has no field projection — listing sessions
+    // directly would pull every row of every night, forever, on every app open.
+    //
+    // A session marked unlisted simply has no doc here. That is NOT access
+    // control: the session itself stays world-readable by id, exactly like
+    // every other session. Unlisted means "not advertised in the club's list".
+    match /sessionIndex/{id} {
+      allow read: if true;                        // public by design, like sessions
+      allow create: if isValidIndexEntry(id);
+      // Only the display name is mutable — provenance is not rewritable.
+      allow update: if isValidIndexEntry(id)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy;
+      // Needed so a session can be un-listed after the fact. Accepted risk, and
+      // the same trust model as "anyone can edit any session" — but strictly
+      // weaker: the session doc itself is `delete: if false`, so only the
+      // listing can be lost here, never the setlist.
+      allow delete: if true;
     }
 
     // Deny-by-default: everything not matched above is closed.
@@ -44,18 +74,48 @@ function isValidSession(id) {
   let d = request.resource.data;
   // Session ids are `adjective-noun`, lowercase, one dash (e.g. misty-banjo).
   return id.matches('^[a-z]+-[a-z]+$')
-    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'createdAt', 'updatedAt', 'expiresAt'])
+    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'createdAt', 'updatedAt', 'expiresAt'])
     && d.v == 1
     && d.rows is map
     && d.upNextOrder is list
     && d.requestsOrder is list
     && d.createdAt is timestamp
     && d.updatedAt is timestamp
-    && d.expiresAt is timestamp
-    // Cap the lifetime so a client can't mint an immortal document.
-    && d.expiresAt <= request.time + duration.value(31, 'd');
+    // The display fields are checked only when present: sessions created before
+    // #77 carry none of them, and on an update `request.resource.data` is the
+    // MERGED document — an unconditional check would make every legacy session
+    // unwritable.
+    && (!('name' in d) || (d.name is string && d.name.size() <= 80))
+    && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
+    && (!('listed' in d) || d.listed is bool)
+    // Legacy TTL field, tolerated but never written by current clients (see the
+    // header). No cap: sessions are kept forever now, so the old
+    // "expiresAt <= now + 31d" ceiling has nothing left to bound.
+    && (!('expiresAt' in d) || d.expiresAt is timestamp);
   // `edition` (map | null) is intentionally not type-constrained: hasOnly
   // already caps the key set, and null vs map is validated client-side.
+}
+
+// A history listing row: the session's display name, who started it, and when.
+// Closed key set with bounded strings, matching the session doc's own caps.
+function isValidIndexEntry(id) {
+  let d = request.resource.data;
+  return id.matches('^[a-z]+-[a-z]+$')
+    && d.keys().hasOnly(['v', 'name', 'createdBy', 'createdAt'])
+    && d.v == 1
+    && d.name is string
+    && d.name.size() > 0
+    && d.name.size() <= 80
+    && d.createdBy is string
+    && d.createdBy.size() <= 60
+    // No future-dating, so an entry can't pin itself to the top of a list
+    // ordered by createdAt. serverTimestamp() resolves to request.time, and
+    // backfilling a legacy session writes that session's (past) createdAt.
+    && d.createdAt is timestamp
+    && d.createdAt <= request.time;
+  // NB: do NOT add an exists() check that the matching session doc is there.
+  // Rules see pre-commit state, so inside the transaction that mints a session
+  // the doc doesn't exist yet and the index write would be denied.
 }
 
 // A presence heartbeat: a short display name plus two timestamps. Closed key

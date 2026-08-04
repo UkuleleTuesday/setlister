@@ -6,6 +6,7 @@
 // small — Vite tree-shakes everything unused.
 
 import {
+  ArrowLeft,
   Camera,
   Check,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   ListMinus,
   ListPlus,
   LoaderCircle,
+  Pencil,
   Plus,
   RotateCcw,
   Settings,
@@ -49,6 +51,10 @@ const ICONS = {
   close: X,
   chevron: ChevronDown,
   loader: LoaderCircle,
+  // Session navigation: out to the history list, and the rename affordance on
+  // the session's name.
+  back: ArrowLeft,
+  rename: Pencil,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text
