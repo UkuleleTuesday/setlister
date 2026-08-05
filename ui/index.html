@@ -111,6 +111,10 @@
           <input type="number" id="max-image-edge" min="256" max="4096" step="128"
                  placeholder="1600">
         </label>
+        <!-- Since #44 this knob governs the upload, not just the server's
+             resize — worth saying, because it used to do the opposite of what
+             a reader would assume (full-size upload, shrunk on arrival). -->
+        <p class="note">Photos are shrunk to this on your phone before uploading.</p>
       </details>
     </div>
   </header>
@@ -243,13 +247,21 @@
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
-        <div id="scan-overlay" class="scan-overlay" hidden aria-hidden="true">
-          <div class="scan-beam"></div>
-          <div class="scan-corner tl"></div>
-          <div class="scan-corner tr"></div>
-          <div class="scan-corner bl"></div>
-          <div class="scan-corner br"></div>
-          <div class="scan-status"><span class="dot"></span><span id="scan-status-text">Reading the board…</span></div>
+        <!-- The overlay itself is inert (pointer-events: none) so the sweep
+             never eats a tap; only the Cancel button opts back in. It can no
+             longer be aria-hidden as a whole — that would bury a focusable
+             control — so the decorative sweep is hidden piece by piece. -->
+        <div id="scan-overlay" class="scan-overlay" hidden>
+          <div class="scan-beam" aria-hidden="true"></div>
+          <div class="scan-corner tl" aria-hidden="true"></div>
+          <div class="scan-corner tr" aria-hidden="true"></div>
+          <div class="scan-corner bl" aria-hidden="true"></div>
+          <div class="scan-corner br" aria-hidden="true"></div>
+          <div class="scan-hud">
+            <div class="scan-status" role="status"><span class="dot" aria-hidden="true"></span><span id="scan-status-text">Reading the board…</span></div>
+            <!-- The way out of a hung scan without reloading the page (#44). -->
+            <button id="scan-cancel" class="scan-cancel" type="button">Cancel scan</button>
+          </div>
         </div>
       </div>
       <div id="error" class="error" hidden></div>

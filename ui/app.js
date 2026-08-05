@@ -11,6 +11,7 @@ import {
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 import { duplicateLabel, findDuplicate, matchKey, normalizeText, rowKey } from "./dupes.js";
+import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
 
 const editionSelect = document.getElementById("edition");
@@ -63,6 +64,7 @@ const photoLightboxImg = document.getElementById("photo-lightbox-img");
 const photoLightboxClose = document.getElementById("photo-lightbox-close");
 const cameraButton = document.getElementById("camera-button");
 const scanStatusText = document.getElementById("scan-status-text");
+const scanCancel = document.getElementById("scan-cancel");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const newSessionButton = document.getElementById("new-session");
@@ -1290,6 +1292,22 @@ function stopScanStatus() {
   scanMessageTimer = null;
 }
 
+// A hung request used to sweep the beam forever with no way out but a reload
+// (#44). Two escapes now: this ceiling — generous, because a cold Cloud
+// Function plus a thinking model legitimately takes tens of seconds — and the
+// Cancel button on the overlay.
+const SCAN_TIMEOUT_MS = 90000;
+// Which of the two aborted the scan, since fetch reports both as AbortError.
+let scanAbort = null;
+let scanEndedBy = null;
+
+function abortScan(reason) {
+  if (!scanAbort) return;
+  scanEndedBy = reason;
+  scanAbort.abort();
+}
+scanCancel.addEventListener("click", () => abortScan("cancel"));
+
 photoInput.addEventListener("change", async () => {
   const file = photoInput.files[0];
   if (!file) return;
@@ -1309,17 +1327,33 @@ photoInput.addEventListener("change", async () => {
   // the setlist, so scroll to it while the board is being read.
   previewWrap.scrollIntoView({ behavior: "smooth", block: "center" });
 
-  const form = new FormData();
-  form.append("image", file);
-  form.append("edition", editionSelect.value);
-  // Tuning knobs from the settings panel — the API clamps/ignores anything out
-  // of range and falls back to its configured defaults.
-  if (modelSelect.value) form.append("model", modelSelect.value);
-  form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
-  form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
-  if (maxImageEdge.value) form.append("max_image_edge", maxImageEdge.value);
+  scanEndedBy = null;
+  scanAbort = new AbortController();
+  const timeout = setTimeout(() => abortScan("timeout"), SCAN_TIMEOUT_MS);
+
   try {
-    const res = await fetch(`${API_BASE}/api/parse`, { method: "POST", body: form });
+    // The long edge governs the upload now, not just the server's resize — the
+    // camera's 3–8MB original would be thrown away server-side anyway (#44).
+    const maxEdge = resolveMaxEdge(maxImageEdge.value);
+    const upload = await downscaleImage(file, { maxEdge });
+
+    const form = new FormData();
+    form.append("image", upload);
+    form.append("edition", editionSelect.value);
+    // Tuning knobs from the settings panel — the API clamps/ignores anything out
+    // of range and falls back to its configured defaults.
+    if (modelSelect.value) form.append("model", modelSelect.value);
+    form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
+    form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
+    // Sent anyway: a browser that couldn't downscale still gets the size it
+    // asked for, and when the shrink worked this is a no-op on a photo that
+    // already fits.
+    form.append("max_image_edge", String(maxEdge));
+    const res = await fetch(`${API_BASE}/api/parse`, {
+      method: "POST",
+      body: form,
+      signal: scanAbort.signal,
+    });
     if (!res.ok) {
       const detail = (await res.json().catch(() => ({}))).detail;
       throw new Error(detail || `Server error (${res.status})`);
@@ -1384,15 +1418,32 @@ photoInput.addEventListener("change", async () => {
       showScanResult(message);
     }
   } catch (err) {
-    // A fetch that never reached the server rejects with a TypeError and an
-    // unhelpful message ("Failed to fetch") — translate it for humans. Server
-    // errors carry a user-facing `detail` and pass through.
-    errorBox.textContent =
-      err instanceof TypeError
-        ? "Couldn't reach the server — check your signal and try again."
-        : err.message;
-    errorBox.hidden = false;
+    // Both escapes from a hung scan land here as AbortError (#44); only the
+    // timeout is a failure worth an error box — a deliberate cancel just puts
+    // the camera back, with a line confirming nothing was read.
+    if (err.name === "AbortError") {
+      URL.revokeObjectURL(imageUrl);
+      previewWrap.hidden = true;
+      if (scanEndedBy === "timeout") {
+        errorBox.textContent =
+          "That scan took too long — check your signal and try snapping it again.";
+        errorBox.hidden = false;
+      } else {
+        showScanResult("Scan cancelled — nothing was added.");
+      }
+    } else {
+      // A fetch that never reached the server rejects with a TypeError and an
+      // unhelpful message ("Failed to fetch") — translate it for humans. Server
+      // errors carry a user-facing `detail` and pass through.
+      errorBox.textContent =
+        err instanceof TypeError
+          ? "Couldn't reach the server — check your signal and try again."
+          : err.message;
+      errorBox.hidden = false;
+    }
   } finally {
+    clearTimeout(timeout);
+    scanAbort = null;
     stopScanStatus();
     scanOverlay.hidden = true;
     // Reset so re-selecting the same file re-fires `change`.
