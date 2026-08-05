@@ -36,7 +36,19 @@ header { position: relative; padding: 1.2rem 1rem 0.4rem; text-align: center; }
 /* Keep the centred title clear of the corner controls (Share top-left, gear
    top-right) so it never tucks under them — even the long title at 320px. */
 header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
-.subtitle { margin: 0.2rem 0 0; color: #666; font-size: 0.9rem; }
+/* Same corner clearance as the h1: the tagline is long enough to reach the
+   gear button otherwise. */
+.subtitle { margin: 0.2rem auto 0; color: #666; font-size: 0.9rem; max-width: calc(100% - 6rem); }
+/* In a session the night's name (in .session-bar) is the working title, so the
+   brand recedes to a small wordmark and the tagline gets out of the way. The
+   min-height keeps the header at least as tall as the absolutely-pinned corner
+   buttons (their top offset + the 2.4rem card) — without it, hiding the
+   subtitle would let the Share button overhang "All sessions" just below. */
+body.in-session header {
+  min-height: calc(max(0.9rem, env(safe-area-inset-top)) + 2.7rem);
+}
+body.in-session header h1 { font-size: 1rem; color: #666; }
+body.in-session .subtitle { display: none; }
 
 .settings-toggle {
   position: absolute; top: 0.9rem; right: 0.9rem;
@@ -97,7 +109,13 @@ header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
   background: var(--card); border: 1px solid #ccc; border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
-.share-panel .share-session-label { margin: 0 0 0.2rem; font-size: 1rem; }
+/* The night's name leads the popover; the id underneath is just the link slug,
+   in the note register. Long typed names wrap instead of widening the panel. */
+.share-panel .share-session-name {
+  margin: 0 0 0.1rem; font-size: 1.05rem; font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.share-panel .share-session-label { margin: 0 0 0.2rem; }
 .share-panel .share-session-label strong { color: var(--confirmed); }
 .share-panel .note { margin: 0 0 0.7rem; }
 /* Stack the share/leave buttons full-width so each is an easy thumb target. */
@@ -342,10 +360,12 @@ footer#edition-note:empty { display: none; }
 }
 /* The name takes the slack so "All sessions" pins left and "New" pins right. */
 .session-name, .session-name-input { flex: 1; min-width: 0; }
+/* Heading-scale type: with the brand h1 shrunk to 1rem in-session, the night's
+   name is the biggest text in view — it reads as the view's title. */
 .session-name {
   display: flex; align-items: center; justify-content: center; gap: 0.35rem;
   min-height: 44px; padding: 0.2rem 0.4rem;
-  background: none; border: none; font: inherit; font-weight: 600;
+  background: none; border: none; font: inherit; font-size: 1.25rem; font-weight: 600;
   color: inherit; text-align: center; overflow-wrap: anywhere; cursor: pointer;
 }
 /* The pencil is the whole affordance — a bold heading that happens to be
@@ -353,8 +373,9 @@ footer#edition-note:empty { display: none; }
 .session-name .icon { color: #8a8a8a; }
 .session-name:active { opacity: 0.7; }
 .session-name-input {
-  min-height: 44px; padding: 0.4rem 0.6rem; font: inherit; font-weight: 600;
-  text-align: center;
+  /* Same size as the button so tapping rename doesn't jump the bar's layout. */
+  min-height: 44px; padding: 0.4rem 0.6rem; font: inherit; font-size: 1.25rem;
+  font-weight: 600; text-align: center;
   border: 1px solid #ccc; border-radius: 8px; background: var(--card);
 }
 
