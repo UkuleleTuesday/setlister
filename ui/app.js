@@ -22,8 +22,12 @@ const addSection = document.getElementById("add");
 const manualAddHost = document.getElementById("manual-add");
 const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
+const upnextCount = document.getElementById("upnext-count");
 const requestsRows = document.getElementById("requests-rows");
 const requestsEmpty = document.getElementById("requests-empty");
+const requestsCount = document.getElementById("requests-count");
+const copyButton = document.getElementById("copy");
+const downloadButton = document.getElementById("download");
 const playedGroup = document.getElementById("played-group");
 const binGroup = document.getElementById("bin-group");
 const reviewSection = document.getElementById("review");
@@ -97,8 +101,8 @@ backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 newSessionHereButton.replaceChildren(...iconLabel("add", "New session"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
-document.getElementById("copy").replaceChildren(icon("copy"));
-document.getElementById("download").replaceChildren(icon("download"));
+copyButton.replaceChildren(icon("copy"));
+downloadButton.replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
@@ -1348,6 +1352,9 @@ photoInput.addEventListener("change", async () => {
 function openReview() {
   addSection.hidden = true;
   reviewSection.hidden = false;
+  // An in-flight scan means songs are coming: leave the fresh state so the
+  // review sheet appears in the full layout.
+  updateSessionMode();
   renderReview();
   reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1360,6 +1367,7 @@ function closeReview() {
   // The photo is only reachable from the review sheet — release it with it.
   if (app.review?.imageUrl) URL.revokeObjectURL(app.review.imageUrl);
   app.review = null;
+  updateSessionMode();
 }
 
 // The scanned board is hidden during review, but a flagged row (⚠️) may need a
@@ -1417,6 +1425,33 @@ function rerender() {
   if (app.review) renderReview();
 }
 
+// A session with no songs at all has exactly one job — get the board in — so
+// the view collapses to the add affordances (the `fresh` class drives the CSS).
+// Every mutation path (local edits, remote snapshots, review confirm) funnels
+// through renderUpNext/renderRequests, so calling this from both keeps the
+// mode honest; open/closeReview call it too since an in-flight scan counts as
+// "songs are coming".
+function updateSessionMode() {
+  const fresh =
+    app.upNext.length === 0 && app.requests.length === 0 && !app.review;
+  sessionView.classList.toggle("fresh", fresh);
+}
+
+// The export pair covers both lists; with nothing to export, copying an empty
+// string and downloading `{rows: []}` are traps, not actions.
+function updateExportButtons() {
+  const empty = exportedRows().length === 0;
+  copyButton.disabled = empty;
+  downloadButton.disabled = empty;
+}
+
+// Heading counts: how deep is the set / the pool, visible without counting
+// cards. Hidden at zero — the empty-state notes own that moment.
+function renderCount(el, count) {
+  el.textContent = `· ${count}`;
+  el.hidden = count === 0;
+}
+
 function renderEditionNote() {
   if (app.edition) {
     editionNote.textContent =
@@ -1429,9 +1464,13 @@ function renderEditionNote() {
 
 function renderUpNext() {
   renderEditionNote();
+  updateSessionMode();
+  updateExportButtons();
   // Played and binned rows are lifted out into their collapsed groups, so the
   // empty note keys off the rows still *visible* in the running order.
-  upnextEmpty.hidden = app.upNext.some((e) => !e.binned && !e.played);
+  const visible = app.upNext.filter((e) => !e.binned && !e.played);
+  upnextEmpty.hidden = visible.length > 0;
+  renderCount(upnextCount, visible.length);
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
@@ -1439,6 +1478,19 @@ function renderUpNext() {
       .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, "upnext")))
       .filter(Boolean)
   );
+  // The set plays from the top, so the first visible card IS the next tune —
+  // mark it so the glance-and-shout moment needs no counting. The tag sits on
+  // its own micro-line above the title (inside the title it forced mid-name
+  // wraps), and is real text (not CSS content) so assistive tech reads it too.
+  // Re-rendering after any reorder/play re-marks the right card.
+  const nextCard = upnextRows.querySelector(".row-card");
+  if (nextCard) {
+    nextCard.classList.add("next-up");
+    const tag = document.createElement("span");
+    tag.className = "next-tag";
+    tag.textContent = "Next";
+    nextCard.querySelector(".row-main").prepend(tag);
+  }
   // The set plays from the top, so played songs collapse into a one-line count
   // *above* the list and Up next always starts at the next tune. Expanding
   // shows the night's history (array order = play order) and the un-play
@@ -1457,7 +1509,11 @@ function renderUpNext() {
 }
 
 function renderRequests() {
-  requestsEmpty.hidden = app.requests.some((e) => !e.binned);
+  updateSessionMode();
+  updateExportButtons();
+  const visible = app.requests.filter((e) => !e.binned);
+  requestsEmpty.hidden = visible.length > 0;
+  renderCount(requestsCount, visible.length);
   requestsRows.replaceChildren(
     ...app.requests
       .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
@@ -2070,12 +2126,12 @@ function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest 
   return rest;
 }
 
-document.getElementById("copy").addEventListener("click", async () => {
+copyButton.addEventListener("click", async () => {
   await copyToClipboard(exportText());
-  flashButton(document.getElementById("copy"), "Copied!");
+  flashButton(copyButton, "Copied!");
 });
 
-document.getElementById("download").addEventListener("click", () => {
+downloadButton.addEventListener("click", () => {
   const payload = {
     edition: app.edition,
     catalogue_generated_at: app.catalogueGeneratedAt,
