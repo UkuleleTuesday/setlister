@@ -230,6 +230,11 @@
            keyboard / switch access; it forwards the tap to the hidden input. -->
       <button id="camera-button" class="camera-button" type="button">Snap the whiteboard of wishes</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+      <!-- Post-scan feedback for the no-review path: when every row matched
+           confidently they go straight into Requests (#80) and this line is
+           the only acknowledgement. aria-live so the news reaches screen
+           readers without moving focus. Populated by showScanResult(). -->
+      <p id="scan-result" class="scan-result" aria-live="polite" hidden></p>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
@@ -245,11 +250,13 @@
       <div id="error" class="error" hidden></div>
     </section>
 
-    <!-- Review sheet: scanned rows land here to be validated/corrected before
-         they merge into Requests. Hidden until a scan completes. -->
+    <!-- Review sheet: only the scanned rows the parser wasn't sure about land
+         here (#80) — confident matches go straight to Requests. Hidden unless
+         a scan leaves something to check. The note is rewritten per scan
+         (openReview) to say how many rows skipped the queue. -->
     <section id="review" hidden>
       <h2>Review scan</h2>
-      <p class="note">Fix any misreads, drop what you don't want, then add them to Requests.</p>
+      <p id="review-note" class="note">Fix any misreads, drop what you don't want, then add them to Requests.</p>
       <ul id="review-rows"></ul>
       <div class="actions">
         <button id="review-confirm">Add to Requests</button>

@@ -31,7 +31,9 @@ const downloadButton = document.getElementById("download");
 const playedGroup = document.getElementById("played-group");
 const binGroup = document.getElementById("bin-group");
 const reviewSection = document.getElementById("review");
+const reviewNote = document.getElementById("review-note");
 const reviewRows = document.getElementById("review-rows");
+const scanResult = document.getElementById("scan-result");
 const reviewConfirm = document.getElementById("review-confirm");
 const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
@@ -1297,6 +1299,7 @@ photoInput.addEventListener("change", async () => {
   preview.src = imageUrl;
   previewWrap.hidden = false;
   errorBox.hidden = true;
+  scanResult.hidden = true;
   scanOverlay.hidden = false;
   startScanStatus();
   // Bring the photo (and its scanning animation) into view — it can sit below
@@ -1323,12 +1326,38 @@ photoInput.addEventListener("change", async () => {
     app.edition = data.edition;
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
-    // Scanned rows go to the review sheet to be validated before merging.
     catalogueStatus = "ready";
     saveCatalogueCache();
     refreshPickers();
-    app.review = { entries: data.rows.map(rowToEntry), imageUrl };
-    openReview();
+    // Confident matches skip the queue (#80): on a mostly-legible board,
+    // reviewing rows that need no review was the bulk of the tap work. Only
+    // the flagged rows (needs_review / conflict / unmatched) go to the review
+    // sheet; crossed-out-but-confirmed rows auto-add with their flag, same as
+    // they used to land after a manual confirm. Re-scanning the same board
+    // will re-add its songs — the cost of losing the human checkpoint until
+    // duplicate detection (#52) exists.
+    const entries = data.rows.map(rowToEntry);
+    const confirmed = entries.filter((e) => e.status === "confirmed");
+    const flagged = entries.filter((e) => e.status !== "confirmed");
+    if (confirmed.length) {
+      app.requests.push(...confirmed);
+      renderRequests();
+      persist();
+    }
+    if (flagged.length) {
+      app.review = { entries: flagged, autoAdded: confirmed.length, imageUrl };
+      openReview();
+    } else {
+      // Nothing to check: no review sheet, just say what happened. The photo
+      // has no reachable viewer without a review, so release it.
+      URL.revokeObjectURL(imageUrl);
+      previewWrap.hidden = true;
+      showScanResult(
+        confirmed.length
+          ? `Added ${confirmed.length} from the board`
+          : "Couldn't read any songs off that photo — try a closer, straighter shot."
+      );
+    }
   } catch (err) {
     // A fetch that never reached the server rejects with a TypeError and an
     // unhelpful message ("Failed to fetch") — translate it for humans. Server
@@ -1346,9 +1375,28 @@ photoInput.addEventListener("change", async () => {
   }
 });
 
+// Post-scan feedback for the no-review path. It self-retires: long enough to
+// read across the room, gone before it reads as a permanent fixture.
+let scanResultTimer = null;
+function showScanResult(message) {
+  scanResult.textContent = message;
+  scanResult.hidden = false;
+  clearTimeout(scanResultTimer);
+  scanResultTimer = setTimeout(() => {
+    scanResult.hidden = true;
+  }, 8000);
+}
+
 function openReview() {
   addSection.hidden = true;
   reviewSection.hidden = false;
+  // Orientation first: say how many rows skipped the queue, so "the sheet
+  // shows 3 but the board had 12" reads as the feature it is, not a bug.
+  const auto = app.review?.autoAdded ?? 0;
+  reviewNote.textContent = auto
+    ? `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
+      "Requests — these need a look first."
+    : "Fix any misreads, drop what you don't want, then add them to Requests.";
   // An in-flight scan means songs are coming: leave the fresh state so the
   // review sheet appears in the full layout.
   updateSessionMode();
@@ -1409,10 +1457,14 @@ reviewConfirm.addEventListener("click", () => {
   persist();
 });
 
-// Cancelling throws away a whole scan (and the wait for it) — one stray tap
-// shouldn't do that silently.
+// Cancelling throws away the flagged rows (and the wait for the scan) — one
+// stray tap shouldn't do that silently. With auto-add (#80) the clear matches
+// are already safe in Requests, and the prompt says so.
 reviewCancel.addEventListener("click", () => {
-  if (confirm("Discard this scan?")) closeReview();
+  const message = app.review?.autoAdded
+    ? "Discard the rows still needing a check? The clear matches already added stay in Requests."
+    : "Discard this scan?";
+  if (confirm(message)) closeReview();
 });
 
 // --- Rendering -------------------------------------------------------------
