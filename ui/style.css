@@ -315,17 +315,25 @@ footer#edition-note:empty { display: none; }
 .carryover .note { margin: 0 0 0.6rem; }
 .carryover .actions { flex-direction: column; margin: 0; }
 
-/* "What's new": latest release notes, above the session list (the list grows
-   all season and would bury anything below it). The toggle borrows
-   .group-toggle wholesale, so collapsed it's the same quiet dashed one-liner
-   as a played/binned group — a footnote, not a section competing with the
-   list for attention. */
-.whats-new { margin: 1rem 0 0; }
-#whats-new-items {
-  margin: 0.5rem 0 0; padding: 0 0.4rem 0 1.6rem;
-  color: #666; font-size: 0.85rem;
+/* "What's new": announcement and archive are separate surfaces, and neither
+   sits inside the pick-a-session flow. The banner (unseen entries only) is an
+   accent-tinted strip above the heading — an announcement, not a list row —
+   and one tap opens the sheet, which retires it. The footer link is the
+   quiet, always-there door to the same sheet afterwards. */
+.whats-new-banner {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  /* ≥44px tap target — house hard constraint. */
+  width: 100%; min-height: 44px; margin: 0 0 1rem; padding: 0.6rem 0.8rem;
+  border: none; border-radius: 10px; cursor: pointer;
+  background: #f1eafc; color: #4a148c; font: inherit; font-size: 0.9rem;
 }
-#whats-new-items li { margin: 0.3rem 0; }
+.whats-new-banner .icon { width: 1.1rem; height: 1.1rem; }
+.whats-new-footer { margin: 1.6rem 0 0; text-align: center; }
+.whats-new-items {
+  margin: 0; padding-left: 1.2rem;
+  font-size: 0.9rem; color: #444;
+}
+.whats-new-items li { margin: 0.35rem 0; }
 
 /* --- Session bar: back / name / new --------------------------------------- */
 .session-bar {

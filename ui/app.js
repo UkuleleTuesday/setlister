@@ -73,8 +73,10 @@ const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
 const sheetCancel = document.getElementById("new-session-cancel");
-const whatsNewBox = document.getElementById("whats-new");
-const whatsNewToggle = document.getElementById("whats-new-toggle");
+const whatsNewBanner = document.getElementById("whats-new-banner");
+const whatsNewFooter = document.getElementById("whats-new-footer");
+const whatsNewOpen = document.getElementById("whats-new-open");
+const whatsNewSheet = document.getElementById("whats-new-sheet");
 const whatsNewDate = document.getElementById("whats-new-date");
 const whatsNewItems = document.getElementById("whats-new-items");
 
@@ -704,15 +706,20 @@ sessionListEl.addEventListener("click", (event) => {
 });
 sessionListRetry.addEventListener("click", refreshSessionList);
 
-// --- What's new: latest release notes on the home screen -------------------
-// Static per build, so rendered once at boot; #home's hidden toggle shows and
-// hides it with the view. The card starts expanded and collapses to its
-// one-line toggle on the NEXT visit — what's stored is the entry's ISO date
-// (data, never a formatted label), so shipping a newer entry re-expands it
-// without any other state to migrate.
+// --- What's new: latest release notes --------------------------------------
+// Announcement and archive are two different jobs, so they get two surfaces.
+// The banner above "Sessions" exists only while the latest entry is unseen on
+// this device — one tap opens the sheet and retires it, so the home screen's
+// pick-a-session flow carries no permanent extra furniture. The footer link
+// is the quiet, always-there door to the same sheet afterwards. "Seen" is the
+// entry's ISO date (data, never a formatted label) under its own key, so
+// shipping a newer entry revives the banner with no other state to migrate.
 function renderWhatsNew() {
   const entry = latestEntry();
-  if (!entry) return;
+  if (!entry) {
+    whatsNewFooter.hidden = true;
+    return;
+  }
 
   whatsNewDate.textContent = whatsNewDateLabel(entry);
   whatsNewItems.replaceChildren(
@@ -722,25 +729,38 @@ function renderWhatsNew() {
       return li;
     })
   );
-  whatsNewToggle.querySelector(".group-chevron").replaceWith(icon("chevron", "group-chevron"));
+  whatsNewBanner.replaceChildren(...iconLabel("news", "What’s new"));
 
   let seen = null;
   try {
     seen = localStorage.getItem(WHATS_NEW_SEEN_KEY);
-    localStorage.setItem(WHATS_NEW_SEEN_KEY, entry.date);
   } catch {
-    /* private mode: starts expanded every visit, which is merely chatty */
+    /* private mode: the banner simply shows every visit */
   }
-  setWhatsNewOpen(seen !== entry.date);
-  whatsNewBox.hidden = false;
+  whatsNewBanner.hidden = seen === entry.date;
 }
 
-function setWhatsNewOpen(open) {
-  whatsNewToggle.setAttribute("aria-expanded", String(open));
-  whatsNewItems.hidden = !open;
+function openWhatsNewSheet() {
+  whatsNewSheet.hidden = false;
+  // Opening is seeing — the banner has done its job for this entry.
+  whatsNewBanner.hidden = true;
+  try {
+    localStorage.setItem(WHATS_NEW_SEEN_KEY, latestEntry()?.date || "");
+  } catch {
+    /* best-effort: the banner just returns next visit */
+  }
 }
 
-whatsNewToggle.addEventListener("click", () => setWhatsNewOpen(whatsNewItems.hidden));
+whatsNewBanner.addEventListener("click", openWhatsNewSheet);
+whatsNewOpen.addEventListener("click", openWhatsNewSheet);
+// Forgiving dismissal, same as the new-session sheet: tap the backdrop (the
+// hint says so). Escape is a desktop bonus, never the only way out.
+whatsNewSheet.addEventListener("click", (event) => {
+  if (event.target === whatsNewSheet) whatsNewSheet.hidden = true;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !whatsNewSheet.hidden) whatsNewSheet.hidden = true;
+});
 
 // --- New session sheet ------------------------------------------------------
 // Whether Start should carry the carry-over lists into the new session, or

@@ -21,6 +21,7 @@ import {
   Plus,
   RotateCcw,
   Settings,
+  Sparkles,
   TriangleAlert,
   Trash2,
   X,
@@ -51,6 +52,8 @@ const ICONS = {
   close: X,
   chevron: ChevronDown,
   loader: LoaderCircle,
+  // "Something shipped" — the What's new banner and sheet.
+  news: Sparkles,
   // Session navigation: out to the history list, and the rename affordance on
   // the session's name.
   back: ArrowLeft,
