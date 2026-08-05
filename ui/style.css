@@ -39,15 +39,18 @@ header h1 { margin: 0 auto; font-size: 1.4rem; max-width: calc(100% - 6rem); }
 /* Same corner clearance as the h1: the tagline is long enough to reach the
    gear button otherwise. */
 .subtitle { margin: 0.2rem auto 0; color: #666; font-size: 0.9rem; max-width: calc(100% - 6rem); }
-/* In a session the night's name (in .session-bar) is the working title, so the
-   brand recedes to a small wordmark and the tagline gets out of the way. The
-   min-height keeps the header at least as tall as the absolutely-pinned corner
-   buttons (their top offset + the 2.4rem card) — without it, hiding the
-   subtitle would let the Share button overhang "All sessions" just below. */
+/* In a session app.js swaps the h1's text for the night's date: one title
+   bar — share, date, settings — instead of a vestigial brand row stacked on a
+   separate session row. The tagline gets out of the way. The min-height keeps
+   the header at least as tall as the absolutely-pinned corner buttons (their
+   top offset + the 2.4rem card) — without it, a short date would let the
+   Share button overhang "All sessions" just below. */
 body.in-session header {
   min-height: calc(max(0.9rem, env(safe-area-inset-top)) + 2.7rem);
+  display: flex; align-items: center; justify-content: center;
+  padding-top: 0.4rem; padding-bottom: 0.4rem;
 }
-body.in-session header h1 { font-size: 1rem; color: #666; }
+body.in-session header h1 { font-size: 1.25rem; }
 body.in-session .subtitle { display: none; }
 
 .settings-toggle {
@@ -406,20 +409,12 @@ footer#edition-note:empty { display: none; }
   margin: 0; padding-top: 0.7rem; border-top: 1px solid #eee;
 }
 
-/* --- Session bar: back / name / new --------------------------------------- */
+/* --- Session bar: back / new ----------------------------------------------
+   A slim secondary nav row — the night's date lives in the header h1 above,
+   so this only carries the way out and the way to a fresh night. */
 .session-bar {
-  display: flex; align-items: center; gap: 0.5rem;
-  margin: 0.2rem 0 0.2rem; min-height: 44px;
-}
-/* The date takes the slack so "All sessions" pins left and "New" pins right. */
-.session-name { flex: 1; min-width: 0; }
-/* Heading-scale type: with the brand h1 shrunk to 1rem in-session, the night's
-   date is the biggest text in view — it reads as the view's title. */
-.session-name {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 44px; padding: 0.2rem 0.4rem;
-  font-size: 1.25rem; font-weight: 600;
-  text-align: center; overflow-wrap: anywhere;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin: 0 0 0.2rem; min-height: 44px;
 }
 
 /* --- Modal sheet (new session) -------------------------------------------- */
@@ -472,7 +467,8 @@ footer#edition-note:empty { display: none; }
    so the page never grows as the night's history does. The dashed outline
    echoes the empty-state notes: quiet, not a card. */
 .row-group { margin: 0 0 0.6rem; }
-#bin-group { margin: 0.2rem 0 0; }
+/* The discard pile is the session view's floor, below the add controls. */
+#bin-group { margin: 1.2rem 0 0; }
 .group-toggle {
   display: flex; align-items: center; gap: 0.5rem; width: 100%;
   /* ≥44px tap target — house hard constraint. */
@@ -507,20 +503,30 @@ footer#edition-note:empty { display: none; }
 .row-body {
   position: relative; z-index: 1;
   background: var(--card); border-radius: 10px; padding: 0.7rem 0.8rem;
-  border-left: 5px solid var(--unmatched);
   transition: transform 0.2s ease;
 }
+/* Working-list rows put the text and the action icons side by side (icons
+   vertically centred at the right edge) instead of stacking a tools row under
+   the text — that band of near-empty card was most of each row's height. */
+.row-body.compact { display: flex; align-items: center; gap: 0.6rem; }
+.row-body.compact .row-main { flex: 1; min-width: 0; }
+.row-body.compact .row-tools { margin-top: 0; flex-shrink: 0; }
 /* Swipeable rows (Up next / Requests) clip the sliding body; the review sheet
    is never swipeable, so its song-picker dropdown isn't clipped. */
 .row-card.swipeable {
   position: relative; overflow: hidden; touch-action: pan-y;
   -webkit-user-select: none; user-select: none;
 }
-/* Any row that matched a catalogue song is "green"; a page/title mismatch is
-   flagged with a ⚠️ icon (see .warn-icon) rather than a warning colour. */
-.row-card.confirmed .row-body,
-.row-card.needs_review .row-body,
-.row-card.conflict .row-body { border-left-color: var(--confirmed); }
+/* Status stripes are review-sheet furniture: that's where rows genuinely
+   differ (matched vs not, while being validated). On the working lists every
+   surviving row was green, so the stripe said nothing — those cards are
+   plain, and an unmatched row says "not in the songbook" in words instead.
+   Any matched review row is "green"; a page/title mismatch is flagged with a
+   ⚠️ icon (see .warn-icon) rather than a warning colour. */
+#review-rows .row-body { border-left: 5px solid var(--unmatched); }
+#review-rows .row-card.confirmed .row-body,
+#review-rows .row-card.needs_review .row-body,
+#review-rows .row-card.conflict .row-body { border-left-color: var(--confirmed); }
 .row-card.removed { opacity: 0.45; }
 /* Played rows normally live in the collapsed played group, but the fade keeps
    any straggler (e.g. synced from an older client into Requests) legible as
@@ -604,6 +610,9 @@ footer#edition-note:empty { display: none; }
    contrast minimum on the white card. */
 .raw { color: #6b6b6b; font-size: 0.82rem; margin-top: 0.15rem; }
 .added-by { color: #6b6b6b; font-size: 0.82rem; margin-top: 0.15rem; }
+/* The working lists' single provenance line ("Added by Sam · from the
+   whiteboard"), same quiet register as the review sheet's detail lines. */
+.row-meta { color: #6b6b6b; font-size: 0.82rem; margin-top: 0.15rem; }
 .explanation { font-size: 0.84rem; margin-top: 0.3rem; color: #666; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
@@ -673,9 +682,8 @@ footer#edition-note:empty { display: none; }
   display: flex; align-items: center; justify-content: center;
   /* ≥3:1 non-text contrast for an interactive control (was #999). */
   color: #767676; cursor: grab; touch-action: none; line-height: 1;
-  /* A faint tint marks the strip as its own grab zone; rounding hugs the card's
-     left corners (it sits over the status stripe, which Up next doesn't need —
-     the handle itself signals "this row is reorderable"). */
+  /* A faint tint marks the strip as its own grab zone; rounding hugs the
+     card's left corners. */
   background: rgba(0, 0, 0, 0.035); border-radius: 10px 0 0 10px;
 }
 .drag-handle .icon { width: 1.4rem; height: 1.4rem; }
