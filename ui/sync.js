@@ -2,9 +2,8 @@
 //
 // This module mirrors the app's durable state (the two lists + edition) to a
 // single Firestore document at `sessions/{id}` and applies remote changes back
-// live. It is deliberately UI-free: app.js drives it through a tiny API and the
-// real sharing UI arrives in #30. Until then a debug hook
-// (`window.setlisterSync`) lets the console and Playwright exercise it.
+// live. It is deliberately UI-free: app.js owns all DOM and drives it through
+// a tiny API (the sharing UI from #30).
 //
 // The Firestore doc's schema is validated by firestore.rules (#26) — adding a
 // field here means editing the rules' hasOnly list in the same change:
@@ -239,11 +238,12 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
   return id;
 }
 
-// Error thrown by joinSession when the doc is missing (never created or
-// TTL-expired). Flagged so #30 can show "session not found or expired".
+// Error thrown by joinSession when the doc is missing (never created or since
+// deleted — sessions are kept forever, so nothing expires any more). Flagged so
+// app.js can show its "not found" copy instead of a raw error.
 export class SessionNotFoundError extends Error {
   constructor(id) {
-    super(`Session "${id}" was not found (it may have expired)`);
+    super(`Session "${id}" was not found (it may have been deleted)`);
     this.name = "SessionNotFoundError";
     this.notFound = true;
     this.sessionId = id;
