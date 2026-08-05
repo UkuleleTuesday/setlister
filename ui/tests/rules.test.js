@@ -178,8 +178,13 @@ describe("sessionIndex/{id}", () => {
     );
   });
 
-  it("rejects an empty or over-long name", async () => {
-    await assertFails(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "" })));
+  it("accepts an empty name — the normal case, since the date is derived", async () => {
+    await assertSucceeds(
+      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "" }))
+    );
+  });
+
+  it("rejects an over-long name", async () => {
     await assertFails(
       setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "x".repeat(81) }))
     );

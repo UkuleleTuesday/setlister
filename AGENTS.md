@@ -46,6 +46,11 @@ export. Every UI change is a mobile change first; desktop is incidental.
   state from the latest scan. A session's `name`/`createdBy`/`listed` are
   metadata that deliberately sit *outside* the synced list state — see the
   header comment in `ui/sync.js`.
+- **`name` is a custom title, not a date.** It is usually empty, and the label
+  is derived from `createdAt` at render time by `sessionDateLabel()` in
+  `ui/session-index.js`. Do not reintroduce a stored formatted date: doing that
+  once already left one list mixing US- and UK-formatted strings, and froze
+  "today" into names that outlived the day.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night
   for everyone in the room. Row-level removal is fine (it's recoverable from the

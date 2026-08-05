@@ -30,24 +30,82 @@ const DEFAULT_MAX = 60;
 // the list query races a timeout and surfaces a retry instead.
 const LIST_TIMEOUT_MS = 8000;
 
-// One formatter, reused: `Intl` is the whole date dependency. Device locale, so
-// the name reads naturally wherever it's minted — and the FORMATTED STRING is
-// what gets stored, never recomputed, so a name minted on an en-GB phone stays
-// "Tuesday 4 August 2026" for everyone who sees it later.
-const NAME_FORMAT = new Intl.DateTimeFormat(undefined, {
-  weekday: "long",
+// `Intl` is the whole date dependency. Formatters are built against the
+// VIEWER's locale at render time and nothing formatted is ever stored — which
+// is the point: storing the formatted string (as this module used to) left one
+// list mixing "Tuesday, August 4, 2026" from a US phone with
+// "Tuesday 4 August 2026" from a UK one.
+const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+const DAY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "long",
+});
+const FULL_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   month: "long",
   year: "numeric",
 });
 
-const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+// The club plays on Tuesdays, so a weekday on a Tuesday session is pure noise
+// on every row. On any OTHER night it's the most interesting thing about the
+// date, so that's the only case that keeps it.
+const CLUB_WEEKDAY = 2; // Date#getDay(): Sunday = 0
+// The club is an evening thing; a session started after this reads as "tonight"
+// rather than "today".
+const EVENING_HOUR = 17;
+// A night belongs to the evening it started, not to the calendar. Without this
+// a session that kicks off at 21:00 and is still running at 00:30 — an entirely
+// normal pub night — would relabel itself "Yesterday" while people are still
+// adding songs to it.
+const NIGHT_BOUNDARY_HOUR = 4;
 
-export function defaultSessionName(date = new Date()) {
-  return NAME_FORMAT.format(date);
+// The start of the *night* `date` falls in, which is the previous calendar day
+// for anything before 04:00.
+function startOfNight(date) {
+  const d = new Date(date);
+  d.setHours(d.getHours() - NIGHT_BOUNDARY_HOUR);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function nightsBetween(then, now) {
+  return Math.round((startOfNight(now) - startOfNight(then)) / 86_400_000);
+}
+
+function isEvening(date) {
+  const h = date.getHours();
+  return h >= EVENING_HOUR || h < NIGHT_BOUNDARY_HOUR;
+}
+
+// What a session is called when nobody has given it a name: a relative label
+// near the present, an absolute date further back. `now` is injectable so the
+// tests can pin the clock — every branch here is relative, and a test that
+// reads the wall clock is a test that fails at midnight.
+export function sessionDateLabel(date, now = new Date()) {
+  if (!date) return "";
+  const days = nightsBetween(date, now);
+
+  if (days === 0) return isEvening(date) ? "Tonight" : "Today";
+  if (days === 1) return "Yesterday";
+  // Inside a week only one Tuesday can exist, so the bare weekday is
+  // unambiguous — and it dodges the "last Tuesday means which Tuesday?"
+  // argument that a "Last " prefix would start.
+  if (days < 7) return WEEKDAY_FORMAT.format(date);
+
+  const sameYear = date.getFullYear() === now.getFullYear();
+  const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
+  return date.getDay() === CLUB_WEEKDAY ? stamp : `${WEEKDAY_FORMAT.format(date)} ${stamp}`;
+}
+
+// A session's display label: a title someone typed, else the date. Sessions
+// created before naming moved to render time carry a stored full-date string;
+// a non-empty name always wins, so those simply look manually named.
+export function sessionLabel(entry, now = new Date()) {
+  return entry?.name?.trim() || sessionDateLabel(entry?.createdAt, now);
 }
 
 // Used to tell apart two sessions started on the same day. Cheaper than
@@ -57,20 +115,21 @@ export function sessionTimeLabel(date) {
   return date ? TIME_FORMAT.format(date) : "";
 }
 
-// Sessions named the same thing are indistinguishable in the list, so append
-// the start time to each member of a same-name run. Only the duplicates get the
-// suffix — a lone "Tuesday 4 August 2026" stays clean.
-export function disambiguate(entries) {
+// Sessions that render the same are indistinguishable in the list, so append
+// the start time to each member of a matching run. Runs on the RENDERED label,
+// not the stored name — two sessions the same evening both say "Tonight" while
+// storing nothing at all. A label that's unique stays clean.
+export function disambiguate(entries, now = new Date()) {
+  const labelled = entries.map((entry) => ({ ...entry, label: sessionLabel(entry, now) }));
   const counts = new Map();
-  for (const entry of entries) {
-    counts.set(entry.name, (counts.get(entry.name) || 0) + 1);
+  for (const entry of labelled) {
+    counts.set(entry.label, (counts.get(entry.label) || 0) + 1);
   }
-  return entries.map((entry) => {
-    if (counts.get(entry.name) > 1 && entry.createdAt) {
-      return { ...entry, label: `${entry.name} · ${sessionTimeLabel(entry.createdAt)}` };
-    }
-    return { ...entry, label: entry.name };
-  });
+  return labelled.map((entry) =>
+    counts.get(entry.label) > 1 && entry.createdAt
+      ? { ...entry, label: `${entry.label} · ${sessionTimeLabel(entry.createdAt)}` }
+      : entry
+  );
 }
 
 // The document shape, in one place, so sync.js can write an entry inside its
@@ -153,10 +212,11 @@ export async function renameIndexEntry(id, name) {
   });
 }
 
-// Heal history: sessions created before #77 have no listing row, so opening an
-// old share link quietly writes one. They drift into the club's list as people
-// touch them, instead of staying invisible forever. Best-effort — a failure
-// here must never block opening the session.
+// Heal history: sessions created before session history shipped have no listing
+// row, so opening an old share link quietly writes one. They drift into the
+// club's list as people touch them, instead of staying invisible forever. The
+// entry carries no name — the date renders from createdAt like any other.
+// Best-effort: a failure here must never block opening the session.
 export async function ensureIndexEntry(id, meta) {
   try {
     if (await getSessionMeta(id)) return;

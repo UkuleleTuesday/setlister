@@ -2,10 +2,10 @@ import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
 import {
-  defaultSessionName,
   disambiguate,
   ensureIndexEntry,
   listSessions,
+  sessionDateLabel,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 
@@ -36,7 +36,7 @@ const shareToggle = document.getElementById("share-toggle");
 const sharePanel = document.getElementById("share-panel");
 const shareSessionIdEl = document.getElementById("share-session-id");
 const shareLinkButton = document.getElementById("share-link");
-const shareListedToggle = document.getElementById("share-listed");
+const shareVisibility = document.getElementById("share-visibility");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
@@ -68,7 +68,7 @@ const sessionNameButton = document.getElementById("session-name");
 const sessionNameInput = document.getElementById("session-name-input");
 const sheet = document.getElementById("new-session-sheet");
 const sheetName = document.getElementById("new-session-name");
-const sheetListed = document.getElementById("new-session-listed");
+const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
 const sheetCancel = document.getElementById("new-session-cancel");
@@ -378,6 +378,7 @@ async function applyRoute(id) {
     // nothing can escape.
     const wasInSession = sync.getSessionId() !== null;
     sync.leaveSession();
+    currentSessionCreatedAt = null;
     if (wasInSession) {
       // Only a session's lists are ours to drop. On a cold open there was never
       // a session, and whatever is in localStorage is carry-over the user still
@@ -407,20 +408,16 @@ async function applyRoute(id) {
 
   try {
     const { createdAt } = await sync.joinSession(id, applyRemoteState);
+    // The bar renders this session's date whenever it has no typed title.
+    currentSessionCreatedAt = createdAt;
     persist();
     setView("session");
     updateShareUi();
-    // Sessions created before #77 carry no name: derive one from when they
-    // started, and quietly backfill their history row so they stop being
-    // invisible. Best-effort — never blocks opening the session.
-    const meta = sync.getMeta();
-    if (!meta.name) {
-      const derived = defaultSessionName(createdAt || new Date());
-      renderSessionMeta({ ...meta, name: derived });
-      ensureIndexEntry(id, { name: derived, createdBy: "", createdAt });
-    } else {
-      renderSessionMeta(meta);
-    }
+    renderSessionMeta(sync.getMeta());
+    // Sessions predating session history have no listing row. Backfill one so
+    // they stop being invisible; it carries no name, so it renders its date
+    // like everything else. Best-effort — never blocks opening the session.
+    ensureIndexEntry(id, { name: "", createdBy: "", createdAt });
   } catch (err) {
     sync.leaveSession();
     showHomeError(
@@ -470,14 +467,29 @@ function updateShareUi() {
   else setSharePanelOpen(false); // no session → nothing to show
 }
 
-// The session's name and listed-ness, wherever they're shown: the bar above the
-// lists, and the toggle in the share popover. Driven by sync.onMetaChange, so a
-// peer's rename lands here live.
-function renderSessionMeta(meta) {
-  sessionNameButton.replaceChildren(
-    ...iconLabel("rename", meta.name || sync.getSessionId() || "")
+// When the session in the bar was started. Kept because the bar renders the
+// date whenever the session has no custom title, and joinSession/createSession
+// are the only places it's handed to us.
+let currentSessionCreatedAt = null;
+
+// What the current session is called: a typed title if there is one, else its
+// date. Falls back to the id only for a session with neither, which shouldn't
+// happen but beats rendering an empty button.
+function currentSessionLabel(meta) {
+  return (
+    meta.name?.trim() ||
+    sessionDateLabel(currentSessionCreatedAt) ||
+    sync.getSessionId() ||
+    ""
   );
-  shareListedToggle.checked = meta.listed;
+}
+
+// The session's name and visibility, wherever they're shown: the bar above the
+// lists, and the dropdown in the share popover. Driven by sync.onMetaChange, so
+// a peer's rename lands here live.
+function renderSessionMeta(meta) {
+  sessionNameButton.replaceChildren(...iconLabel("rename", currentSessionLabel(meta)));
+  shareVisibility.value = meta.listed ? "shared" : "unlisted";
 }
 sync.onMetaChange(renderSessionMeta);
 
@@ -574,25 +586,25 @@ function onShareTap(event) {
   setSharePanelOpen(sharePanel.hidden);
 }
 
-// List / un-list this night. Un-listing removes it from the club's list only —
-// the link keeps working, which the panel's own copy says out loud.
-async function onListedToggle() {
-  const listed = shareListedToggle.checked;
+// Shared / Unlisted. Unlisted removes the row from the club's list only — the
+// link keeps working, which the note under the dropdown says out loud.
+async function onVisibilityChange() {
+  const listed = shareVisibility.value === "shared";
   errorBox.hidden = true;
-  shareListedToggle.disabled = true;
+  shareVisibility.disabled = true;
   try {
     await sync.setSessionListed(listed);
   } catch (err) {
-    shareListedToggle.checked = !listed; // revert: the write didn't land
+    shareVisibility.value = listed ? "unlisted" : "shared"; // the write didn't land
     showSessionError(`Couldn’t update the session list — ${err.message}`);
   } finally {
-    shareListedToggle.disabled = false;
+    shareVisibility.disabled = false;
   }
 }
 
 shareToggle.addEventListener("click", onShareTap);
 shareLinkButton.addEventListener("click", shareSessionLink);
-shareListedToggle.addEventListener("change", onListedToggle);
+shareVisibility.addEventListener("change", onVisibilityChange);
 
 // Same forgiving dismissal as the settings popover: tap outside or Escape.
 document.addEventListener("click", (event) => {
@@ -640,6 +652,8 @@ function renderSessionList(entries) {
       button.className = "session-item";
       button.dataset.id = entry.id;
 
+      // `label` is the typed title if there is one, else the date rendered in
+      // this viewer's locale — see disambiguate()/sessionLabel().
       const name = document.createElement("span");
       name.className = "session-item-name";
       name.textContent = entry.label;
@@ -691,12 +705,15 @@ let sheetSeedsCarryover = false;
 function openSheet({ seedCarryover = false } = {}) {
   sheetSeedsCarryover = seedCarryover;
   sheetError.hidden = true;
-  sheetName.value = defaultSessionName();
-  sheetListed.checked = true;
+  // A placeholder, not a value: leaving it alone stores no name, so the session
+  // keeps rendering its own date and still reads correctly next week.
+  sheetName.value = "";
+  sheetName.placeholder = sessionDateLabel(new Date());
+  sheetVisibility.value = "shared";
   sheet.hidden = false;
   homeError.hidden = true;
   // Don't autofocus: on a phone that throws up the keyboard and hides the
-  // toggle. The prefilled date is usually the answer — tap Start and go.
+  // visibility control. The date is usually the answer — tap Start and go.
 }
 
 function closeSheet() {
@@ -706,8 +723,10 @@ function closeSheet() {
 }
 
 async function onSheetStart() {
-  const name = sheetName.value.trim() || defaultSessionName();
-  const listed = sheetListed.checked;
+  // Empty is the normal case and is stored as such — the date is derived at
+  // render time, never frozen into a string.
+  const name = sheetName.value.trim();
+  const listed = sheetVisibility.value === "shared";
   const seed = sheetSeedsCarryover;
   sheetError.hidden = true;
   sheetStart.disabled = true;
@@ -728,6 +747,9 @@ async function onSheetStart() {
     }
     hasCarryover = false;
     carryoverBox.hidden = true;
+    // The server stamps createdAt, so until the first snapshot echoes back the
+    // bar dates the session from now — which is the same evening either way.
+    currentSessionCreatedAt = new Date();
     persist();
     closeSheet();
     await navigateTo(id, { cameFromHome: homeSection.hidden === false });
@@ -765,6 +787,9 @@ sheetName.addEventListener("keydown", (event) => {
 // --- Rename the current session --------------------------------------------
 function startRename() {
   sessionNameInput.value = sync.getMeta().name || "";
+  // The placeholder shows what the session falls back to, which is also how the
+  // user discovers that clearing the field is a way out of a bad title.
+  sessionNameInput.placeholder = sessionDateLabel(currentSessionCreatedAt) || "Session name";
   sessionNameButton.hidden = true;
   sessionNameInput.hidden = false;
   sessionNameInput.focus();
@@ -777,10 +802,12 @@ function endRename() {
 }
 
 async function commitRename() {
+  // Empty is a real edit, not a no-op: it clears the custom title and hands the
+  // session back to its date.
   const name = sessionNameInput.value.trim();
   const previous = sync.getMeta();
   endRename();
-  if (!name || name === previous.name) return;
+  if (name === (previous.name || "")) return;
   renderSessionMeta({ ...previous, name }); // optimistic: the write is a round trip
   try {
     await sync.setSessionName(name);
