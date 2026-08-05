@@ -578,7 +578,13 @@ async function shareSessionLink() {
   const url = sessionUrl(id);
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Ukulele Tuesday setlist", url });
+      // Carry the night's name (or its date label) in the share payload, so
+      // the recipient sees which session this is, not a generic app title.
+      const label = currentSessionLabel(sync.getMeta());
+      await navigator.share({
+        title: label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
+        url,
+      });
     } catch {
       /* user dismissed the share sheet, or it rejected the payload — no-op */
     }
@@ -606,7 +612,7 @@ async function onVisibilityChange() {
     await sync.setSessionListed(listed);
   } catch (err) {
     shareVisibility.value = listed ? "unlisted" : "shared"; // the write didn't land
-    showSessionError(`Couldn’t update the session list — ${err.message}`);
+    showSessionError(`Couldn’t change the session’s visibility — ${err.message}`);
   } finally {
     shareVisibility.disabled = false;
   }
@@ -695,7 +701,7 @@ async function refreshSessionList() {
   } catch {
     sessionListEl.replaceChildren();
     sessionListStatus.hidden = false;
-    sessionListStatus.textContent = "Couldn’t load past sessions.";
+    sessionListStatus.textContent = "Couldn’t load sessions.";
     sessionListRetry.hidden = false;
   }
 }
@@ -1334,7 +1340,7 @@ document.addEventListener("keydown", (event) => {
 function renderReview() {
   if (!app.review) return;
   const kept = app.review.entries.filter((e) => !e.removed).length;
-  reviewConfirm.replaceChildren(...iconLabel("add", `Add ${kept} to requests`));
+  reviewConfirm.replaceChildren(...iconLabel("add", `Add ${kept} to Requests`));
   reviewConfirm.disabled = kept === 0;
   reviewRows.replaceChildren(
     ...app.review.entries.map((e, i) => renderRow(e, i, "review"))
