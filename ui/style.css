@@ -336,8 +336,9 @@ footer#edition-note:empty { display: none; }
 /* "What's new": announcement and archive are separate surfaces, and neither
    sits inside the pick-a-session flow. The banner (unseen entries only) is an
    accent-tinted strip above the heading — an announcement, not a list row —
-   and one tap opens the sheet, which retires it. The footer link is the
-   quiet, always-there door to the same sheet afterwards. */
+   and one tap opens the sheet on that entry alone, which retires it. The
+   footer link is the quiet, always-there door, and opens the full history in
+   the same sheet. */
 .whats-new-banner {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   /* ≥44px tap target — house hard constraint. */
@@ -352,6 +353,36 @@ footer#edition-note:empty { display: none; }
   font-size: 0.9rem; color: #444;
 }
 .whats-new-items li { margin: 0.35rem 0; }
+/* Dated blocks in the sheet. The gap between entries has to beat the gap
+   between an entry's date and its own items, or a long history reads as one
+   run-on list. Its own date class rather than .note: .sheet .note pulls the
+   line up under a heading, which is wrong for every entry but the first. */
+.whats-new-date {
+  margin: 0 0 0.4rem;
+  color: #666; font-size: 0.85rem;
+}
+.whats-new-entry + .whats-new-entry { margin-top: 1.2rem; }
+/* The full history is taller than any phone, so this sheet — alone among the
+   sheets — pins its chrome and scrolls the entries between it: the title says
+   what you're looking at, and Close stays under the thumb however long the
+   archive gets, instead of being buried at the end of the scroll.
+   Two thirds of the viewport, not the generic .sheet's near-full height: a
+   card that stops well short of both edges reads as a card with the app
+   behind it, and leaves a backdrop you can dismiss it on without aiming. */
+#whats-new-sheet .sheet {
+  display: flex; flex-direction: column;
+  max-height: min(34rem, 68dvh); overflow: hidden;
+}
+#whats-new-sheet .sheet > h2, #whats-new-sheet .sheet > .actions { flex: none; }
+#whats-new-entries {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding-bottom: 0.2rem;
+}
+/* A hairline so the pinned footer reads as the sheet's floor rather than as
+   one more row of a list that happens to be mid-scroll. */
+#whats-new-sheet .sheet > .actions {
+  margin: 0; padding-top: 0.7rem; border-top: 1px solid #eee;
+}
 
 /* --- Session bar: back / name / new --------------------------------------- */
 .session-bar {

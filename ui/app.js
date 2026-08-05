@@ -3,7 +3,7 @@ import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
 import { disambiguate, listSessions, pageTitle, sessionDateLabel } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
-import { latestEntry, whatsNewDateLabel } from "./whats-new.js";
+import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -73,8 +73,8 @@ const whatsNewBanner = document.getElementById("whats-new-banner");
 const whatsNewFooter = document.getElementById("whats-new-footer");
 const whatsNewOpen = document.getElementById("whats-new-open");
 const whatsNewSheet = document.getElementById("whats-new-sheet");
-const whatsNewDate = document.getElementById("whats-new-date");
-const whatsNewItems = document.getElementById("whats-new-items");
+const whatsNewEntries = document.getElementById("whats-new-entries");
+const whatsNewClose = document.getElementById("whats-new-close");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -715,14 +715,17 @@ sessionListEl.addEventListener("click", (event) => {
 });
 sessionListRetry.addEventListener("click", refreshSessionList);
 
-// --- What's new: latest release notes --------------------------------------
-// Announcement and archive are two different jobs, so they get two surfaces.
-// The banner above "Sessions" exists only while the latest entry is unseen on
-// this device — one tap opens the sheet and retires it, so the home screen's
-// pick-a-session flow carries no permanent extra furniture. The footer link
-// is the quiet, always-there door to the same sheet afterwards. "Seen" is the
-// entry's ISO date (data, never a formatted label) under its own key, so
-// shipping a newer entry revives the banner with no other state to migrate.
+// --- What's new: release notes ----------------------------------------------
+// Announcement and archive are two different jobs, so they get two surfaces —
+// and two amounts of news through the same sheet. The banner above "Sessions"
+// exists only while the latest entry is unseen on this device, and shows that
+// entry alone: it's telling you one thing shipped, and one tap retires it, so
+// the home screen's pick-a-session flow carries no permanent extra furniture.
+// The footer link is the quiet, always-there door, and it opens the whole
+// history — someone who goes looking for "What's new" is browsing, not being
+// told, and the newest entry is already at the top for them. "Seen" is the
+// latest entry's ISO date (data, never a formatted label) under its own key,
+// so shipping a newer entry revives the banner with no other state to migrate.
 function renderWhatsNew() {
   const entry = latestEntry();
   if (!entry) {
@@ -730,14 +733,6 @@ function renderWhatsNew() {
     return;
   }
 
-  whatsNewDate.textContent = whatsNewDateLabel(entry);
-  whatsNewItems.replaceChildren(
-    ...entry.items.map((text) => {
-      const li = document.createElement("li");
-      li.textContent = text;
-      return li;
-    })
-  );
   whatsNewBanner.replaceChildren(...iconLabel("news", "What’s new"));
 
   let seen = null;
@@ -749,7 +744,35 @@ function renderWhatsNew() {
   whatsNewBanner.hidden = seen === entry.date;
 }
 
-function openWhatsNewSheet() {
+// One dated block per entry, newest first — the same markup whether the sheet
+// is showing one entry or all of them, so the archive reads as a sequence
+// rather than a different screen.
+function whatsNewEntryBlock(entry) {
+  const block = document.createElement("section");
+  block.className = "whats-new-entry";
+
+  const date = document.createElement("p");
+  date.className = "whats-new-date";
+  date.textContent = whatsNewDateLabel(entry);
+
+  const items = document.createElement("ul");
+  items.className = "whats-new-items";
+  items.replaceChildren(
+    ...entry.items.map((text) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      return li;
+    })
+  );
+
+  block.replaceChildren(date, items);
+  return block;
+}
+
+function openWhatsNewSheet(entries) {
+  whatsNewEntries.replaceChildren(...entries.map(whatsNewEntryBlock));
+  // Long archives open at the top, not wherever the last visit left the scroll.
+  whatsNewEntries.scrollTop = 0;
   whatsNewSheet.hidden = false;
   // Opening is seeing — the banner has done its job for this entry.
   whatsNewBanner.hidden = true;
@@ -760,10 +783,16 @@ function openWhatsNewSheet() {
   }
 }
 
-whatsNewBanner.addEventListener("click", openWhatsNewSheet);
-whatsNewOpen.addEventListener("click", openWhatsNewSheet);
-// Forgiving dismissal, same as the new-session sheet: tap the backdrop (the
-// hint says so). Escape is a desktop bonus, never the only way out.
+whatsNewBanner.addEventListener("click", () => {
+  const entry = latestEntry();
+  if (entry) openWhatsNewSheet([entry]);
+});
+whatsNewOpen.addEventListener("click", () => openWhatsNewSheet(sortedEntries()));
+// Close is the way out that's always in reach; the backdrop stays forgiving
+// for anyone who taps past the sheet, and Escape is a desktop bonus.
+whatsNewClose.addEventListener("click", () => {
+  whatsNewSheet.hidden = true;
+});
 whatsNewSheet.addEventListener("click", (event) => {
   if (event.target === whatsNewSheet) whatsNewSheet.hidden = true;
 });

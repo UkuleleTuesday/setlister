@@ -4,7 +4,13 @@
 // append fails `npm test` before it ships.
 
 import { describe, expect, it } from "vitest";
-import { WHATS_NEW, entryDate, latestEntry, whatsNewDateLabel } from "../whats-new.js";
+import {
+  WHATS_NEW,
+  entryDate,
+  latestEntry,
+  sortedEntries,
+  whatsNewDateLabel,
+} from "../whats-new.js";
 
 // Tuesday 4 August 2026, 21:00 — same pinned clock as session-index.test.js.
 const NOW = new Date(2026, 7, 4, 21, 0);
@@ -56,6 +62,43 @@ describe("latestEntry", () => {
 
   it("defaults to the real changelog", () => {
     expect(latestEntry()).toBe(latestEntry(WHATS_NEW));
+  });
+});
+
+// What the footer link opens: the whole history, not just the newest entry.
+describe("sortedEntries", () => {
+  const shuffled = [
+    { date: "2026-07-16", items: ["b"] },
+    { date: "2026-08-05", items: ["a"] },
+    { date: "2026-07-18", items: ["c"] },
+  ];
+
+  it("orders newest first regardless of array order", () => {
+    expect(sortedEntries(shuffled).map((entry) => entry.date)).toEqual([
+      "2026-08-05",
+      "2026-07-18",
+      "2026-07-16",
+    ]);
+  });
+
+  it("leaves the source array untouched", () => {
+    const before = shuffled.map((entry) => entry.date);
+    sortedEntries(shuffled);
+    expect(shuffled.map((entry) => entry.date)).toEqual(before);
+  });
+
+  it("drops entries whose date doesn't parse", () => {
+    expect(
+      sortedEntries([{ date: "soon", items: ["x"] }, ...shuffled])
+    ).toHaveLength(3);
+  });
+
+  it("leads with the same entry latestEntry picks", () => {
+    expect(sortedEntries()[0]).toBe(latestEntry());
+  });
+
+  it("is empty for an empty changelog", () => {
+    expect(sortedEntries([])).toEqual([]);
   });
 });
 
