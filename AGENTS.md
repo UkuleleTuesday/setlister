@@ -72,8 +72,10 @@ export. Every UI change is a mobile change first; desktop is incidental.
   should describe the state the day ends in, because nobody outside the repo
   ever saw the interim states. (Announcing a behaviour at noon and its
   same-day replacement below it is the failure mode: keep only the
-  replacement.) Lead with the biggest change; keep the list short enough to
-  read in the banner's sheet.
+  replacement.) Lead with the biggest change, and keep the day to **at most
+  three items** — when a fourth lands, merge related items into one sentence
+  or drop the least important; the cap is enforced by
+  `ui/tests/whats-new.test.js`.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night
   for everyone in the room. Row-level removal is fine (it's recoverable from the
