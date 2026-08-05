@@ -301,15 +301,32 @@ footer#edition-note:empty { display: none; }
 .scan-corner.bl { bottom: 8px; left: 8px; border-right: 0; border-top: 0; border-radius: 0 0 0 7px; }
 .scan-corner.br { bottom: 8px; right: 8px; border-left: 0; border-top: 0; border-radius: 0 0 7px 0; }
 
-/* Status pill. */
+/* Status pill + the escape hatch below it, stacked at the foot of the photo. */
+/* Spans the photo's width (rather than centring an auto-width box) so the pill
+   gets the full line to itself instead of wrapping inside half the frame. */
+.scan-hud {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+}
 .scan-status {
-  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 0.45rem;
+  display: flex; align-items: center; gap: 0.45rem; text-align: center;
   padding: 0.35rem 0.85rem; border-radius: 999px;
   background: rgba(28, 10, 52, 0.72); color: #ece3ff; font-size: 0.85rem;
   border: 1px solid rgba(179, 136, 255, 0.35);
   -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
 }
+/* The one tappable thing on an otherwise inert overlay: full 44px target, and
+   it re-enables pointer events the overlay switches off. */
+.scan-cancel {
+  pointer-events: auto;
+  min-height: 44px; padding: 0 1.1rem; border-radius: 999px;
+  background: rgba(28, 10, 52, 0.85); color: #ece3ff;
+  font-family: inherit; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; user-select: none;
+  border: 1px solid rgba(226, 212, 255, 0.55);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.scan-cancel:active { background: rgba(56, 24, 96, 0.92); }
 .scan-status .dot {
   width: 7px; height: 7px; border-radius: 50%; background: #b388ff;
   box-shadow: 0 0 8px rgba(179, 136, 255, 0.9);
