@@ -17,7 +17,6 @@ import {
   ListMinus,
   ListPlus,
   LoaderCircle,
-  Pencil,
   Plus,
   RotateCcw,
   Settings,
@@ -54,10 +53,8 @@ const ICONS = {
   loader: LoaderCircle,
   // "Something shipped" — the What's new banner and sheet.
   news: Sparkles,
-  // Session navigation: out to the history list, and the rename affordance on
-  // the session's name.
+  // Session navigation: out to the history list.
   back: ArrowLeft,
-  rename: Pencil,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text

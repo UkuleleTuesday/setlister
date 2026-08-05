@@ -46,6 +46,8 @@ function session(overrides = {}) {
     upNextOrder: [],
     requestsOrder: [],
     edition: null,
+    // Legacy field: current clients never write a name, but docs carrying one
+    // must keep validating (see isValidSession).
     name: "Tuesday 4 August 2026",
     createdBy: "Alex",
     listed: true,
@@ -56,7 +58,7 @@ function session(overrides = {}) {
 }
 
 function indexEntry(overrides = {}) {
-  return { v: 1, name: "Tuesday 4 August 2026", createdBy: "Alex", createdAt: NOW, ...overrides };
+  return { v: 1, createdBy: "Alex", createdAt: NOW, ...overrides };
 }
 
 beforeAll(async () => {
@@ -178,34 +180,43 @@ describe("sessionIndex/{id}", () => {
     );
   });
 
-  it("accepts an empty name — the normal case, since the date is derived", async () => {
-    await assertSucceeds(
-      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "" }))
-    );
-  });
-
-  it("rejects an over-long name", async () => {
+  it("rejects a name — rows have no names any more, the date is the identity", async () => {
     await assertFails(
-      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "x".repeat(81) }))
+      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "Open mic night" }))
     );
   });
 
-  it("rejects a future createdAt — no pinning yourself to the top of the list", async () => {
+  it("accepts a future createdAt inside the planning window", async () => {
+    // A session can be created ahead of its night (prepping next Tuesday's
+    // set); these are real wall-clock offsets, since request.time is the
+    // emulator's own clock. One id per case — a second write to the same id
+    // would be an update, where createdAt is immutable.
+    for (const [days, id] of [[7, "misty-banjo"], [59, "sunny-kazoo"]]) {
+      await assertSucceeds(
+        setDoc(
+          doc(db, "sessionIndex", id),
+          indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + days * 86_400_000) })
+        )
+      );
+    }
+  });
+
+  it("rejects a createdAt more than 60 days out — no pinning yourself to the top for good", async () => {
     await assertFails(
       setDoc(
         doc(db, "sessionIndex", "misty-banjo"),
-        indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + 86_400_000) })
+        indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + 61 * 86_400_000) })
       )
     );
   });
 
-  it("allows renaming, but not rewriting provenance", async () => {
+  it("allows a same-provenance rewrite, but not rewriting provenance", async () => {
     await seed((adminDb) =>
       setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry())
     );
-    await assertSucceeds(
-      updateDoc(doc(db, "sessionIndex", "misty-banjo"), { name: "Open mic night" })
-    );
+    // Re-listing set()s over any row a racing client already wrote — that full
+    // overwrite with unchanged provenance must stay legal.
+    await assertSucceeds(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertFails(
       updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdBy: "Someone else" })
     );

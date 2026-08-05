@@ -52,7 +52,9 @@ service cloud.firestore {
     match /sessionIndex/{id} {
       allow read: if true;                        // public by design, like sessions
       allow create: if isValidIndexEntry(id);
-      // Only the display name is mutable — provenance is not rewritable.
+      // Nothing user-facing is mutable — provenance is not rewritable. Update
+      // stays open (with the same immutability pins) because re-listing a
+      // session set()s over any row a racing client already wrote.
       allow update: if isValidIndexEntry(id)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy;
@@ -85,6 +87,9 @@ function isValidSession(id) {
     // #77 carry none of them, and on an update `request.resource.data` is the
     // MERGED document — an unconditional check would make every legacy session
     // unwritable.
+    // `name` is legacy-only (sessions are identified by their date now): never
+    // written by current clients, but kept in the key set — dropping it would
+    // make every named legacy session unwritable, exactly like `expiresAt`.
     && (!('name' in d) || (d.name is string && d.name.size() <= 80))
     && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
     && (!('listed' in d) || d.listed is bool)
@@ -96,25 +101,25 @@ function isValidSession(id) {
   // already caps the key set, and null vs map is validated client-side.
 }
 
-// A history listing row: the session's display name, who started it, and when.
-// Closed key set with bounded strings, matching the session doc's own caps.
+// A history listing row: who started the session, and when its night is. No
+// name — the date IS the identity, rendered client-side in each viewer's own
+// locale. Closed key set with bounded strings, matching the session doc's caps.
+// (Legacy rows may still carry a `name`; it is ignored on read and dropped
+// whenever the row is rewritten — set() replaces the whole doc.)
 function isValidIndexEntry(id) {
   let d = request.resource.data;
   return id.matches('^[a-z]+-[a-z]+$')
-    && d.keys().hasOnly(['v', 'name', 'createdBy', 'createdAt'])
+    && d.keys().hasOnly(['v', 'createdBy', 'createdAt'])
     && d.v == 1
-    // Empty is the NORMAL case: `name` is a custom title, and a session without
-    // one is rendered from its createdAt by the client (so the date reads in
-    // each viewer's own locale, and "Tonight" stops being a lie tomorrow).
-    && d.name is string
-    && d.name.size() <= 80
     && d.createdBy is string
     && d.createdBy.size() <= 60
-    // No future-dating, so an entry can't pin itself to the top of a list
-    // ordered by createdAt. serverTimestamp() resolves to request.time, and
-    // backfilling a legacy session writes that session's (past) createdAt.
+    // A session can be created AHEAD of its night (prepping next Tuesday's
+    // set), and a future night sorting to the top of the date-ordered list is
+    // exactly where the club wants it. The 60-day cap is the anti-garbage
+    // bound: far enough for any real planning, near enough that a bogus write
+    // can't pin itself to the top for years.
     && d.createdAt is timestamp
-    && d.createdAt <= request.time;
+    && d.createdAt <= request.time + duration.value(60, 'd');
   // NB: do NOT add an exists() check that the matching session doc is there.
   // Rules see pre-commit state, so inside the transaction that mints a session
   // the doc doesn't exist yet and the index write would be denied.

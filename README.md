@@ -23,11 +23,13 @@ whoever started them, plus a button to start tonight's. A session is shared and
 live — everyone in the room edits the same lists — and stays in the history
 afterwards.
 
-Nights name themselves. A session with no title is labelled from when it
-started — *Tonight*, *Yesterday*, *Thursday*, *28 July*, *16 December 2025* —
-rendered in each viewer's own locale rather than frozen into a stored string,
-so the label stays true as it ages. Type a name and that wins instead; clear it
-and the date comes back.
+Nights name themselves. A session is labelled from its date — *Tonight*,
+*Yesterday*, *Thursday*, *Tomorrow*, *28 July*, *16 December 2025* — rendered
+in each viewer's own locale rather than frozen into a stored string, so the
+label stays true as it ages. There are no custom titles: the date IS the
+identity. Starting a session asks for its date (prefilled with today), so a
+missed night can be backfilled and next Tuesday's set can be prepped in
+advance.
 
 Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
 club's list — the share link still opens it, so this is discoverability, not
@@ -131,7 +133,7 @@ handful of photos per club night, so one instance is plenty).
 
 - **Firestore (sessions)** — every setlist is a realtime collaborative session
   stored as `sessions/{sessionId}`, plus a tiny `sessionIndex/{sessionId}`
-  listing row (name, who started it, when) that the home screen queries to show
+  listing row (who started it, when its night is) that the home screen queries to show
   the club's history. The browser reads/writes both directly via the Firebase
   Web SDK, so [`firestore.rules`](./firestore.rules) is the entire
   access-control layer (deliberately unauthenticated — closed schema +
@@ -144,11 +146,11 @@ handful of photos per club night, so one instance is plenty).
 
   Accepted risks, unchanged in kind but larger in blast radius now that
   documents are immortal: anyone with the app URL can read the session list,
-  open any session, edit it, rename it, or un-list it. Session documents
-  themselves can never be deleted by a client. The real fix is authentication;
-  until then the bounds are the closed schema, the 80-character name cap, the
-  60-entry list query, and the budget alert below — which should now cover
-  Firestore, not just Vertex AI.
+  open any session, edit it, or un-list it. Session documents themselves can
+  never be deleted by a client. The real fix is authentication; until then the
+  bounds are the closed schema, the bounded string fields, the 60-day cap on
+  future-dated sessions, the 60-entry list query, and the budget alert below —
+  which should now cover Firestore, not just Vertex AI.
 
 ### One-time setup
 
