@@ -74,6 +74,7 @@ const whatsNewFooter = document.getElementById("whats-new-footer");
 const whatsNewOpen = document.getElementById("whats-new-open");
 const whatsNewSheet = document.getElementById("whats-new-sheet");
 const whatsNewEntries = document.getElementById("whats-new-entries");
+const whatsNewClose = document.getElementById("whats-new-close");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -787,8 +788,11 @@ whatsNewBanner.addEventListener("click", () => {
   if (entry) openWhatsNewSheet([entry]);
 });
 whatsNewOpen.addEventListener("click", () => openWhatsNewSheet(sortedEntries()));
-// Forgiving dismissal, same as the new-session sheet: tap the backdrop (the
-// hint says so). Escape is a desktop bonus, never the only way out.
+// Close is the way out that's always in reach; the backdrop stays forgiving
+// for anyone who taps past the sheet, and Escape is a desktop bonus.
+whatsNewClose.addEventListener("click", () => {
+  whatsNewSheet.hidden = true;
+});
 whatsNewSheet.addEventListener("click", (event) => {
   if (event.target === whatsNewSheet) whatsNewSheet.hidden = true;
 });

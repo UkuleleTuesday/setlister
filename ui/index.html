@@ -275,13 +275,22 @@
        sheet idiom as starting a night. Two ways in, two amounts of news: the
        home banner opens it on the latest entry alone (an announcement), the
        footer link on the full history (an archive). Either way, opening marks
-       the latest entry seen. Populated by openWhatsNewSheet(). -->
+       the latest entry seen. Populated by openWhatsNewSheet().
+
+       This is the one sheet you read rather than fill in, and the only one
+       that can run several screens long, so it carries a real Close button
+       instead of the "tap outside" hint: the way out has to be a proper tap
+       target sitting under the thumb, not a strip of backdrop the archive is
+       busy squeezing. Backdrop and Escape still close it — they're just no
+       longer the only way. -->
   <div id="whats-new-sheet" class="sheet-backdrop" hidden role="dialog"
        aria-modal="true" aria-labelledby="whats-new-title">
     <div class="sheet">
       <h2 id="whats-new-title">What’s new</h2>
       <div id="whats-new-entries"></div>
-      <p class="sheet-hint">Tap outside to close</p>
+      <div class="actions">
+        <button id="whats-new-close" class="secondary" type="button">Close</button>
+      </div>
     </div>
   </div>
 
