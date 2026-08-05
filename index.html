@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-DBQJGutp.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DLC2NuJX.css">
+  <script type="module" crossorigin src="./assets/index-BHXhB9sh.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BYpTzzkC.css">
 </head>
 <body>
   <header>
@@ -217,6 +217,10 @@
            over the list. In the fresh state it moves visually next to the
            camera via the mode CSS. -->
       <div id="manual-add" class="manual-add"></div>
+      <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
+           Transient, aria-live so it reaches screen readers without moving
+           focus. Populated by flashNote(). -->
+      <p id="add-feedback" class="flash-note" aria-live="polite" hidden></p>
       <ul id="requests-rows"></ul>
       <p id="requests-empty" class="note">No requests yet — snap the board or add one above.</p>
     </section>
@@ -233,9 +237,10 @@
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
       <!-- Post-scan feedback for the no-review path: when every row matched
            confidently they go straight into Requests (#80) and this line is
-           the only acknowledgement. aria-live so the news reaches screen
-           readers without moving focus. Populated by showScanResult(). -->
-      <p id="scan-result" class="scan-result" aria-live="polite" hidden></p>
+           the only acknowledgement — including how many duplicates were
+           skipped (#52). aria-live so the news reaches screen readers without
+           moving focus. Populated by flashNote(). -->
+      <p id="scan-result" class="flash-note" aria-live="polite" hidden></p>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
