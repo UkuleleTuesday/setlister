@@ -64,6 +64,16 @@ export. Every UI change is a mobile change first; desktop is incidental.
   tooling. Dates are ISO `YYYY-MM-DD` data; the label renders via `Intl` at
   view time — same rule as session labels, never store a formatted date. The
   file's shape is enforced by `ui/tests/whats-new.test.js`.
+- **Adding to "What's new" means re-editing the day's entry, not appending.**
+  A date has one entry (the test enforces it) and readers see it as a single
+  release note, so before adding an item re-read the whole entry and compact:
+  merge items that describe the same feature into one sentence, and rewrite or
+  drop items that a later change the same day has made obsolete — the entry
+  should describe the state the day ends in, because nobody outside the repo
+  ever saw the interim states. (Announcing a behaviour at noon and its
+  same-day replacement below it is the failure mode: keep only the
+  replacement.) Lead with the biggest change; keep the list short enough to
+  read in the banner's sheet.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night
   for everyone in the room. Row-level removal is fine (it's recoverable from the
