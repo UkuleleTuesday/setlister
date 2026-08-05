@@ -103,8 +103,10 @@ function isValidIndexEntry(id) {
   return id.matches('^[a-z]+-[a-z]+$')
     && d.keys().hasOnly(['v', 'name', 'createdBy', 'createdAt'])
     && d.v == 1
+    // Empty is the NORMAL case: `name` is a custom title, and a session without
+    // one is rendered from its createdAt by the client (so the date reads in
+    // each viewer's own locale, and "Tonight" stops being a lie tomorrow).
     && d.name is string
-    && d.name.size() > 0
     && d.name.size() <= 80
     && d.createdBy is string
     && d.createdBy.size() <= 60

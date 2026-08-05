@@ -18,11 +18,21 @@ Take a photo of the board, and the app:
    order by promoting requests into it (and can add songs by name too),
    then copy/export the result.
 
-The app opens on the club's **session history**: past nights, named by date and
-tagged with whoever started them, plus a button to start tonight's. A session is
-shared and live — everyone in the room edits the same lists — and stays in the
-history afterwards. Sessions can be started unlisted, which keeps them out of
-that list; the share link still works, so this is discoverability, not privacy.
+The app opens on the club's **session history**: past nights, tagged with
+whoever started them, plus a button to start tonight's. A session is shared and
+live — everyone in the room edits the same lists — and stays in the history
+afterwards.
+
+Nights name themselves. A session with no title is labelled from when it
+started — *Tonight*, *Yesterday*, *Thursday*, *28 July*, *16 December 2025* —
+rendered in each viewer's own locale rather than frozen into a stored string,
+so the label stays true as it ages. Type a name and that wins instead; clear it
+and the date comes back.
+
+Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
+club's list — the share link still opens it, so this is discoverability, not
+privacy. There is no private mode: every session is readable by anyone holding
+its id.
 
 The web UI is **mobile-first**: the whole point is to pull out a phone at the
 club, snap the board, and build the setlist on the spot. Design and test UI
