@@ -8,6 +8,7 @@ import {
   sessionDateLabel,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
+import { latestEntry, whatsNewDateLabel } from "./whats-new.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -72,6 +73,10 @@ const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
 const sheetCancel = document.getElementById("new-session-cancel");
+const whatsNewBox = document.getElementById("whats-new");
+const whatsNewToggle = document.getElementById("whats-new-toggle");
+const whatsNewDate = document.getElementById("whats-new-date");
+const whatsNewItems = document.getElementById("whats-new-items");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -90,6 +95,9 @@ const STORAGE_KEY = "setlister.v1";
 // data that lets manual search work instantly on revisit (and ride out a slow
 // Cloud Function cold start) while a fresh copy loads in the background.
 const CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
+// The ISO date of the last "What's new" entry this device has seen. Its own
+// key, outside setlister.v1, so persist()/restore()'s schema stays untouched.
+const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
 
 // The two lists are the durable, primary objects. Adds (by name or snap) land in
 // `requests`, the incoming pool; the user promotes entries into `upNext`, the
@@ -695,6 +703,44 @@ sessionListEl.addEventListener("click", (event) => {
   if (button) navigateTo(button.dataset.id, { cameFromHome: true });
 });
 sessionListRetry.addEventListener("click", refreshSessionList);
+
+// --- What's new: latest release notes on the home screen -------------------
+// Static per build, so rendered once at boot; #home's hidden toggle shows and
+// hides it with the view. The card starts expanded and collapses to its
+// one-line toggle on the NEXT visit — what's stored is the entry's ISO date
+// (data, never a formatted label), so shipping a newer entry re-expands it
+// without any other state to migrate.
+function renderWhatsNew() {
+  const entry = latestEntry();
+  if (!entry) return;
+
+  whatsNewDate.textContent = whatsNewDateLabel(entry);
+  whatsNewItems.replaceChildren(
+    ...entry.items.map((text) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      return li;
+    })
+  );
+  whatsNewToggle.querySelector(".group-chevron").replaceWith(icon("chevron", "group-chevron"));
+
+  let seen = null;
+  try {
+    seen = localStorage.getItem(WHATS_NEW_SEEN_KEY);
+    localStorage.setItem(WHATS_NEW_SEEN_KEY, entry.date);
+  } catch {
+    /* private mode: starts expanded every visit, which is merely chatty */
+  }
+  setWhatsNewOpen(seen !== entry.date);
+  whatsNewBox.hidden = false;
+}
+
+function setWhatsNewOpen(open) {
+  whatsNewToggle.setAttribute("aria-expanded", String(open));
+  whatsNewItems.hidden = !open;
+}
+
+whatsNewToggle.addEventListener("click", () => setWhatsNewOpen(whatsNewItems.hidden));
 
 // --- New session sheet ------------------------------------------------------
 // Whether Start should carry the carry-over lists into the new session, or
@@ -1934,6 +1980,7 @@ document.getElementById("download").addEventListener("click", () => {
   renderUpNext();
   renderRequests();
   renderCarryover();
+  renderWhatsNew();
 
   // Paint the right view before any network work so a cold open shows the
   // session list (with its own loading note) straight away. The route lives in

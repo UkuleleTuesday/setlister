@@ -315,6 +315,18 @@ footer#edition-note:empty { display: none; }
 .carryover .note { margin: 0 0 0.6rem; }
 .carryover .actions { flex-direction: column; margin: 0; }
 
+/* "What's new": latest release notes, above the session list (the list grows
+   all season and would bury anything below it). The toggle borrows
+   .group-toggle wholesale, so collapsed it's the same quiet dashed one-liner
+   as a played/binned group — a footnote, not a section competing with the
+   list for attention. */
+.whats-new { margin: 1rem 0 0; }
+#whats-new-items {
+  margin: 0.5rem 0 0; padding: 0 0.4rem 0 1.6rem;
+  color: #666; font-size: 0.85rem;
+}
+#whats-new-items li { margin: 0.3rem 0; }
+
 /* --- Session bar: back / name / new --------------------------------------- */
 .session-bar {
   display: flex; align-items: center; gap: 0.5rem;

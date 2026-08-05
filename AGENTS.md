@@ -51,6 +51,15 @@ export. Every UI change is a mobile change first; desktop is incidental.
   `ui/session-index.js`. Do not reintroduce a stored formatted date: doing that
   once already left one list mixing US- and UK-formatted strings, and froze
   "today" into names that outlived the day.
+- **User-visible changes go in "What's new".** `ui/whats-new.json` is the
+  app's changelog, surfaced (latest entry only) on the home screen. When a
+  change adds, removes, or meaningfully alters something club members can see
+  or do, add or extend the entry for today's date **in the same PR** — one
+  short, user-facing sentence per item, written for players at the club, not
+  commit readers. Skip refactors, fixes to unreleased work, and internal
+  tooling. Dates are ISO `YYYY-MM-DD` data; the label renders via `Intl` at
+  view time — same rule as session names, never store a formatted date. The
+  file's shape is enforced by `ui/tests/whats-new.test.js`.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night
   for everyone in the room. Row-level removal is fine (it's recoverable from the
@@ -90,4 +99,5 @@ cd ui && npm run preview                # preview the built site locally
 - Run `ruff check` / `ruff format` and the offline test suite for Python
   changes.
 - For UI changes, run `npm run test:emulator` in `ui/`, then exercise the actual
-  flow in a mobile-sized browser and confirm no console errors.
+  flow in a mobile-sized browser and confirm no console errors. If the change is
+  user-facing, confirm `ui/whats-new.json` has an entry for it.

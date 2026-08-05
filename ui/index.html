@@ -118,6 +118,21 @@
         </div>
       </div>
 
+      <!-- Latest release notes only — the full history lives in
+           ui/whats-new.json. Expanded until seen once, then a one-line
+           disclosure (tap to reopen); "seen" is the entry's ISO date in
+           localStorage, so only a newer entry re-expands it. It sits above the
+           session list because the list grows all season and would bury it.
+           Populated by renderWhatsNew(). -->
+      <section id="whats-new" class="whats-new" hidden>
+        <button id="whats-new-toggle" class="group-toggle" type="button"
+                aria-expanded="false" aria-controls="whats-new-items">
+          <span class="group-label">What’s new · <span id="whats-new-date"></span></span>
+          <span class="group-chevron" aria-hidden="true">▾</span>
+        </button>
+        <ul id="whats-new-items" hidden></ul>
+      </section>
+
       <ul id="session-list" class="session-list"></ul>
       <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
       <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
