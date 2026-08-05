@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-C1z4yjZa.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BGr1T7O4.css">
+  <script type="module" crossorigin src="./assets/index-UUKhuhlD.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CPBhB_En.css">
 </head>
 <body>
   <header>
@@ -145,9 +145,11 @@
       <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
       <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
 
-      <!-- The quiet, always-there door to the same sheet once the banner has
-           retired. Footer register: app-meta belongs at the bottom, like the
-           edition note in the session view. -->
+      <!-- The quiet, always-there door to the release notes once the banner has
+           retired — and, unlike the banner, it opens the whole history: someone
+           who goes looking for "What's new" is browsing, not being told.
+           Footer register: app-meta belongs at the bottom, like the edition
+           note in the session view. -->
       <p id="whats-new-footer" class="whats-new-footer">
         <button id="whats-new-open" class="link-button" type="button">What’s new</button>
       </p>
@@ -270,18 +272,26 @@
     </div>
   </div>
 
-  <!-- What's new: the latest release-notes entry from ui/whats-new.json (the
-       file keeps the full history), in the same centred-sheet idiom as
-       starting a night. Opened from the home banner (while unseen) or the
-       footer link (any time); opening marks the entry seen. Populated by
-       renderWhatsNew(). -->
+  <!-- What's new: release notes from ui/whats-new.json, in the same centred
+       sheet idiom as starting a night. Two ways in, two amounts of news: the
+       home banner opens it on the latest entry alone (an announcement), the
+       footer link on the full history (an archive). Either way, opening marks
+       the latest entry seen. Populated by openWhatsNewSheet().
+
+       This is the one sheet you read rather than fill in, and the only one
+       that can run several screens long, so it carries a real Close button
+       instead of the "tap outside" hint: the way out has to be a proper tap
+       target sitting under the thumb, not a strip of backdrop the archive is
+       busy squeezing. Backdrop and Escape still close it — they're just no
+       longer the only way. -->
   <div id="whats-new-sheet" class="sheet-backdrop" hidden role="dialog"
        aria-modal="true" aria-labelledby="whats-new-title">
     <div class="sheet">
       <h2 id="whats-new-title">What’s new</h2>
-      <p id="whats-new-date" class="note"></p>
-      <ul id="whats-new-items" class="whats-new-items"></ul>
-      <p class="sheet-hint">Tap outside to close</p>
+      <div id="whats-new-entries"></div>
+      <div class="actions">
+        <button id="whats-new-close" class="secondary" type="button">Close</button>
+      </div>
     </div>
   </div>
 
