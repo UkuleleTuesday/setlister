@@ -1,12 +1,7 @@
 import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
-import {
-  disambiguate,
-  ensureIndexEntry,
-  listSessions,
-  sessionDateLabel,
-} from "./session-index.js";
+import { disambiguate, listSessions, sessionDateLabel } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 import { latestEntry, whatsNewDateLabel } from "./whats-new.js";
 
@@ -387,8 +382,7 @@ async function applyRoute(id) {
     // pushTimer/pendingState are cleared and flushPush early-returns, so
     // nothing can escape.
     const wasInSession = sync.getSessionId() !== null;
-    sync.leaveSession();
-    currentSessionCreatedAt = null;
+    sync.leaveSession(); // also clears the session's createdAt
     if (wasInSession) {
       // Only a session's lists are ours to drop. On a cold open there was never
       // a session, and whatever is in localStorage is carry-over the user still
@@ -417,17 +411,15 @@ async function applyRoute(id) {
   }
 
   try {
-    const { createdAt } = await sync.joinSession(id, applyRemoteState);
-    // The bar renders this session's date whenever it has no typed title.
-    currentSessionCreatedAt = createdAt;
+    await sync.joinSession(id, applyRemoteState);
     persist();
     setView("session");
     updateShareUi();
     renderSessionMeta(sync.getMeta());
-    // Sessions predating session history have no listing row. Backfill one so
-    // they stop being invisible; it carries no name, so it renders its date
-    // like everything else. Best-effort — never blocks opening the session.
-    ensureIndexEntry(id, { name: "", createdBy: "", createdAt });
+    // Sessions predating visibility have no listing row; give them one so they
+    // stop being invisible. A no-op for everything else — crucially including a
+    // session someone deliberately unlisted. Best-effort, never blocks opening.
+    sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
     showHomeError(
@@ -477,18 +469,14 @@ function updateShareUi() {
   else setSharePanelOpen(false); // no session → nothing to show
 }
 
-// When the session in the bar was started. Kept because the bar renders the
-// date whenever the session has no custom title, and joinSession/createSession
-// are the only places it's handed to us.
-let currentSessionCreatedAt = null;
-
 // What the current session is called: a typed title if there is one, else its
 // date. Falls back to the id only for a session with neither, which shouldn't
-// happen but beats rendering an empty button.
+// happen but beats rendering an empty button. The date comes from sync, which
+// keeps it in step with the snapshot — one source of truth for it.
 function currentSessionLabel(meta) {
   return (
     meta.name?.trim() ||
-    sessionDateLabel(currentSessionCreatedAt) ||
+    sessionDateLabel(sync.getCreatedAt()) ||
     sync.getSessionId() ||
     ""
   );
@@ -819,9 +807,6 @@ async function onSheetStart() {
     }
     hasCarryover = false;
     carryoverBox.hidden = true;
-    // The server stamps createdAt, so until the first snapshot echoes back the
-    // bar dates the session from now — which is the same evening either way.
-    currentSessionCreatedAt = new Date();
     persist();
     closeSheet();
     await navigateTo(id, { cameFromHome: homeSection.hidden === false });
@@ -861,7 +846,7 @@ function startRename() {
   sessionNameInput.value = sync.getMeta().name || "";
   // The placeholder shows what the session falls back to, which is also how the
   // user discovers that clearing the field is a way out of a bad title.
-  sessionNameInput.placeholder = sessionDateLabel(currentSessionCreatedAt) || "Session name";
+  sessionNameInput.placeholder = sessionDateLabel(sync.getCreatedAt()) || "Session name";
   sessionNameButton.hidden = true;
   sessionNameInput.hidden = false;
   sessionNameInput.focus();
