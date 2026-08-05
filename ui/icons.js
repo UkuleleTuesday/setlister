@@ -54,12 +54,9 @@ const ICONS = {
   loader: LoaderCircle,
   // "Something shipped" — the What's new banner and sheet.
   news: Sparkles,
-  // Session navigation: out to the history list, and the rename affordance on
-  // the session's name.
+  // Session navigation: out to the history list.
   back: ArrowLeft,
-  rename: Pencil,
-  // Same glyph, different intent: correcting a confidently-matched review row.
-  // Kept as its own name so neither call site has to borrow the other's.
+  // Correcting a confidently-matched review row.
   edit: Pencil,
 };
 

@@ -43,14 +43,17 @@ export. Every UI change is a mobile change first; desktop is incidental.
   phone's Back button work.
 - The `upNext` and `requests` lists are the durable objects (persisted to
   `localStorage` and synced to `sessions/{id}`); the review sheet is transient
-  state from the latest scan. A session's `name`/`createdBy`/`listed` are
-  metadata that deliberately sit *outside* the synced list state — see the
-  header comment in `ui/sync.js`.
-- **`name` is a custom title, not a date.** It is usually empty, and the label
-  is derived from `createdAt` at render time by `sessionDateLabel()` in
-  `ui/session-index.js`. Do not reintroduce a stored formatted date: doing that
-  once already left one list mixing US- and UK-formatted strings, and froze
-  "today" into names that outlived the day.
+  state from the latest scan. A session's `createdBy`/`listed` are metadata
+  that deliberately sit *outside* the synced list state — see the header
+  comment in `ui/sync.js`.
+- **Sessions have no names — the date is the identity.** The label is derived
+  from `createdAt` at render time by `sessionDateLabel()` in
+  `ui/session-index.js`, in each viewer's own locale. Do not reintroduce
+  stored titles or formatted date strings: a stored formatted date once left
+  one list mixing US- and UK-formatted strings and froze "today" into labels
+  that outlived the day, and a free-text name field read as mandatory and got
+  filled with retyped dates. (Legacy docs may still carry a `name` field; it
+  is tolerated by the rules and ignored by the UI.)
 - **User-visible changes go in "What's new".** `ui/whats-new.json` is the
   app's changelog, surfaced on the home screen: the banner announces the latest
   entry alone, the footer link opens the whole history. When a
@@ -59,7 +62,7 @@ export. Every UI change is a mobile change first; desktop is incidental.
   short, user-facing sentence per item, written for players at the club, not
   commit readers. Skip refactors, fixes to unreleased work, and internal
   tooling. Dates are ISO `YYYY-MM-DD` data; the label renders via `Intl` at
-  view time — same rule as session names, never store a formatted date. The
+  view time — same rule as session labels, never store a formatted date. The
   file's shape is enforced by `ui/tests/whats-new.test.js`.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night

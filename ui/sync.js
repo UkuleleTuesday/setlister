@@ -8,13 +8,15 @@
 // The Firestore doc's schema is validated by firestore.rules (#26) — adding a
 // field here means editing the rules' hasOnly list in the same change:
 //   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
-//     edition, name, createdBy, listed, createdAt, updatedAt }
+//     edition, createdBy, listed, createdAt, updatedAt }
 //
-// `name` / `createdBy` / `listed` are session METADATA (#77), not list state:
-// they're deliberately outside serialize()/syncFields()/diff() so the debounced
-// row push never touches them, and they're written by their own small helpers
+// `createdBy` / `listed` are session METADATA (#77), not list state: they're
+// deliberately outside serialize()/syncFields()/diff() so the debounced row
+// push never touches them, and they're written by their own small helpers
 // instead. A listed session also has a `sessionIndex/{id}` row (see
 // session-index.js) written in the same transaction that mints the session.
+// Sessions have no names: their identity is `createdAt`, rendered live (legacy
+// docs may still carry a `name` field, which is tolerated and ignored).
 //
 // Sessions are kept forever, so nothing writes `expiresAt` any more; legacy
 // docs get theirs stripped on first push (see flushPush).
@@ -69,7 +71,7 @@ let metaCallback = null;
 // The session's display metadata as last seen on the server. Kept so the UI can
 // ask without a re-read, and so setSessionListed() knows what to copy into a
 // freshly created index row.
-let meta = { name: "", createdBy: "", listed: false, legacy: false };
+let meta = { createdBy: "", listed: false, legacy: false };
 
 // When the session was created, per the server. The history list is dated from
 // this, so it must survive a session being listed/un-listed/re-listed — writing
@@ -99,9 +101,10 @@ function emitStatus(payload) {
 }
 
 // --- Session metadata ------------------------------------------------------
-// Name / creator / listed-ness travel on the session doc but outside the synced
-// list state, so they get their own channel: the snapshot listener emits them
-// whenever they change, which is what makes a peer's rename land live.
+// Creator / listed-ness travel on the session doc but outside the synced list
+// state, so they get their own channel: the snapshot listener emits them
+// whenever they change, which is what makes a peer's visibility toggle land
+// live.
 export function onMetaChange(cb) {
   metaCallback = cb;
 }
@@ -114,7 +117,6 @@ export function getMeta() {
 // whole of whether Unlisted works, and it is worth pinning down.
 export function readMeta(data) {
   return {
-    name: typeof data?.name === "string" ? data.name : "",
     createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
     listed: data?.listed === true,
     // A session created before visibility existed has NO `listed` field, which
@@ -128,10 +130,7 @@ export function readMeta(data) {
 
 function emitMeta(data) {
   const next = readMeta(data);
-  const changed =
-    next.name !== meta.name ||
-    next.createdBy !== meta.createdBy ||
-    next.listed !== meta.listed;
+  const changed = next.createdBy !== meta.createdBy || next.listed !== meta.listed;
   meta = next;
   if (changed && metaCallback) metaCallback({ ...meta });
 }
@@ -156,10 +155,7 @@ export async function backfillListing() {
     batch.update(fx.doc(db, "sessions", id), { listed: true });
     batch.set(
       indexRef,
-      indexEntryData(
-        { name: meta.name, createdBy: meta.createdBy, createdAt: sessionCreatedAt },
-        fx
-      )
+      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx)
     );
     await batch.commit();
   } catch {
@@ -240,13 +236,16 @@ function deepCopy(obj) {
 // ~10k combos, so collisions are rare but possible); otherwise write the full
 // serialized state and return the id. `applyStateFn` powers the live listener.
 //
-// `sessionMeta` is { name, createdBy, listed }. When listed, the history row is
-// written in the SAME transaction, so there can never be a session without its
-// listing or a listing without its session.
+// `sessionMeta` is { createdBy, listed, createdAt }. `createdAt` is a Date only
+// when the creator picked a day other than today (backfilling a missed night,
+// or prepping a future one); absent, the server stamps the moment of creation.
+// When listed, the history row is written in the SAME transaction, so there can
+// never be a session without its listing or a listing without its session.
 export async function createSession(getState, applyStateFn, sessionMeta) {
   const { db, fx } = await getFirestore();
   const serialized = serialize(getState());
   const next = readMeta(sessionMeta);
+  const pickedAt = sessionMeta?.createdAt instanceof Date ? sessionMeta.createdAt : null;
   let id = null;
 
   await fx.runTransaction(db, async (tx) => {
@@ -261,16 +260,15 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
           upNextOrder: serialized.upNextOrder,
           requestsOrder: serialized.requestsOrder,
           edition: serialized.edition,
-          name: next.name,
           createdBy: next.createdBy,
           listed: next.listed,
-          createdAt: fx.serverTimestamp(),
+          createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
         if (next.listed) {
           tx.set(
             fx.doc(db, INDEX_COLLECTION, candidate),
-            indexEntryData({ name: next.name, createdBy: next.createdBy }, fx)
+            indexEntryData({ createdBy: next.createdBy, createdAt: pickedAt }, fx)
           );
         }
         id = candidate;
@@ -284,9 +282,9 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
   applyState = applyStateFn;
   lastRemote = deepCopy(serialized);
   meta = next;
-  // The server stamps the real value; until the first snapshot echoes back, now
-  // is close enough (it is the same evening either way).
-  sessionCreatedAt = new Date();
+  // A picked date is the real value; on the server-stamped path, now is close
+  // enough until the first snapshot echoes back (same evening either way).
+  sessionCreatedAt = pickedAt ?? new Date();
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
   if (metaCallback) metaCallback({ ...meta });
@@ -325,22 +323,6 @@ export async function joinSession(id, applyStateFn) {
 }
 
 // --- Metadata writes -------------------------------------------------------
-// Rename. The session doc is the source of truth; the history row mirrors it,
-// and is only touched when the session is actually listed.
-export async function setSessionName(name) {
-  if (!sessionId) return;
-  const id = sessionId;
-  const { db, fx } = await getFirestore();
-  const trimmed = String(name || "").slice(0, 80);
-  const batch = fx.writeBatch(db);
-  batch.update(fx.doc(db, "sessions", id), { name: trimmed, updatedAt: fx.serverTimestamp() });
-  if (meta.listed) {
-    batch.update(fx.doc(db, INDEX_COLLECTION, id), { name: trimmed });
-  }
-  await batch.commit();
-  meta = { ...meta, name: trimmed };
-}
-
 // List / un-list. Unlisted only removes the history row — the session stays
 // world-readable by id, exactly like every other session. This is advertising,
 // not access control (see firestore.rules).
@@ -358,10 +340,7 @@ export async function setSessionListed(listed) {
     // tonight.
     batch.set(
       indexRef,
-      indexEntryData(
-        { name: meta.name, createdBy: meta.createdBy, createdAt: sessionCreatedAt },
-        fx
-      )
+      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx)
     );
   } else {
     batch.delete(indexRef);
@@ -386,7 +365,7 @@ function teardown() {
   applyState = null;
   pendingState = null;
   deferredSnapshot = null;
-  meta = { name: "", createdBy: "", listed: false, legacy: false };
+  meta = { createdBy: "", listed: false, legacy: false };
   sessionCreatedAt = null;
 }
 

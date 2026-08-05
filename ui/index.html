@@ -159,17 +159,13 @@
          toggling the sections individually would resurrect a stale scan. -->
     <div id="session-view" hidden>
 
-    <!-- Session-level navigation in one bar: out to the list, the night's name
-         (tap to rename), and straight into a new night. These replace "Start
-         over" — leaving a set is how you stop working on it, rather than
-         wiping it for everyone else in the room. -->
+    <!-- Session-level navigation in one bar: out to the list, the night's date
+         (its identity — sessions have no names), and straight into a new night.
+         These replace "Start over" — leaving a set is how you stop working on
+         it, rather than wiping it for everyone else in the room. -->
     <div class="session-bar">
       <button id="back-home" class="link-button" type="button">All sessions</button>
-      <button id="session-name" class="session-name" type="button"
-              aria-label="Rename this session"></button>
-      <input id="session-name-input" class="session-name-input" type="text"
-             maxlength="80" enterkeyhint="done" autocomplete="off"
-             aria-label="Session name" hidden>
+      <span id="session-name" class="session-name"></span>
       <button id="new-session-here" class="link-button" type="button">New</button>
     </div>
 
@@ -249,21 +245,22 @@
     </div><!-- /#session-view -->
   </main>
 
-  <!-- Starting a night: confirm the name (prefilled with today's date) and
-       whether it joins the club's list. A centred sheet over a tap-anywhere
-       backdrop, like the photo lightbox — it's a decision, not a menu hanging
-       off a header button. -->
+  <!-- Starting a night: confirm the date (prefilled with today) and whether it
+       joins the club's list. A centred sheet over a tap-anywhere backdrop, like
+       the photo lightbox — it's a decision, not a menu hanging off a header
+       button. -->
   <div id="new-session-sheet" class="sheet-backdrop" hidden role="dialog"
        aria-modal="true" aria-labelledby="new-session-title">
     <div class="sheet">
       <h2 id="new-session-title">New session</h2>
-      <!-- The name is a PLACEHOLDER, not a value: left alone it stores nothing,
-           and the session keeps rendering its date live (so tonight's session
-           still reads correctly next week). Typing gives it a fixed title. -->
+      <!-- Sessions have no names — the date IS the identity, rendered live in
+           each viewer's locale. Left on today, the server stamps the moment of
+           creation (the happy path); any other day — backfilling a missed night
+           or prepping a future one — stamps that day's evening instead.
+           value/max are set by openSheet(). -->
       <label class="field">
-        <span>Name</span>
-        <input type="text" id="new-session-name" maxlength="80"
-               enterkeyhint="done" autocomplete="off">
+        <span>Date</span>
+        <input type="date" id="new-session-date">
       </label>
       <label class="field">
         <span>Visibility</span>

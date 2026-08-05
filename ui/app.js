@@ -1,7 +1,14 @@
 import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
-import { disambiguate, listSessions, pageTitle, sessionDateLabel } from "./session-index.js";
+import {
+  disambiguate,
+  fromDateInputValue,
+  listSessions,
+  pageTitle,
+  sessionDateLabel,
+  toDateInputValue,
+} from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
 
@@ -61,10 +68,9 @@ const carryoverText = document.getElementById("carryover-text");
 const carryoverStart = document.getElementById("carryover-start");
 const carryoverDiscard = document.getElementById("carryover-discard");
 const backHomeButton = document.getElementById("back-home");
-const sessionNameButton = document.getElementById("session-name");
-const sessionNameInput = document.getElementById("session-name-input");
+const sessionNameEl = document.getElementById("session-name");
 const sheet = document.getElementById("new-session-sheet");
-const sheetName = document.getElementById("new-session-name");
+const sheetDate = document.getElementById("new-session-date");
 const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
@@ -478,35 +484,28 @@ function updateShareUi() {
   else setSharePanelOpen(false); // no session → nothing to show
 }
 
-// What the current session is called: a typed title if there is one, else its
-// date. Falls back to the id only for a session with neither, which shouldn't
-// happen but beats rendering an empty button. The date comes from sync, which
-// keeps it in step with the snapshot — one source of truth for it.
-function currentSessionLabel(meta) {
-  return (
-    meta.name?.trim() ||
-    sessionDateLabel(sync.getCreatedAt()) ||
-    sync.getSessionId() ||
-    ""
-  );
+// What the current session is called: its date, rendered live. Falls back to
+// the id only for a session with no createdAt, which shouldn't happen but
+// beats rendering an empty bar. The date comes from sync, which keeps it in
+// step with the snapshot — one source of truth for it.
+function currentSessionLabel() {
+  return sessionDateLabel(sync.getCreatedAt()) || sync.getSessionId() || "";
 }
 
-// One funnel for the tab title so route changes and renames (ours or a peer's)
-// can't disagree. Takes meta as an argument because commitRename renders
-// optimistically — re-reading sync.getMeta() there would lag the write.
-function updateDocumentTitle(meta = sync.getMeta()) {
-  document.title = pageTitle(sessionView.hidden ? "" : currentSessionLabel(meta));
+// One funnel for the tab title so route changes and metadata updates can't
+// disagree.
+function updateDocumentTitle() {
+  document.title = pageTitle(sessionView.hidden ? "" : currentSessionLabel());
 }
 
-// The session's name and visibility, wherever they're shown: the bar above the
-// lists, the share popover (which leads with the name — the id is just the link
-// slug), and the browser tab. Driven by sync.onMetaChange, so a peer's rename
-// lands everywhere live.
+// The session's date label and visibility, wherever they're shown: the bar
+// above the lists, the share popover (which leads with the label — the id is
+// just the link slug), and the browser tab. Driven by sync.onMetaChange.
 function renderSessionMeta(meta) {
-  sessionNameButton.replaceChildren(...iconLabel("rename", currentSessionLabel(meta)));
-  shareSessionNameEl.textContent = currentSessionLabel(meta);
+  sessionNameEl.textContent = currentSessionLabel();
+  shareSessionNameEl.textContent = currentSessionLabel();
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
-  updateDocumentTitle(meta);
+  updateDocumentTitle();
 }
 sync.onMetaChange(renderSessionMeta);
 
@@ -589,9 +588,9 @@ async function shareSessionLink() {
   const url = sessionUrl(id);
   if (navigator.share) {
     try {
-      // Carry the night's name (or its date label) in the share payload, so
-      // the recipient sees which session this is, not a generic app title.
-      const label = currentSessionLabel(sync.getMeta());
+      // Carry the night's date label in the share payload, so the recipient
+      // sees which session this is, not a generic app title.
+      const label = currentSessionLabel();
       await navigator.share({
         title: label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
         url,
@@ -679,8 +678,8 @@ function renderSessionList(entries) {
       button.className = "session-item";
       button.dataset.id = entry.id;
 
-      // `label` is the typed title if there is one, else the date rendered in
-      // this viewer's locale — see disambiguate()/sessionLabel().
+      // `label` is the session's date rendered in this viewer's locale — see
+      // disambiguate()/sessionDateLabel().
       const name = document.createElement("span");
       name.className = "session-item-name";
       name.textContent = entry.label;
@@ -814,18 +813,25 @@ document.addEventListener("keydown", (event) => {
 // leftovers).
 let sheetSeedsCarryover = false;
 
+// What the date picker showed when the sheet OPENED. Start compares against
+// this, not a recomputed "today": an untouched picker means "now" (server
+// stamp), and comparing against a fresh today would silently turn a sheet left
+// open across midnight into an explicit yesterday-evening pick.
+let sheetDateDefault = "";
+
 function openSheet({ seedCarryover = false } = {}) {
   sheetSeedsCarryover = seedCarryover;
   sheetError.hidden = true;
-  // A placeholder, not a value: leaving it alone stores no name, so the session
-  // keeps rendering its own date and still reads correctly next week.
-  sheetName.value = "";
-  sheetName.placeholder = sessionDateLabel(new Date());
+  sheetDateDefault = toDateInputValue(new Date());
+  sheetDate.value = sheetDateDefault;
+  // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
+  // earlier so a bad pick fails here, not as a rules error after Start.
+  sheetDate.max = toDateInputValue(new Date(Date.now() + 59 * 86_400_000));
   sheetVisibility.value = "shared";
   sheet.hidden = false;
   homeError.hidden = true;
-  // Don't autofocus: on a phone that throws up the keyboard and hides the
-  // visibility control. The date is usually the answer — tap Start and go.
+  // Don't autofocus: opening a date picker nobody needs to touch would put the
+  // extra tap back. Today is usually the answer — tap Start and go.
 }
 
 function closeSheet() {
@@ -835,9 +841,13 @@ function closeSheet() {
 }
 
 async function onSheetStart() {
-  // Empty is the normal case and is stored as such — the date is derived at
-  // render time, never frozen into a string.
-  const name = sheetName.value.trim();
+  // An untouched (or cleared) picker means "now": no createdAt is sent and the
+  // server stamps the moment of creation. Only a genuinely different day
+  // becomes an explicit date, stamped at that day's evening.
+  const createdAt =
+    sheetDate.value && sheetDate.value !== sheetDateDefault
+      ? fromDateInputValue(sheetDate.value)
+      : null;
   const listed = sheetVisibility.value === "shared";
   const seed = sheetSeedsCarryover;
   sheetError.hidden = true;
@@ -849,7 +859,7 @@ async function onSheetStart() {
     const id = await sync.createSession(
       () => (seed ? sessionState() : { upNext: [], requests: [], edition: app.edition }),
       applyRemoteState,
-      { name, createdBy: presence.displayName(app.name), listed }
+      { createdBy: presence.displayName(app.name), listed, createdAt }
     );
     if (!seed) {
       app.upNext = [];
@@ -865,7 +875,7 @@ async function onSheetStart() {
     renderSessionMeta(sync.getMeta());
     updateShareUi();
   } catch (err) {
-    // Keep the sheet open with the user's name intact so Start is one tap away
+    // Keep the sheet open with the picked date intact so Start is one tap away
     // once they're back on wifi. There is no local-only mode to fall back to.
     sheetError.textContent = `Couldn’t start a session — ${err.message}`;
     sheetError.hidden = false;
@@ -886,55 +896,11 @@ sheet.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !sheet.hidden) closeSheet();
 });
-sheetName.addEventListener("keydown", (event) => {
+// Desktop nicety; native mobile date pickers never surface an Enter key.
+sheetDate.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     onSheetStart();
-  }
-});
-
-// --- Rename the current session --------------------------------------------
-function startRename() {
-  sessionNameInput.value = sync.getMeta().name || "";
-  // The placeholder shows what the session falls back to, which is also how the
-  // user discovers that clearing the field is a way out of a bad title.
-  sessionNameInput.placeholder = sessionDateLabel(sync.getCreatedAt()) || "Session name";
-  sessionNameButton.hidden = true;
-  sessionNameInput.hidden = false;
-  sessionNameInput.focus();
-  sessionNameInput.select();
-}
-
-function endRename() {
-  sessionNameInput.hidden = true;
-  sessionNameButton.hidden = false;
-}
-
-async function commitRename() {
-  // Empty is a real edit, not a no-op: it clears the custom title and hands the
-  // session back to its date.
-  const name = sessionNameInput.value.trim();
-  const previous = sync.getMeta();
-  endRename();
-  if (name === (previous.name || "")) return;
-  renderSessionMeta({ ...previous, name }); // optimistic: the write is a round trip
-  try {
-    await sync.setSessionName(name);
-  } catch (err) {
-    renderSessionMeta(previous);
-    showSessionError(`Couldn’t rename the session — ${err.message}`);
-  }
-}
-
-sessionNameButton.addEventListener("click", startRename);
-sessionNameInput.addEventListener("blur", commitRename);
-sessionNameInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    sessionNameInput.blur(); // blur commits, so both paths agree
-  } else if (event.key === "Escape") {
-    sessionNameInput.value = sync.getMeta().name || "";
-    endRename();
   }
 });
 

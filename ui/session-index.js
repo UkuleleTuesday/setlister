@@ -7,7 +7,7 @@
 // would download every row of every night — and rows embed their full
 // catalogue match — on every app open, forever.
 //
-//   { v: 1, name, createdBy, createdAt }
+//   { v: 1, createdBy, createdAt }
 //
 // Unlisted sessions simply have no doc here. That is NOT access control — the
 // session stays world-readable by id like every other one (see
@@ -62,6 +62,11 @@ const EVENING_HOUR = 17;
 // normal pub night — would relabel itself "Yesterday" while people are still
 // adding songs to it.
 const NIGHT_BOUNDARY_HOUR = 4;
+// A session created for a day other than today (backfilling a missed night, or
+// prepping a future one) is stamped at this hour: late enough to count as that
+// day's EVENING (>= EVENING_HOUR, so it renders "Tonight" on its night) and
+// safely past NIGHT_BOUNDARY_HOUR, so it can't drift onto the previous night.
+const PICKED_SESSION_HOUR = 20;
 
 // The start of the *night* `date` falls in, which is the previous calendar day
 // for anything before 04:00.
@@ -81,31 +86,31 @@ function isEvening(date) {
   return h >= EVENING_HOUR || h < NIGHT_BOUNDARY_HOUR;
 }
 
-// What a session is called when nobody has given it a name: a relative label
-// near the present, an absolute date further back. `now` is injectable so the
-// tests can pin the clock — every branch here is relative, and a test that
-// reads the wall clock is a test that fails at midnight.
+// What a session is called: a relative label near the present, an absolute
+// date further out — in either direction, since a session can be created ahead
+// of its night. `now` is injectable so the tests can pin the clock — every
+// branch here is relative, and a test that reads the wall clock is a test that
+// fails at midnight.
 export function sessionDateLabel(date, now = new Date()) {
   if (!date) return "";
   const days = nightsBetween(date, now);
 
   if (days === 0) return isEvening(date) ? "Tonight" : "Today";
   if (days === 1) return "Yesterday";
+  if (days === -1) return "Tomorrow";
   // Inside a week only one Tuesday can exist, so the bare weekday is
   // unambiguous — and it dodges the "last Tuesday means which Tuesday?"
   // argument that a "Last " prefix would start.
-  if (days < 7) return WEEKDAY_FORMAT.format(date);
+  if (days > 1 && days < 7) return WEEKDAY_FORMAT.format(date);
+  // Ahead, the bare weekday would read as LAST week, so it needs the prefix.
+  // Note next club Tuesday is exactly 7 nights from a Tuesday, so it falls
+  // through to the date stamp below — "Next Tuesday" never actually renders
+  // on a Tuesday, but the other weekdays need it.
+  if (days > -7 && days < -1) return `Next ${WEEKDAY_FORMAT.format(date)}`;
 
   const sameYear = date.getFullYear() === now.getFullYear();
   const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
   return date.getDay() === CLUB_WEEKDAY ? stamp : `${WEEKDAY_FORMAT.format(date)} ${stamp}`;
-}
-
-// A session's display label: a title someone typed, else the date. Sessions
-// created before naming moved to render time carry a stored full-date string;
-// a non-empty name always wins, so those simply look manually named.
-export function sessionLabel(entry, now = new Date()) {
-  return entry?.name?.trim() || sessionDateLabel(entry?.createdAt, now);
 }
 
 // The browser-tab title. Session-first: the night's label leads so parked tabs
@@ -117,17 +122,38 @@ export function pageTitle(label) {
 
 // Used to tell apart two sessions started on the same day. Cheaper than
 // suffixing at create time, which would cost a round trip on the critical path
-// (and race two phones creating at once) for a name the user can edit anyway.
+// (and race two phones creating at once).
 export function sessionTimeLabel(date) {
   return date ? TIME_FORMAT.format(date) : "";
 }
 
+// The bridge between <input type="date"> and real Dates, kept here (DOM-free)
+// because both directions are timezone footguns: toISOString() renders UTC (the
+// wrong day for an evening in any western timezone), and new Date("YYYY-MM-DD")
+// PARSES as UTC midnight (the previous local day east of Greenwich). Both
+// helpers work strictly in local time.
+export function toDateInputValue(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// "" (a cleared picker) and malformed values both come back null — the caller
+// treats that as "today".
+export function fromDateInputValue(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), PICKED_SESSION_HOUR);
+}
+
 // Sessions that render the same are indistinguishable in the list, so append
-// the start time to each member of a matching run. Runs on the RENDERED label,
-// not the stored name — two sessions the same evening both say "Tonight" while
-// storing nothing at all. A label that's unique stays clean.
+// the start time to each member of a matching run. Runs on the rendered label:
+// two sessions the same evening both say "Tonight" while storing only their
+// timestamps. A label that's unique stays clean.
 export function disambiguate(entries, now = new Date()) {
-  const labelled = entries.map((entry) => ({ ...entry, label: sessionLabel(entry, now) }));
+  const labelled = entries.map((entry) => ({
+    ...entry,
+    label: sessionDateLabel(entry.createdAt, now),
+  }));
   const counts = new Map();
   for (const entry of labelled) {
     counts.set(entry.label, (counts.get(entry.label) || 0) + 1);
@@ -141,12 +167,12 @@ export function disambiguate(entries, now = new Date()) {
 
 // The document shape, in one place, so sync.js can write an entry inside its
 // id-claiming transaction without owning the schema. `createdAt` is passed in
-// only when backfilling a session that already exists; otherwise the server
-// stamps it (and firestore.rules rejects a future date either way).
-export function indexEntryData({ name, createdBy, createdAt }, fx) {
+// when the creator picked a day other than today, or when re-listing/backfilling
+// a session that already exists; otherwise the server stamps it. firestore.rules
+// caps how far ahead it may sit (60 days), not behind.
+export function indexEntryData({ createdBy, createdAt }, fx) {
   return {
     v: 1,
-    name: String(name || "").slice(0, 80),
     createdBy: String(createdBy || "").slice(0, 60),
     createdAt: createdAt ? fx.Timestamp.fromDate(createdAt) : fx.serverTimestamp(),
   };
@@ -155,7 +181,8 @@ export function indexEntryData({ name, createdBy, createdAt }, fx) {
 function toEntry(id, data) {
   return {
     id,
-    name: typeof data?.name === "string" ? data.name : id,
+    // Legacy rows may still carry a `name`; it is deliberately ignored —
+    // sessions are identified by their date now.
     createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
     // Firestore hands back a Timestamp; a doc written moments ago by this
     // client can still have a null serverTimestamp locally.
