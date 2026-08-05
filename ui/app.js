@@ -10,6 +10,7 @@ import {
   toDateInputValue,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
+import { duplicateLabel, findDuplicate, matchKey, normalizeText, rowKey } from "./dupes.js";
 import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
 
 const editionSelect = document.getElementById("edition");
@@ -34,6 +35,7 @@ const reviewSection = document.getElementById("review");
 const reviewNote = document.getElementById("review-note");
 const reviewRows = document.getElementById("review-rows");
 const scanResult = document.getElementById("scan-result");
+const addFeedback = document.getElementById("add-feedback");
 const reviewConfirm = document.getElementById("review-confirm");
 const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
@@ -1002,15 +1004,9 @@ async function loadCatalogue(edition) {
 
 editionSelect.addEventListener("change", () => loadCatalogue(editionSelect.value));
 
-function normalizeText(s) {
-  // Mirror the accent-insensitive matching the backend does in matcher.py, so
-  // "sara" finds "Sarà" and users don't have to type diacritics on a phone.
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
+// normalizeText lives in dupes.js now (shared with duplicate detection); it
+// mirrors the accent-insensitive matching the backend does in matcher.py, so
+// "sara" finds "Sarà" and users don't have to type diacritics on a phone.
 function searchCatalogue(query, limit = 8) {
   const terms = normalizeText(query.trim()).split(/\s+/).filter(Boolean);
   if (!terms.length) return [];
@@ -1217,6 +1213,13 @@ function mountManualAdd() {
 }
 
 function addManualEntry(entry) {
+  // Same song already on the night's lists (#52)? Say where it is instead of
+  // quietly doubling it. Binned copies don't block — see dupes.js.
+  const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
+  if (existing) {
+    flashNote(addFeedback, duplicateLabel(existing.where));
+    return;
+  }
   app.requests.push({
     uid: newUid(),
     source: "manual",
@@ -1333,30 +1336,52 @@ photoInput.addEventListener("change", async () => {
     // reviewing rows that need no review was the bulk of the tap work. Only
     // the flagged rows (needs_review / conflict / unmatched) go to the review
     // sheet; crossed-out-but-confirmed rows auto-add with their flag, same as
-    // they used to land after a manual confirm. Re-scanning the same board
-    // will re-add its songs — the cost of losing the human checkpoint until
-    // duplicate detection (#52) exists.
+    // they used to land after a manual confirm.
     const entries = data.rows.map(rowToEntry);
     const confirmed = entries.filter((e) => e.status === "confirmed");
     const flagged = entries.filter((e) => e.status !== "confirmed");
-    if (confirmed.length) {
-      app.requests.push(...confirmed);
+    // Duplicate gate (#52): a re-scan of the board must not double the night.
+    // Keep only confirmed rows whose song is neither already on the lists nor
+    // earlier in this same batch (boards repeat songs too).
+    const seen = new Set();
+    const fresh = [];
+    let skipped = 0;
+    for (const entry of confirmed) {
+      const key = rowKey(entry);
+      if (seen.has(key) || findDuplicate(app.upNext, app.requests, key)) {
+        skipped++;
+        continue;
+      }
+      seen.add(key);
+      fresh.push(entry);
+    }
+    if (fresh.length) {
+      app.requests.push(...fresh);
       renderRequests();
       persist();
     }
     if (flagged.length) {
-      app.review = { entries: flagged, autoAdded: confirmed.length, imageUrl };
+      // Flagged rows that duplicate the lists arrive pre-removed: the review
+      // sheet's existing remove/restore mechanic IS the "offer to skip on
+      // confirm" — restore opts a copy back in deliberately.
+      for (const entry of flagged) {
+        if (entry.match && findDuplicate(app.upNext, app.requests, rowKey(entry))) {
+          entry.removed = true;
+        }
+      }
+      app.review = { entries: flagged, autoAdded: fresh.length, autoSkipped: skipped, imageUrl };
       openReview();
     } else {
       // Nothing to check: no review sheet, just say what happened. The photo
       // has no reachable viewer without a review, so release it.
       URL.revokeObjectURL(imageUrl);
       previewWrap.hidden = true;
-      showScanResult(
-        confirmed.length
-          ? `Added ${confirmed.length} from the board`
-          : "Couldn't read any songs off that photo — try a closer, straighter shot."
-      );
+      const skippedNote = skipped ? ` · skipped ${skipped} already listed` : "";
+      let message;
+      if (fresh.length) message = `Added ${fresh.length} from the board${skippedNote}`;
+      else if (skipped) message = "Nothing new — everything on the board is already listed.";
+      else message = "Couldn't read any songs off that photo — try a closer, straighter shot.";
+      showScanResult(message);
     }
   } catch (err) {
     // A fetch that never reached the server rejects with a TypeError and an
@@ -1375,28 +1400,41 @@ photoInput.addEventListener("change", async () => {
   }
 });
 
-// Post-scan feedback for the no-review path. It self-retires: long enough to
-// read across the room, gone before it reads as a permanent fixture.
-let scanResultTimer = null;
-function showScanResult(message) {
-  scanResult.textContent = message;
-  scanResult.hidden = false;
-  clearTimeout(scanResultTimer);
-  scanResultTimer = setTimeout(() => {
-    scanResult.hidden = true;
-  }, 8000);
+// Transient inline feedback ("Added 7 from the board", "Already in Up next").
+// Self-retiring per element: long enough to read across the room, gone before
+// it reads as a permanent fixture.
+const flashTimers = new Map();
+function flashNote(el, message) {
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(flashTimers.get(el));
+  flashTimers.set(
+    el,
+    setTimeout(() => {
+      el.hidden = true;
+    }, 8000)
+  );
 }
+const showScanResult = (message) => flashNote(scanResult, message);
 
 function openReview() {
   addSection.hidden = true;
   reviewSection.hidden = false;
-  // Orientation first: say how many rows skipped the queue, so "the sheet
-  // shows 3 but the board had 12" reads as the feature it is, not a bug.
+  // Orientation first: say how many rows skipped the queue (and how many were
+  // already listed, #52), so "the sheet shows 3 but the board had 12" reads as
+  // the feature it is, not a bug.
   const auto = app.review?.autoAdded ?? 0;
-  reviewNote.textContent = auto
-    ? `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
-      "Requests — these need a look first."
-    : "Fix any misreads, drop what you don't want, then add them to Requests.";
+  const dupes = app.review?.autoSkipped ?? 0;
+  if (auto) {
+    const dupesNote = dupes ? ` (${dupes} already listed)` : "";
+    reviewNote.textContent =
+      `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
+      `Requests${dupesNote} — these need a look first.`;
+  } else if (dupes) {
+    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed — these need a look first.`;
+  } else {
+    reviewNote.textContent = "Fix any misreads, drop what you don't want, then add them to Requests.";
+  }
   // An in-flight scan means songs are coming: leave the fresh state so the
   // review sheet appears in the full layout.
   updateSessionMode();
@@ -1698,6 +1736,20 @@ function renderRow(row, index, context) {
       const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
       explanation.textContent = row.explanation + (row.status === "confirmed" ? confidence : "");
       main.appendChild(explanation);
+    }
+
+    // Duplicate call-out (#52), computed live so a correction to an
+    // already-listed song surfaces immediately. Rows that were duplicates at
+    // scan time arrive pre-removed; this line is why, and the restore button
+    // is the deliberate way back in.
+    if (row.match) {
+      const existing = findDuplicate(app.upNext, app.requests, rowKey(row));
+      if (existing) {
+        const dupNote = document.createElement("div");
+        dupNote.className = "dup-note";
+        dupNote.textContent = duplicateLabel(existing.where);
+        main.appendChild(dupNote);
+      }
     }
   } else {
     // The working lists get one quiet line: provenance, plus only the facts

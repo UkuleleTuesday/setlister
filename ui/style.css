@@ -481,14 +481,17 @@ h2 .count { color: #999; font-weight: 600; letter-spacing: 0.04em; }
 
 /* The scan ritual: "or" + camera button (quick add lives up in Requests). */
 #add { margin-top: 1.4rem; }
-/* "Added 7 from the board" — the whole acknowledgement when a clean scan
-   skips the review sheet (#80). Accent-tinted like the What's new banner:
-   news, not chrome. */
-.scan-result {
+/* Transient inline feedback — "Added 7 from the board" after a clean scan
+   (#80), "Already in Up next" under the quick-add (#52). Accent-tinted like
+   the What's new banner: news, not chrome. Shown/retired by flashNote(). */
+.flash-note {
   margin: 0.8rem 0 0; padding: 0.6rem 0.8rem; text-align: center;
   background: var(--accent-soft); color: var(--accent);
   border-radius: var(--radius); font-size: 0.9rem;
 }
+/* Under the quick-add field the note reads as part of that control, so it
+   hugs the input and keeps the pool's spacing. */
+#add-feedback { margin: 0 0 0.7rem; }
 /* Quick add sits between the Requests heading and the pool. */
 .manual-add { margin: 0 0 0.7rem; }
 
@@ -695,6 +698,9 @@ h2 .count { color: #999; font-weight: 600; letter-spacing: 0.04em; }
    whiteboard"), same quiet register as the review sheet's detail lines. */
 .row-meta { color: #6b6b6b; font-size: 0.82rem; margin-top: 0.15rem; }
 .explanation { font-size: 0.84rem; margin-top: 0.3rem; color: #666; }
+/* "Already in Up next" on a review row (#52): amber — a caution about the
+   match's destination, same register as the ⚠️ flag, not an error. */
+.dup-note { font-size: 0.84rem; margin-top: 0.3rem; color: var(--review); font-weight: 600; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .chips button {
