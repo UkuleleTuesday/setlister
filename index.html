@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#faf7f2">
   <title>Whiteboard of Wishes · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-CsNMqlZ3.js"></script>
+  <script type="module" crossorigin src="./assets/index-B5zID19b.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-BuS-l-Gp.css">
 </head>
 <body>
@@ -28,11 +28,17 @@
       <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
       <p class="note">Anyone with the link can view and edit these lists live.</p>
       <!-- Whether this night appears in the club's session list. NOT a privacy
-           control: the link works either way (see firestore.rules). -->
-      <label class="field toggle">
-        <input type="checkbox" id="share-listed">
-        <span>Show in the club's session list</span>
+           control: the link works either way (see firestore.rules), which is
+           what the note underneath is for — "Shared" names the listed state,
+           not a different level of access. -->
+      <label class="field">
+        <span>Visibility</span>
+        <select id="share-visibility">
+          <option value="shared">Shared</option>
+          <option value="unlisted">Unlisted</option>
+        </select>
       </label>
+      <p class="note">Anyone with the link can open it either way.</p>
       <!-- "Who's here": the live roster of people connected to this session.
            Populated by renderPresence(); "you" is marked, and unnamed peers
            show their generated default name. -->
@@ -210,16 +216,22 @@
        aria-modal="true" aria-labelledby="new-session-title">
     <div class="sheet">
       <h2 id="new-session-title">New session</h2>
+      <!-- The name is a PLACEHOLDER, not a value: left alone it stores nothing,
+           and the session keeps rendering its date live (so tonight's session
+           still reads correctly next week). Typing gives it a fixed title. -->
       <label class="field">
         <span>Name</span>
         <input type="text" id="new-session-name" maxlength="80"
                enterkeyhint="done" autocomplete="off">
       </label>
-      <label class="field toggle">
-        <input type="checkbox" id="new-session-listed" checked>
-        <span>Show in the club's session list</span>
+      <label class="field">
+        <span>Visibility</span>
+        <select id="new-session-visibility">
+          <option value="shared" selected>Shared</option>
+          <option value="unlisted">Unlisted</option>
+        </select>
       </label>
-      <p class="note">Anyone with the link can still open it either way.</p>
+      <p class="note">Anyone with the link can open it either way.</p>
       <div id="new-session-error" class="error" hidden></div>
       <div class="actions">
         <button id="new-session-start">Start</button>
