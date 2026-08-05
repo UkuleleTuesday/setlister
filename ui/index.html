@@ -104,6 +104,16 @@
     <!-- Home: the club's session history. Shown whenever the URL carries no
          ?session= param — the app is a session picker until you pick one. -->
     <section id="home" hidden>
+      <!-- One-time announcement that something shipped: shows only while the
+           latest entry in ui/whats-new.json is unseen on this device; one tap
+           opens the What's new sheet, which marks it seen and retires the
+           banner. It sits above the heading so it reads as an announcement —
+           never as part of the pick-a-session flow below. Populated by
+           renderWhatsNew(). -->
+      <button id="whats-new-banner" class="whats-new-banner" type="button" hidden>
+        ✨ What’s new
+      </button>
+
       <h2>Sessions</h2>
       <button id="new-session" class="primary-action" type="button">New session</button>
       <div id="home-error" class="error" hidden></div>
@@ -121,6 +131,13 @@
       <ul id="session-list" class="session-list"></ul>
       <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
       <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
+
+      <!-- The quiet, always-there door to the same sheet once the banner has
+           retired. Footer register: app-meta belongs at the bottom, like the
+           edition note in the session view. -->
+      <p id="whats-new-footer" class="whats-new-footer">
+        <button id="whats-new-open" class="link-button" type="button">What’s new</button>
+      </p>
     </section>
 
     <!-- Everything below is one session's working state. Wrapped so the view
@@ -236,6 +253,21 @@
         <button id="new-session-start">Start</button>
         <button id="new-session-cancel" class="secondary">Cancel</button>
       </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- What's new: the latest release-notes entry from ui/whats-new.json (the
+       file keeps the full history), in the same centred-sheet idiom as
+       starting a night. Opened from the home banner (while unseen) or the
+       footer link (any time); opening marks the entry seen. Populated by
+       renderWhatsNew(). -->
+  <div id="whats-new-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="whats-new-title">
+    <div class="sheet">
+      <h2 id="whats-new-title">What’s new</h2>
+      <p id="whats-new-date" class="note"></p>
+      <ul id="whats-new-items" class="whats-new-items"></ul>
       <p class="sheet-hint">Tap outside to close</p>
     </div>
   </div>

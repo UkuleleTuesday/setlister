@@ -8,6 +8,7 @@ import {
   sessionDateLabel,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
+import { latestEntry, whatsNewDateLabel } from "./whats-new.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -72,6 +73,12 @@ const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
 const sheetCancel = document.getElementById("new-session-cancel");
+const whatsNewBanner = document.getElementById("whats-new-banner");
+const whatsNewFooter = document.getElementById("whats-new-footer");
+const whatsNewOpen = document.getElementById("whats-new-open");
+const whatsNewSheet = document.getElementById("whats-new-sheet");
+const whatsNewDate = document.getElementById("whats-new-date");
+const whatsNewItems = document.getElementById("whats-new-items");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -90,6 +97,9 @@ const STORAGE_KEY = "setlister.v1";
 // data that lets manual search work instantly on revisit (and ride out a slow
 // Cloud Function cold start) while a fresh copy loads in the background.
 const CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
+// The ISO date of the last "What's new" entry this device has seen. Its own
+// key, outside setlister.v1, so persist()/restore()'s schema stays untouched.
+const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
 
 // The two lists are the durable, primary objects. Adds (by name or snap) land in
 // `requests`, the incoming pool; the user promotes entries into `upNext`, the
@@ -695,6 +705,62 @@ sessionListEl.addEventListener("click", (event) => {
   if (button) navigateTo(button.dataset.id, { cameFromHome: true });
 });
 sessionListRetry.addEventListener("click", refreshSessionList);
+
+// --- What's new: latest release notes --------------------------------------
+// Announcement and archive are two different jobs, so they get two surfaces.
+// The banner above "Sessions" exists only while the latest entry is unseen on
+// this device — one tap opens the sheet and retires it, so the home screen's
+// pick-a-session flow carries no permanent extra furniture. The footer link
+// is the quiet, always-there door to the same sheet afterwards. "Seen" is the
+// entry's ISO date (data, never a formatted label) under its own key, so
+// shipping a newer entry revives the banner with no other state to migrate.
+function renderWhatsNew() {
+  const entry = latestEntry();
+  if (!entry) {
+    whatsNewFooter.hidden = true;
+    return;
+  }
+
+  whatsNewDate.textContent = whatsNewDateLabel(entry);
+  whatsNewItems.replaceChildren(
+    ...entry.items.map((text) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      return li;
+    })
+  );
+  whatsNewBanner.replaceChildren(...iconLabel("news", "What’s new"));
+
+  let seen = null;
+  try {
+    seen = localStorage.getItem(WHATS_NEW_SEEN_KEY);
+  } catch {
+    /* private mode: the banner simply shows every visit */
+  }
+  whatsNewBanner.hidden = seen === entry.date;
+}
+
+function openWhatsNewSheet() {
+  whatsNewSheet.hidden = false;
+  // Opening is seeing — the banner has done its job for this entry.
+  whatsNewBanner.hidden = true;
+  try {
+    localStorage.setItem(WHATS_NEW_SEEN_KEY, latestEntry()?.date || "");
+  } catch {
+    /* best-effort: the banner just returns next visit */
+  }
+}
+
+whatsNewBanner.addEventListener("click", openWhatsNewSheet);
+whatsNewOpen.addEventListener("click", openWhatsNewSheet);
+// Forgiving dismissal, same as the new-session sheet: tap the backdrop (the
+// hint says so). Escape is a desktop bonus, never the only way out.
+whatsNewSheet.addEventListener("click", (event) => {
+  if (event.target === whatsNewSheet) whatsNewSheet.hidden = true;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !whatsNewSheet.hidden) whatsNewSheet.hidden = true;
+});
 
 // --- New session sheet ------------------------------------------------------
 // Whether Start should carry the carry-over lists into the new session, or
@@ -1934,6 +2000,7 @@ document.getElementById("download").addEventListener("click", () => {
   renderUpNext();
   renderRequests();
   renderCarryover();
+  renderWhatsNew();
 
   // Paint the right view before any network work so a cold open shows the
   // session list (with its own loading note) straight away. The route lives in

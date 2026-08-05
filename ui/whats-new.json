@@ -1,0 +1,41 @@
+[
+  {
+    "date": "2026-08-05",
+    "items": [
+      "The app now opens on the club's session history — pick a night or start a new one.",
+      "Sessions are named by their date automatically, in your own language and format.",
+      "These very notes — new features are announced right here from now on."
+    ]
+  },
+  {
+    "date": "2026-07-18",
+    "items": [
+      "See who's here: shared sessions show everyone currently connected.",
+      "Played songs collapse into a one-line count above Up next.",
+      "The Bin now lives inside Requests as a collapsed group."
+    ]
+  },
+  {
+    "date": "2026-07-16",
+    "items": [
+      "Swipe a song sideways to move it between Up next and Requests.",
+      "Drag-to-reorder now follows your finger."
+    ]
+  },
+  {
+    "date": "2026-07-15",
+    "items": [
+      "Share a session: everyone with the link sees the same lists, live.",
+      "Set your name in settings — songs show who added them.",
+      "Swipe right to mark a song played, swipe left to bin it.",
+      "Requests and Up next are separate lists — promote what you'll actually play.",
+      "Type-ahead songbook search when adding a request by name."
+    ]
+  },
+  {
+    "date": "2026-07-13",
+    "items": [
+      "First version: snap the request whiteboard and get a songbook-matched setlist."
+    ]
+  }
+]
