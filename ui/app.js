@@ -85,8 +85,10 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wish
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
-document.getElementById("copy").replaceChildren(...iconLabel("copy", "Copy list"));
-document.getElementById("download").replaceChildren(...iconLabel("download", "Download JSON"));
+// Icon-only (their names live in aria-label/title): they share the "Up next"
+// heading row, where a text label would crowd the heading at 320px.
+document.getElementById("copy").replaceChildren(icon("copy"));
+document.getElementById("download").replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
@@ -566,7 +568,11 @@ function flashButton(button, message) {
   if (!("originalHtml" in button.dataset)) {
     button.dataset.originalHtml = button.innerHTML;
   }
-  button.replaceChildren(...iconLabel("check", message));
+  // Match the button's own shape: a labelled button flashes the word, but an
+  // icon-only one (the export pair in the "Up next" heading) would grow mid-tap
+  // and shove the heading sideways, so it flashes just the tick.
+  const labelled = button.querySelector(".btn-label");
+  button.replaceChildren(...(labelled ? iconLabel("check", message) : [icon("check")]));
   button.dataset.flashTimer = String(
     setTimeout(() => {
       button.innerHTML = button.dataset.originalHtml;
