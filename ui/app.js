@@ -107,8 +107,10 @@ let app = {
   edition: null,
   catalogue: [],
   catalogueGeneratedAt: "",
-  // The current user's name — stamped onto every song they add (see `addedBy`),
-  // laying the groundwork for a future "multiplayer" mode.
+  // The name the user typed, or "" — the raw setting, not the identity. Every
+  // surface that shows a person resolves it through presence.displayName(),
+  // which falls back to this device's stable anonymous name, so an unnamed
+  // player reads the same in `addedBy`, "Here now" and "Started by".
   name: "",
   upNext: [],
   requests: [],
@@ -1206,7 +1208,7 @@ function addManualEntry(entry) {
   app.requests.push({
     uid: newUid(),
     source: "manual",
-    addedBy: app.name,
+    addedBy: presence.displayName(app.name),
     raw_title: entry.display,
     raw_page: entry.page,
     notes: null,
@@ -1236,7 +1238,15 @@ function setMatch(row, entry) {
 
 // --- Photo scan -> review sheet --------------------------------------------
 function rowToEntry(row) {
-  return { ...row, uid: newUid(), source: "scan", addedBy: app.name, removed: false, played: false, binned: false };
+  return {
+    ...row,
+    uid: newUid(),
+    source: "scan",
+    addedBy: presence.displayName(app.name),
+    removed: false,
+    played: false,
+    binned: false,
+  };
 }
 
 // The camera control is a real <button> for keyboard/switch access; forward
