@@ -58,6 +58,9 @@ const ICONS = {
   // the session's name.
   back: ArrowLeft,
   rename: Pencil,
+  // Same glyph, different intent: correcting a confidently-matched review row.
+  // Kept as its own name so neither call site has to borrow the other's.
+  edit: Pencil,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text
