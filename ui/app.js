@@ -62,7 +62,6 @@ const scanStatusText = document.getElementById("scan-status-text");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const newSessionButton = document.getElementById("new-session");
-const newSessionHereButton = document.getElementById("new-session-here");
 const homeError = document.getElementById("home-error");
 const sessionListEl = document.getElementById("session-list");
 const sessionListStatus = document.getElementById("session-list-status");
@@ -98,7 +97,6 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wish
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
-newSessionHereButton.replaceChildren(...iconLabel("add", "New session"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
 copyButton.replaceChildren(icon("copy"));
@@ -895,7 +893,6 @@ async function onSheetStart() {
 }
 
 newSessionButton.addEventListener("click", () => openSheet());
-newSessionHereButton.addEventListener("click", () => openSheet());
 sheetStart.addEventListener("click", onSheetStart);
 sheetCancel.addEventListener("click", closeSheet);
 // Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
