@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-UUKhuhlD.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CPBhB_En.css">
+  <script type="module" crossorigin src="./assets/index-D_QTJuKM.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BmkeS4aA.css">
 </head>
 <body>
   <header>
@@ -74,22 +74,6 @@
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
       </label>
-      <label class="field">
-        <span>Model</span>
-        <select id="model">
-          <option value="" selected>default (gemini-2.5-flash)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
-        </select>
-      </label>
-      <label class="field toggle">
-        <input type="checkbox" id="disable-thinking" checked>
-        <span>Disable model thinking (faster)</span>
-      </label>
-      <label class="field toggle">
-        <input type="checkbox" id="send-catalogue" checked>
-        <span>Send songbook to model (better handwriting reads)</span>
-      </label>
       <label class="field toggle">
         <input type="checkbox" id="show-suggestions">
         <span>Show alternative suggestions</span>
@@ -98,18 +82,34 @@
         <input type="checkbox" id="include-crossed">
         <span>Include crossed-out rows in export</span>
       </label>
-      <label class="field">
-        <span>Max image edge (px)</span>
-        <input type="number" id="max-image-edge" min="256" max="4096" step="128"
-               placeholder="1600">
-      </label>
-      <div class="field">
-        <span>Export setlist</span>
-        <div class="actions">
-          <button id="copy">Copy list</button>
-          <button id="download">Download JSON</button>
-        </div>
-      </div>
+      <!-- Everything below is prompt-engineering vocabulary aimed at whoever is
+           tuning the parser, not at a ukulele player: it opens closed so the
+           panel reads as four things a club member might actually want. The
+           controls keep their ids, so persist()/restore() is unaffected. -->
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <label class="field">
+          <span>Model</span>
+          <select id="model">
+            <option value="" selected>default (gemini-2.5-flash)</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
+          </select>
+        </label>
+        <label class="field toggle">
+          <input type="checkbox" id="disable-thinking" checked>
+          <span>Disable model thinking (faster)</span>
+        </label>
+        <label class="field toggle">
+          <input type="checkbox" id="send-catalogue" checked>
+          <span>Send songbook to model (better handwriting reads)</span>
+        </label>
+        <label class="field">
+          <span>Max image edge (px)</span>
+          <input type="number" id="max-image-edge" min="256" max="4096" step="128"
+                 placeholder="1600">
+        </label>
+      </details>
     </div>
   </header>
 
@@ -179,6 +179,17 @@
     <section id="upnext">
       <div class="setlist-head">
         <h2>Up next</h2>
+        <!-- Export is what the night produces, so it lives on the page rather
+             than behind the gear icon. It covers BOTH lists (see exportedRows),
+             but it belongs beside the running order — that's the artifact
+             people mean by "the setlist". Icon-only like every other control
+             in the chrome; the accessible name carries the meaning. -->
+        <div class="setlist-actions">
+          <button id="copy" type="button" title="Copy list"
+                  aria-label="Copy the setlist to the clipboard"></button>
+          <button id="download" type="button" title="Download JSON"
+                  aria-label="Download the setlist as JSON"></button>
+        </div>
       </div>
       <!-- Played songs collapse into a one-line count here (the set plays from
            the top, so the list "consumes itself"); tap to expand for the
