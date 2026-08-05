@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-D1_ALHar.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BV_H3XiK.css">
+  <script type="module" crossorigin src="./assets/index-BKJ6q-FM.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Cd8K-GYO.css">
 </head>
 <body>
   <header>
@@ -21,7 +21,10 @@
     <button id="settings-toggle" class="settings-toggle" type="button"
             aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
     <!-- The app is Setlister; the "whiteboard of wishes" is the physical board
-         it photographs — the phrase belongs to the scan ritual, not the app. -->
+         it photographs — the phrase belongs to the scan ritual, not the app.
+         In a session app.js swaps this h1's text for the night's date: the
+         date is the screen's title, sitting between the share and settings
+         buttons that act on it, and the brand belongs to home. -->
     <h1>🎶 Setlister</h1>
     <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
 
@@ -160,14 +163,15 @@
          toggling the sections individually would resurrect a stale scan. -->
     <div id="session-view" hidden>
 
-    <!-- Session-level navigation in one bar: out to the list, the night's date
-         (its identity — sessions have no names), and straight into a new night.
-         These replace "Start over" — leaving a set is how you stop working on
-         it, rather than wiping it for everyone else in the room. -->
+    <!-- Session-level navigation: out to the list, and straight into a new
+         night. The night's date (its identity — sessions have no names) shows
+         in the header h1 above, between the share and settings buttons, so
+         this bar stays slim. These replace "Start over" — leaving a set is how
+         you stop working on it, rather than wiping it for everyone else in the
+         room. -->
     <div class="session-bar">
       <button id="back-home" class="link-button" type="button">All sessions</button>
-      <span id="session-name" class="session-name"></span>
-      <button id="new-session-here" class="link-button" type="button">New</button>
+      <button id="new-session-here" class="link-button" type="button">New session</button>
     </div>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
@@ -202,10 +206,6 @@
       <h2>Requests</h2>
       <ul id="requests-rows"></ul>
       <p id="requests-empty" class="note">No requests yet — snap the board or add one below.</p>
-      <!-- Binned songs (swipe-left / trash icon) collapse into the same
-           one-line disclosure as played songs — kept and recoverable, without
-           a whole extra section to scroll past. Populated by renderGroup(). -->
-      <div id="bin-group" class="row-group" hidden></div>
     </section>
 
     <!-- Two ways to add a request: type a song name, or snap the whiteboard. -->
@@ -242,6 +242,14 @@
         <button id="review-cancel" class="secondary">Cancel</button>
       </div>
     </section>
+
+    <!-- Binned songs (swipe-left / trash icon) collapse into a one-line
+         disclosure like played songs — kept and recoverable, without a whole
+         extra section to scroll past. It sits at the very bottom, below the
+         add controls, so the discard pile never wedges itself between the
+         Requests list and the controls that feed it. Populated by
+         renderGroup(). -->
+    <div id="bin-group" class="row-group" hidden></div>
 
     </div><!-- /#session-view -->
   </main>
