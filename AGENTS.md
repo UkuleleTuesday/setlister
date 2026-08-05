@@ -52,7 +52,8 @@ export. Every UI change is a mobile change first; desktop is incidental.
   once already left one list mixing US- and UK-formatted strings, and froze
   "today" into names that outlived the day.
 - **User-visible changes go in "What's new".** `ui/whats-new.json` is the
-  app's changelog, surfaced (latest entry only) on the home screen. When a
+  app's changelog, surfaced on the home screen: the banner announces the latest
+  entry alone, the footer link opens the whole history. When a
   change adds, removes, or meaningfully alters something club members can see
   or do, add or extend the entry for today's date **in the same PR** — one
   short, user-facing sentence per item, written for players at the club, not

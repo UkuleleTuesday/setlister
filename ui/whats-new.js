@@ -34,6 +34,13 @@ export function latestEntry(entries = WHATS_NEW) {
   return best;
 }
 
+// The whole history, newest first — what the footer link opens. Sorts by date
+// rather than trusting array order, and drops undated entries, for the same
+// reason latestEntry does: a mis-ordered or malformed append must never lead.
+export function sortedEntries(entries = WHATS_NEW) {
+  return entries.filter(entryDate).sort((a, b) => entryDate(b) - entryDate(a));
+}
+
 // Release notes want a plain date ("5 August"), not the session list's
 // "Tonight/Yesterday" register — news doesn't age the way a running night
 // does — so this keeps its own formatters rather than importing
