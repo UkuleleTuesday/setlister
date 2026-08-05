@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#faf7f2">
-  <title>Whiteboard of Wishes · Ukulele Tuesday</title>
+  <!-- Static default for the home view; app.js takes over per-route so a
+       session's tab is titled after the night (see updateDocumentTitle). -->
+  <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-BUmQd0m9.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CcZVfkQT.css">
+  <script type="module" crossorigin src="./assets/index-CLnhvPSf.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BGr1T7O4.css">
 </head>
 <body>
   <header>
@@ -18,14 +20,20 @@
     <span id="share-count-badge" class="share-count-badge" aria-hidden="true" hidden></span>
     <button id="settings-toggle" class="settings-toggle" type="button"
             aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
-    <h1>🎶 Whiteboard of Wishes</h1>
-    <p class="subtitle">Snap the request board, build the setlist together.</p>
+    <!-- The app is Setlister; the "whiteboard of wishes" is the physical board
+         it photographs — the phrase belongs to the scan ritual, not the app. -->
+    <h1>🎶 Setlister</h1>
+    <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
 
     <!-- In-session popover (mirrors the settings panel, anchored top-left).
          Only shown once a session is active; tapping Share while local-only
          creates a session instead of opening this. -->
     <div id="share-panel" class="share-panel" role="dialog" aria-label="Session sharing" hidden>
-      <p class="share-session-label">Session: <strong id="share-session-id"></strong></p>
+      <!-- Lead with what the night is called; the raw id is just the link
+           slug, demoted to a footnote so it can still be matched against the
+           URL read out across the table. -->
+      <p class="share-session-name" id="share-session-name"></p>
+      <p class="share-session-label note">Session id: <strong id="share-session-id"></strong></p>
       <p class="note">Anyone with the link can view and edit these lists live.</p>
       <!-- Whether this night appears in the club's session list. NOT a privacy
            control: the link works either way (see firestore.rules), which is
@@ -197,7 +205,7 @@
       <div class="or-divider"><span>or</span></div>
       <!-- A real button (not a label) so it's reachable and activatable with a
            keyboard / switch access; it forwards the tap to the hidden input. -->
-      <button id="camera-button" class="camera-button" type="button">Snap the request board</button>
+      <button id="camera-button" class="camera-button" type="button">Snap the whiteboard of wishes</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
