@@ -189,39 +189,9 @@ export async function listSessions({ max = DEFAULT_MAX } = {}) {
   return snap.docs.map((d) => toEntry(d.id, d.data()));
 }
 
-export async function getSessionMeta(id) {
-  const { db, fx } = await getFirestore();
-  const snap = await fx.getDoc(fx.doc(db, INDEX_COLLECTION, id));
-  return snap.exists() ? toEntry(id, snap.data()) : null;
-}
-
-export async function putIndexEntry(id, meta) {
-  const { db, fx } = await getFirestore();
-  await fx.setDoc(fx.doc(db, INDEX_COLLECTION, id), indexEntryData(meta, fx));
-}
-
-export async function removeIndexEntry(id) {
-  const { db, fx } = await getFirestore();
-  await fx.deleteDoc(fx.doc(db, INDEX_COLLECTION, id));
-}
-
-export async function renameIndexEntry(id, name) {
-  const { db, fx } = await getFirestore();
-  await fx.updateDoc(fx.doc(db, INDEX_COLLECTION, id), {
-    name: String(name || "").slice(0, 80),
-  });
-}
-
-// Heal history: sessions created before session history shipped have no listing
-// row, so opening an old share link quietly writes one. They drift into the
-// club's list as people touch them, instead of staying invisible forever. The
-// entry carries no name — the date renders from createdAt like any other.
-// Best-effort: a failure here must never block opening the session.
-export async function ensureIndexEntry(id, meta) {
-  try {
-    if (await getSessionMeta(id)) return;
-    await putIndexEntry(id, meta);
-  } catch {
-    /* offline, denied, or racing another client that just wrote it */
-  }
-}
+// This module deliberately READS the index and nothing else. Every write to a
+// listing row belongs in sync.js, batched with the matching `listed` flag on the
+// session document — the two must move together. A standalone "just write the
+// index row" helper used to live here, and it is exactly how a session ended up
+// listed in the club's history while its own share panel insisted it was
+// unlisted. See backfillListing() / setSessionListed() in sync.js.

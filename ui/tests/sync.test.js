@@ -5,7 +5,7 @@
 // costs a club its setlist, quietly. Neither needs Firestore.
 
 import { describe, expect, it } from "vitest";
-import { deserialize, diff, serialize } from "../sync.js";
+import { deserialize, diff, readMeta, serialize } from "../sync.js";
 
 const row = (uid, title) => ({ uid, raw_title: title });
 
@@ -61,6 +61,39 @@ describe("serialize / deserialize", () => {
       requests: [],
       edition: null,
     });
+  });
+});
+
+describe("readMeta", () => {
+  // A session with no `listed` field predates visibility and should be adopted
+  // into the club's history. A session with `listed: false` was deliberately
+  // unlisted and must be left alone. Collapsing the two meant opening an
+  // unlisted session's own share link re-advertised it to everyone.
+  it("treats a missing listed field as legacy, not as unlisted-on-purpose", () => {
+    const meta = readMeta({ name: "", createdBy: "" });
+    expect(meta.legacy).toBe(true);
+    expect(meta.listed).toBe(false);
+  });
+
+  it("treats an explicit false as a deliberate choice, not legacy", () => {
+    const meta = readMeta({ name: "", createdBy: "", listed: false });
+    expect(meta.legacy).toBe(false);
+    expect(meta.listed).toBe(false);
+  });
+
+  it("reads an explicit true", () => {
+    const meta = readMeta({ name: "", createdBy: "", listed: true });
+    expect(meta.legacy).toBe(false);
+    expect(meta.listed).toBe(true);
+  });
+
+  it("survives a missing document", () => {
+    expect(readMeta(null)).toEqual({ name: "", createdBy: "", listed: false, legacy: true });
+  });
+
+  it("ignores wrong-typed fields rather than trusting them", () => {
+    const meta = readMeta({ name: 42, createdBy: null, listed: "yes" });
+    expect(meta).toEqual({ name: "", createdBy: "", listed: false, legacy: false });
   });
 });
 

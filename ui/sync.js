@@ -70,7 +70,20 @@ let metaCallback = null;
 // The session's display metadata as last seen on the server. Kept so the UI can
 // ask without a re-read, and so setSessionListed() knows what to copy into a
 // freshly created index row.
-let meta = { name: "", createdBy: "", listed: false };
+let meta = { name: "", createdBy: "", listed: false, legacy: false };
+
+// When the session was created, per the server. The history list is dated from
+// this, so it must survive a session being listed/un-listed/re-listed — writing
+// a fresh serverTimestamp instead would make an old night claim to be tonight.
+let sessionCreatedAt = null;
+
+export function getCreatedAt() {
+  return sessionCreatedAt;
+}
+
+function readCreatedAt(data) {
+  return data?.createdAt?.toDate ? data.createdAt.toDate() : null;
+}
 
 // --- Status --------------------------------------------------------------
 // #30 consumes this to reflect connection state in the UI. Payload shapes:
@@ -98,11 +111,19 @@ export function getMeta() {
   return { ...meta };
 }
 
-function readMeta(data) {
+// Exported for ui/tests: the legacy-vs-explicitly-false distinction below is the
+// whole of whether Unlisted works, and it is worth pinning down.
+export function readMeta(data) {
   return {
     name: typeof data?.name === "string" ? data.name : "",
     createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
     listed: data?.listed === true,
+    // A session created before visibility existed has NO `listed` field, which
+    // is emphatically not the same as an explicit `false`. Collapsing the two is
+    // how opening an *unlisted* session's own share link came to re-advertise it
+    // to the whole club: with no way to tell "never had the field" from
+    // "deliberately turned off", the backfill fired on both.
+    legacy: !data || !("listed" in data),
   };
 }
 
@@ -114,6 +135,37 @@ function emitMeta(data) {
     next.listed !== meta.listed;
   meta = next;
   if (changed && metaCallback) metaCallback({ ...meta });
+}
+
+// Sessions from before visibility existed have no listing row, so opening an old
+// share link quietly writes one and marks the session listed — they drift into
+// the club's history as people touch them instead of staying invisible.
+//
+// Only LEGACY sessions. A session someone deliberately created Unlisted has
+// `listed: false` and no row either, and must stay that way; see readMeta.
+export async function backfillListing() {
+  if (!sessionId || !meta.legacy) return;
+  const id = sessionId;
+  try {
+    const { db, fx } = await getFirestore();
+    if (sessionId !== id) return; // left while awaiting the SDK
+    const indexRef = fx.doc(db, INDEX_COLLECTION, id);
+    if ((await fx.getDoc(indexRef)).exists()) return; // another client got there first
+    // Both documents together: a listing row without the session flag is what
+    // made the share panel claim "Unlisted" for a session plainly in the list.
+    const batch = fx.writeBatch(db);
+    batch.update(fx.doc(db, "sessions", id), { listed: true });
+    batch.set(
+      indexRef,
+      indexEntryData(
+        { name: meta.name, createdBy: meta.createdBy, createdAt: sessionCreatedAt },
+        fx
+      )
+    );
+    await batch.commit();
+  } catch {
+    /* offline, denied, or racing another client — the next open retries */
+  }
 }
 
 export function getSessionId() {
@@ -233,6 +285,9 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
   applyState = applyStateFn;
   lastRemote = deepCopy(serialized);
   meta = next;
+  // The server stamps the real value; until the first snapshot echoes back, now
+  // is close enough (it is the same evening either way).
+  sessionCreatedAt = new Date();
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
   if (metaCallback) metaCallback({ ...meta });
@@ -264,11 +319,9 @@ export async function joinSession(id, applyStateFn) {
   applyStateFn(deserialize(remote));
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
-  // Sessions created before #77 carry no metadata at all; the caller derives a
-  // name from createdAt and backfills. Hand it the raw createdAt for that.
   meta = readMeta(remote);
+  sessionCreatedAt = readCreatedAt(remote);
   if (metaCallback) metaCallback({ ...meta });
-  return { createdAt: remote?.createdAt?.toDate ? remote.createdAt.toDate() : null };
 }
 
 // --- Metadata writes -------------------------------------------------------
@@ -299,7 +352,17 @@ export async function setSessionListed(listed) {
   batch.update(fx.doc(db, "sessions", id), { listed, updatedAt: fx.serverTimestamp() });
   const indexRef = fx.doc(db, INDEX_COLLECTION, id);
   if (listed) {
-    batch.set(indexRef, indexEntryData({ name: meta.name, createdBy: meta.createdBy }, fx));
+    // Carry the session's REAL createdAt across. Letting this fall through to a
+    // fresh serverTimestamp would re-date a night every time it was re-listed,
+    // sending a weeks-old session to the top of the history claiming to be
+    // tonight.
+    batch.set(
+      indexRef,
+      indexEntryData(
+        { name: meta.name, createdBy: meta.createdBy, createdAt: sessionCreatedAt },
+        fx
+      )
+    );
   } else {
     batch.delete(indexRef);
   }
@@ -323,7 +386,8 @@ function teardown() {
   applyState = null;
   pendingState = null;
   deferredSnapshot = null;
-  meta = { name: "", createdBy: "", listed: false };
+  meta = { name: "", createdBy: "", listed: false, legacy: false };
+  sessionCreatedAt = null;
 }
 
 export function leaveSession() {
@@ -369,6 +433,7 @@ function attachListener(db, fx) {
 function applyRemote(remote) {
   lastRemote = deepCopy(syncFields(remote));
   applyState(deserialize(remote));
+  sessionCreatedAt = readCreatedAt(remote) ?? sessionCreatedAt;
   emitMeta(remote);
 }
 
