@@ -68,7 +68,10 @@ const carryoverText = document.getElementById("carryover-text");
 const carryoverStart = document.getElementById("carryover-start");
 const carryoverDiscard = document.getElementById("carryover-discard");
 const backHomeButton = document.getElementById("back-home");
-const sessionNameEl = document.getElementById("session-name");
+// The header h1 doubles as the screen title: the brand on home, the night's
+// date in a session (see setView / renderSessionMeta).
+const headerTitle = document.querySelector("header h1");
+const BRAND_TITLE = headerTitle.textContent;
 const sheet = document.getElementById("new-session-sheet");
 const sheetDate = document.getElementById("new-session-date");
 const sheetVisibility = document.getElementById("new-session-visibility");
@@ -91,6 +94,7 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wish
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
+newSessionHereButton.replaceChildren(...iconLabel("add", "New session"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
 document.getElementById("copy").replaceChildren(icon("copy"));
@@ -353,9 +357,11 @@ function setView(view) {
   const home = view === "home";
   homeSection.hidden = !home;
   sessionView.hidden = home;
-  // In a session the night's name is the working title, so the brand recedes —
-  // in the header (CSS keys off this class) and in the browser tab.
+  // In a session the night's date IS the working title, so it takes over the
+  // h1 and the brand retreats to home — one title bar instead of a brand row
+  // stacked on a session row. CSS keys the sizing off this class.
   document.body.classList.toggle("in-session", !home);
+  headerTitle.textContent = home ? BRAND_TITLE : currentSessionLabel();
   // Sharing and the edition footnote are both about a session you're in.
   shareToggle.hidden = home;
   editionNote.hidden = home;
@@ -498,11 +504,11 @@ function updateDocumentTitle() {
   document.title = pageTitle(sessionView.hidden ? "" : currentSessionLabel());
 }
 
-// The session's date label and visibility, wherever they're shown: the bar
-// above the lists, the share popover (which leads with the label — the id is
-// just the link slug), and the browser tab. Driven by sync.onMetaChange.
+// The session's date label and visibility, wherever they're shown: the header
+// title, the share popover (which leads with the label — the id is just the
+// link slug), and the browser tab. Driven by sync.onMetaChange.
 function renderSessionMeta(meta) {
-  sessionNameEl.textContent = currentSessionLabel();
+  if (!sessionView.hidden) headerTitle.textContent = currentSessionLabel();
   shareSessionNameEl.textContent = currentSessionLabel();
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
   updateDocumentTitle();
@@ -1459,8 +1465,8 @@ function renderRequests() {
   );
   // The bin group replaces the old standalone Bin section: every binned row
   // from both working lists (they stay in their home arrays so un-binning
-  // restores them in place), collapsed to one line at the foot of Requests —
-  // where binning happens.
+  // restores them in place), collapsed to one line at the foot of the session
+  // view — the discard pile sits below everything still in play.
   renderGroup(binGroup, {
     iconName: "bin",
     noun: "binned",
@@ -1521,6 +1527,15 @@ function renderRow(row, index, context) {
   // clipping frame (see wireSwipe / the CSS).
   const body = document.createElement("div");
   body.className = "row-body";
+  // On the working lists the text content lives in its own column so the
+  // action buttons can sit beside it, vertically centred — a whole row of
+  // card given over to two icons was most of what made each card tall. The
+  // review sheet keeps the stacked layout: its tools row carries the
+  // full-width song picker.
+  if (context !== "review") body.classList.add("compact");
+  const main = document.createElement("div");
+  main.className = "row-main";
+  body.appendChild(main);
 
   const top = document.createElement("div");
   top.className = "row-top";
@@ -1548,33 +1563,66 @@ function renderRow(row, index, context) {
     badge.textContent = `p.${row.match.page}`;
     top.appendChild(badge);
   }
-  body.appendChild(top);
+  main.appendChild(top);
 
-  const raw = document.createElement("div");
-  raw.className = "raw";
-  raw.textContent =
-    `wrote: “${row.raw_title}”` +
-    (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
-    (row.notes ? ` · ${row.notes}` : "") +
-    (row.crossed_out ? " · crossed out" : "");
-  body.appendChild(raw);
+  if (context === "review") {
+    // The review sheet is the validation surface: always show what the board
+    // said, so a match can be judged against the handwriting.
+    const raw = document.createElement("div");
+    raw.className = "raw";
+    raw.textContent =
+      `wrote: “${row.raw_title}”` +
+      (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
+      (row.notes ? ` · ${row.notes}` : "") +
+      (row.crossed_out ? " · crossed out" : "");
+    main.appendChild(raw);
 
-  // Provenance: who added this tune and where it came from. Name it only when we
-  // have one (a legacy or name-less entry shows just the source).
-  const sourceLabel = row.source === "manual" ? "added manually" : "from whiteboard";
-  const provenance = document.createElement("div");
-  provenance.className = "added-by";
-  provenance.textContent = row.addedBy
-    ? `Added by ${row.addedBy} · ${sourceLabel}`
-    : sourceLabel;
-  body.appendChild(provenance);
+    // Provenance: who added this tune and where it came from. Name it only
+    // when we have one (a legacy or name-less entry shows just the source).
+    const sourceLabel = row.source === "manual" ? "added manually" : "from whiteboard";
+    const provenance = document.createElement("div");
+    provenance.className = "added-by";
+    provenance.textContent = row.addedBy
+      ? `Added by ${row.addedBy} · ${sourceLabel}`
+      : sourceLabel;
+    main.appendChild(provenance);
 
-  if (context === "review" && row.explanation) {
-    const explanation = document.createElement("div");
-    explanation.className = "explanation";
-    const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
-    explanation.textContent = row.explanation + (row.status === "confirmed" ? confidence : "");
-    body.appendChild(explanation);
+    if (row.explanation) {
+      const explanation = document.createElement("div");
+      explanation.className = "explanation";
+      const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
+      explanation.textContent = row.explanation + (row.status === "confirmed" ? confidence : "");
+      main.appendChild(explanation);
+    }
+  } else {
+    // The working lists get one quiet line: provenance, plus only the facts
+    // that still need saying. Repeating the matched title and page as
+    // `wrote: …` under every row said nothing on the happy path — the board
+    // text earns its place only when it differs from the match.
+    const parts = [];
+    if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
+    if (row.source !== "manual") parts.push("from the whiteboard");
+    else if (!row.addedBy) parts.push("added manually");
+    if (row.match) {
+      if (row.raw_title && row.raw_title !== row.match.display) {
+        parts.push(`wrote “${row.raw_title}”`);
+      }
+      if (row.raw_page && row.raw_page !== row.match.page) {
+        parts.push(`board says p.${row.raw_page}`);
+      }
+    } else {
+      // No stripe colour out here (see style.css) — say it in words instead.
+      parts.push("not in the songbook");
+    }
+    if (row.notes) parts.push(row.notes);
+    if (row.crossed_out) parts.push("crossed out");
+    if (parts.length) {
+      const meta = document.createElement("div");
+      meta.className = "row-meta";
+      const text = parts.join(" · ");
+      meta.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+      main.appendChild(meta);
+    }
   }
 
   if (showSuggestions.checked && row.alternatives?.length && !row.removed) {
@@ -1586,7 +1634,7 @@ function renderRow(row, index, context) {
       chip.onclick = () => setMatch(row, alt.entry);
       chips.appendChild(chip);
     });
-    body.appendChild(chips);
+    main.appendChild(chips);
   }
 
   const tools = document.createElement("div");
