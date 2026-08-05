@@ -162,22 +162,29 @@
          toggling the sections individually would resurrect a stale scan. -->
     <div id="session-view" hidden>
 
-    <!-- Session-level navigation: out to the list, and straight into a new
-         night. The night's date (its identity — sessions have no names) shows
-         in the header h1 above, between the share and settings buttons, so
-         this bar stays slim. These replace "Start over" — leaving a set is how
-         you stop working on it, rather than wiping it for everyone else in the
-         room. -->
+    <!-- Session-level navigation: just the way out. The night's date (its
+         identity — sessions have no names) shows in the header h1 above,
+         between the share and settings buttons, so this bar stays slim.
+         Leaving replaces "Start over" — you stop working on a set by walking
+         away from it, never by wiping it for everyone else in the room — and
+         starting a different night lives where nights are picked: the home
+         list, one tap away behind this button. -->
     <div class="session-bar">
       <button id="back-home" class="link-button" type="button">All sessions</button>
-      <button id="new-session-here" class="link-button" type="button">New session</button>
     </div>
+
+    <!-- A brand-new session has exactly one job — get songs in — so while both
+         lists are empty the view collapses to this line plus the two add
+         affordances (see #session-view.fresh in style.css; the class is kept
+         current by updateSessionMode()). Shown/hidden purely via that class,
+         never the hidden attribute, which would override the mode CSS. -->
+    <p class="fresh-intro">A fresh night — snap the board or add tunes by name.</p>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
     <section id="upnext">
       <div class="setlist-head">
-        <h2>Up next</h2>
+        <h2>Up next <span id="upnext-count" class="count" hidden></span></h2>
         <!-- Export is what the night produces, so it lives on the page rather
              than behind the gear icon. It covers BOTH lists (see exportedRows),
              but it belongs beside the running order — that's the artifact
@@ -202,19 +209,32 @@
     <!-- "Requests" is the incoming pool: everything added by name or snapped off
          the board lands here first, then gets promoted up into the set. -->
     <section id="requests">
-      <h2>Requests</h2>
+      <h2>Requests <span id="requests-count" class="count" hidden></span></h2>
+      <!-- Quick add lives at the TOP of the pool: mid-night, someone shouts a
+           request and it has to go in without scrolling past twenty cards. The
+           combobox mounts here (mountManualAdd) and its dropdown opens down
+           over the list. In the fresh state it moves visually next to the
+           camera via the mode CSS. -->
+      <div id="manual-add" class="manual-add"></div>
       <ul id="requests-rows"></ul>
-      <p id="requests-empty" class="note">No requests yet — snap the board or add one below.</p>
+      <p id="requests-empty" class="note">No requests yet — snap the board or add one above.</p>
     </section>
 
-    <!-- Two ways to add a request: type a song name, or snap the whiteboard. -->
+    <!-- The scan ritual: the camera CTA sits below the pool (scanning is a
+         once-a-night act), and is the hero of the fresh state. The "or"
+         divider only makes sense while the add-by-name field sits directly
+         above it, i.e. in the fresh state — mode CSS hides it otherwise. -->
     <section id="add">
-      <div id="manual-add" class="manual-add"></div>
       <div class="or-divider"><span>or</span></div>
       <!-- A real button (not a label) so it's reachable and activatable with a
            keyboard / switch access; it forwards the tap to the hidden input. -->
       <button id="camera-button" class="camera-button" type="button">Snap the whiteboard of wishes</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+      <!-- Post-scan feedback for the no-review path: when every row matched
+           confidently they go straight into Requests (#80) and this line is
+           the only acknowledgement. aria-live so the news reaches screen
+           readers without moving focus. Populated by showScanResult(). -->
+      <p id="scan-result" class="scan-result" aria-live="polite" hidden></p>
 
       <div id="preview-wrap" class="preview-wrap" hidden>
         <img id="preview" alt="">
@@ -230,11 +250,13 @@
       <div id="error" class="error" hidden></div>
     </section>
 
-    <!-- Review sheet: scanned rows land here to be validated/corrected before
-         they merge into Requests. Hidden until a scan completes. -->
+    <!-- Review sheet: only the scanned rows the parser wasn't sure about land
+         here (#80) — confident matches go straight to Requests. Hidden unless
+         a scan leaves something to check. The note is rewritten per scan
+         (openReview) to say how many rows skipped the queue. -->
     <section id="review" hidden>
       <h2>Review scan</h2>
-      <p class="note">Fix any misreads, drop what you don't want, then add them to Requests.</p>
+      <p id="review-note" class="note">Fix any misreads, drop what you don't want, then add them to Requests.</p>
       <ul id="review-rows"></ul>
       <div class="actions">
         <button id="review-confirm">Add to Requests</button>

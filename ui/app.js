@@ -22,12 +22,18 @@ const addSection = document.getElementById("add");
 const manualAddHost = document.getElementById("manual-add");
 const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
+const upnextCount = document.getElementById("upnext-count");
 const requestsRows = document.getElementById("requests-rows");
 const requestsEmpty = document.getElementById("requests-empty");
+const requestsCount = document.getElementById("requests-count");
+const copyButton = document.getElementById("copy");
+const downloadButton = document.getElementById("download");
 const playedGroup = document.getElementById("played-group");
 const binGroup = document.getElementById("bin-group");
 const reviewSection = document.getElementById("review");
+const reviewNote = document.getElementById("review-note");
 const reviewRows = document.getElementById("review-rows");
+const scanResult = document.getElementById("scan-result");
 const reviewConfirm = document.getElementById("review-confirm");
 const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
@@ -58,7 +64,6 @@ const scanStatusText = document.getElementById("scan-status-text");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const newSessionButton = document.getElementById("new-session");
-const newSessionHereButton = document.getElementById("new-session-here");
 const homeError = document.getElementById("home-error");
 const sessionListEl = document.getElementById("session-list");
 const sessionListStatus = document.getElementById("session-list-status");
@@ -94,11 +99,10 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wish
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
-newSessionHereButton.replaceChildren(...iconLabel("add", "New session"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
-document.getElementById("copy").replaceChildren(icon("copy"));
-document.getElementById("download").replaceChildren(icon("download"));
+copyButton.replaceChildren(icon("copy"));
+downloadButton.replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
@@ -891,7 +895,6 @@ async function onSheetStart() {
 }
 
 newSessionButton.addEventListener("click", () => openSheet());
-newSessionHereButton.addEventListener("click", () => openSheet());
 sheetStart.addEventListener("click", onSheetStart);
 sheetCancel.addEventListener("click", closeSheet);
 // Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
@@ -1296,6 +1299,7 @@ photoInput.addEventListener("change", async () => {
   preview.src = imageUrl;
   previewWrap.hidden = false;
   errorBox.hidden = true;
+  scanResult.hidden = true;
   scanOverlay.hidden = false;
   startScanStatus();
   // Bring the photo (and its scanning animation) into view — it can sit below
@@ -1322,12 +1326,38 @@ photoInput.addEventListener("change", async () => {
     app.edition = data.edition;
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
-    // Scanned rows go to the review sheet to be validated before merging.
     catalogueStatus = "ready";
     saveCatalogueCache();
     refreshPickers();
-    app.review = { entries: data.rows.map(rowToEntry), imageUrl };
-    openReview();
+    // Confident matches skip the queue (#80): on a mostly-legible board,
+    // reviewing rows that need no review was the bulk of the tap work. Only
+    // the flagged rows (needs_review / conflict / unmatched) go to the review
+    // sheet; crossed-out-but-confirmed rows auto-add with their flag, same as
+    // they used to land after a manual confirm. Re-scanning the same board
+    // will re-add its songs — the cost of losing the human checkpoint until
+    // duplicate detection (#52) exists.
+    const entries = data.rows.map(rowToEntry);
+    const confirmed = entries.filter((e) => e.status === "confirmed");
+    const flagged = entries.filter((e) => e.status !== "confirmed");
+    if (confirmed.length) {
+      app.requests.push(...confirmed);
+      renderRequests();
+      persist();
+    }
+    if (flagged.length) {
+      app.review = { entries: flagged, autoAdded: confirmed.length, imageUrl };
+      openReview();
+    } else {
+      // Nothing to check: no review sheet, just say what happened. The photo
+      // has no reachable viewer without a review, so release it.
+      URL.revokeObjectURL(imageUrl);
+      previewWrap.hidden = true;
+      showScanResult(
+        confirmed.length
+          ? `Added ${confirmed.length} from the board`
+          : "Couldn't read any songs off that photo — try a closer, straighter shot."
+      );
+    }
   } catch (err) {
     // A fetch that never reached the server rejects with a TypeError and an
     // unhelpful message ("Failed to fetch") — translate it for humans. Server
@@ -1345,9 +1375,31 @@ photoInput.addEventListener("change", async () => {
   }
 });
 
+// Post-scan feedback for the no-review path. It self-retires: long enough to
+// read across the room, gone before it reads as a permanent fixture.
+let scanResultTimer = null;
+function showScanResult(message) {
+  scanResult.textContent = message;
+  scanResult.hidden = false;
+  clearTimeout(scanResultTimer);
+  scanResultTimer = setTimeout(() => {
+    scanResult.hidden = true;
+  }, 8000);
+}
+
 function openReview() {
   addSection.hidden = true;
   reviewSection.hidden = false;
+  // Orientation first: say how many rows skipped the queue, so "the sheet
+  // shows 3 but the board had 12" reads as the feature it is, not a bug.
+  const auto = app.review?.autoAdded ?? 0;
+  reviewNote.textContent = auto
+    ? `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
+      "Requests — these need a look first."
+    : "Fix any misreads, drop what you don't want, then add them to Requests.";
+  // An in-flight scan means songs are coming: leave the fresh state so the
+  // review sheet appears in the full layout.
+  updateSessionMode();
   renderReview();
   reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1360,6 +1412,7 @@ function closeReview() {
   // The photo is only reachable from the review sheet — release it with it.
   if (app.review?.imageUrl) URL.revokeObjectURL(app.review.imageUrl);
   app.review = null;
+  updateSessionMode();
 }
 
 // The scanned board is hidden during review, but a flagged row (⚠️) may need a
@@ -1404,10 +1457,14 @@ reviewConfirm.addEventListener("click", () => {
   persist();
 });
 
-// Cancelling throws away a whole scan (and the wait for it) — one stray tap
-// shouldn't do that silently.
+// Cancelling throws away the flagged rows (and the wait for the scan) — one
+// stray tap shouldn't do that silently. With auto-add (#80) the clear matches
+// are already safe in Requests, and the prompt says so.
 reviewCancel.addEventListener("click", () => {
-  if (confirm("Discard this scan?")) closeReview();
+  const message = app.review?.autoAdded
+    ? "Discard the rows still needing a check? The clear matches already added stay in Requests."
+    : "Discard this scan?";
+  if (confirm(message)) closeReview();
 });
 
 // --- Rendering -------------------------------------------------------------
@@ -1415,6 +1472,33 @@ function rerender() {
   renderUpNext();
   renderRequests();
   if (app.review) renderReview();
+}
+
+// A session with no songs at all has exactly one job — get the board in — so
+// the view collapses to the add affordances (the `fresh` class drives the CSS).
+// Every mutation path (local edits, remote snapshots, review confirm) funnels
+// through renderUpNext/renderRequests, so calling this from both keeps the
+// mode honest; open/closeReview call it too since an in-flight scan counts as
+// "songs are coming".
+function updateSessionMode() {
+  const fresh =
+    app.upNext.length === 0 && app.requests.length === 0 && !app.review;
+  sessionView.classList.toggle("fresh", fresh);
+}
+
+// The export pair covers both lists; with nothing to export, copying an empty
+// string and downloading `{rows: []}` are traps, not actions.
+function updateExportButtons() {
+  const empty = exportedRows().length === 0;
+  copyButton.disabled = empty;
+  downloadButton.disabled = empty;
+}
+
+// Heading counts: how deep is the set / the pool, visible without counting
+// cards. Hidden at zero — the empty-state notes own that moment.
+function renderCount(el, count) {
+  el.textContent = `· ${count}`;
+  el.hidden = count === 0;
 }
 
 function renderEditionNote() {
@@ -1429,9 +1513,13 @@ function renderEditionNote() {
 
 function renderUpNext() {
   renderEditionNote();
+  updateSessionMode();
+  updateExportButtons();
   // Played and binned rows are lifted out into their collapsed groups, so the
   // empty note keys off the rows still *visible* in the running order.
-  upnextEmpty.hidden = app.upNext.some((e) => !e.binned && !e.played);
+  const visible = app.upNext.filter((e) => !e.binned && !e.played);
+  upnextEmpty.hidden = visible.length > 0;
+  renderCount(upnextCount, visible.length);
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
@@ -1439,6 +1527,19 @@ function renderUpNext() {
       .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, "upnext")))
       .filter(Boolean)
   );
+  // The set plays from the top, so the first visible card IS the next tune —
+  // mark it so the glance-and-shout moment needs no counting. The tag sits on
+  // its own micro-line above the title (inside the title it forced mid-name
+  // wraps), and is real text (not CSS content) so assistive tech reads it too.
+  // Re-rendering after any reorder/play re-marks the right card.
+  const nextCard = upnextRows.querySelector(".row-card");
+  if (nextCard) {
+    nextCard.classList.add("next-up");
+    const tag = document.createElement("span");
+    tag.className = "next-tag";
+    tag.textContent = "Next";
+    nextCard.querySelector(".row-main").prepend(tag);
+  }
   // The set plays from the top, so played songs collapse into a one-line count
   // *above* the list and Up next always starts at the next tune. Expanding
   // shows the night's history (array order = play order) and the un-play
@@ -1457,7 +1558,11 @@ function renderUpNext() {
 }
 
 function renderRequests() {
-  requestsEmpty.hidden = app.requests.some((e) => !e.binned);
+  updateSessionMode();
+  updateExportButtons();
+  const visible = app.requests.filter((e) => !e.binned);
+  requestsEmpty.hidden = visible.length > 0;
+  renderCount(requestsCount, visible.length);
   requestsRows.replaceChildren(
     ...app.requests
       .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
@@ -2070,12 +2175,12 @@ function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest 
   return rest;
 }
 
-document.getElementById("copy").addEventListener("click", async () => {
+copyButton.addEventListener("click", async () => {
   await copyToClipboard(exportText());
-  flashButton(document.getElementById("copy"), "Copied!");
+  flashButton(copyButton, "Copied!");
 });
 
-document.getElementById("download").addEventListener("click", () => {
+downloadButton.addEventListener("click", () => {
   const payload = {
     edition: app.edition,
     catalogue_generated_at: app.catalogueGeneratedAt,
