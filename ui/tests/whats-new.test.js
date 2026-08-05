@@ -152,4 +152,12 @@ describe("whats-new.json hygiene", () => {
     const dates = WHATS_NEW.map((entry) => entry.date);
     expect(new Set(dates).size).toBe(dates.length);
   });
+
+  it("keeps a day to at most 3 items — merge or drop, don't append", () => {
+    // Entries older than the cap shipped before it existed and stay as
+    // published; ISO dates compare correctly as strings.
+    for (const entry of WHATS_NEW.filter((e) => e.date >= "2026-08-05")) {
+      expect(entry.items.length, entry.date).toBeLessThanOrEqual(3);
+    }
+  });
 });

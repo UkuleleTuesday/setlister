@@ -2,15 +2,9 @@
   {
     "date": "2026-08-05",
     "items": [
-      "Every night is now its own session — starting a new one no longer wipes the last, and old setlists stay around to revisit.",
-      "The app opens on the club's session history — go back to a past night or start a new one.",
+      "Every night is now its own session, named by its date — starting a new one no longer wipes the last, and the app opens on the club's session history so you can revisit a past night or set one up in advance.",
       "The app is now called Setlister — the whiteboard of wishes is the board you snap.",
-      "Sessions are named by their date automatically, in your own language and format — no naming needed.",
-      "Starting a session now asks for its date — backdate a missed night or set up next Tuesday in advance. It's already on today, so usually you just tap Start.",
-      "These very notes — new features are announced right here from now on.",
-      "The What's new link at the bottom of the session list now shows the full history, not just the newest entry.",
-      "Copy or download the setlist straight from the “Up next” heading — no more digging through settings.",
-      "Settings now opens on your name and the songbook; the parser knobs are tucked under “Advanced”."
+      "Copy or download the setlist straight from the “Up next” heading — no more digging through settings, which now opens on your name and the songbook."
     ]
   },
   {
