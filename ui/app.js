@@ -1,7 +1,7 @@
 import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
-import { disambiguate, listSessions, sessionDateLabel } from "./session-index.js";
+import { disambiguate, listSessions, pageTitle, sessionDateLabel } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 import { latestEntry, whatsNewDateLabel } from "./whats-new.js";
 
@@ -31,6 +31,7 @@ const settingsPanel = document.getElementById("settings-panel");
 const shareToggle = document.getElementById("share-toggle");
 const sharePanel = document.getElementById("share-panel");
 const shareSessionIdEl = document.getElementById("share-session-id");
+const shareSessionNameEl = document.getElementById("share-session-name");
 const shareLinkButton = document.getElementById("share-link");
 const shareVisibility = document.getElementById("share-visibility");
 const shareCountBadge = document.getElementById("share-count-badge");
@@ -80,7 +81,7 @@ const whatsNewItems = document.getElementById("whats-new-items");
 settingsToggle.replaceChildren(icon("settings"));
 shareToggle.replaceChildren(icon("share"));
 photoLightboxClose.replaceChildren(icon("close"));
-cameraButton.replaceChildren(...iconLabel("camera", "Snap the request board"));
+cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wishes"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
@@ -342,6 +343,9 @@ function setView(view) {
   const home = view === "home";
   homeSection.hidden = !home;
   sessionView.hidden = home;
+  // In a session the night's name is the working title, so the brand recedes —
+  // in the header (CSS keys off this class) and in the browser tab.
+  document.body.classList.toggle("in-session", !home);
   // Sharing and the edition footnote are both about a session you're in.
   shareToggle.hidden = home;
   editionNote.hidden = home;
@@ -350,6 +354,7 @@ function setView(view) {
     shareCountBadge.hidden = true;
   }
   setSettingsOpen(false); // settings stay reachable in both views, just closed
+  updateDocumentTitle();
 }
 
 // pushState for anything the user did (so Back retraces it), replaceState for
@@ -482,12 +487,22 @@ function currentSessionLabel(meta) {
   );
 }
 
+// One funnel for the tab title so route changes and renames (ours or a peer's)
+// can't disagree. Takes meta as an argument because commitRename renders
+// optimistically — re-reading sync.getMeta() there would lag the write.
+function updateDocumentTitle(meta = sync.getMeta()) {
+  document.title = pageTitle(sessionView.hidden ? "" : currentSessionLabel(meta));
+}
+
 // The session's name and visibility, wherever they're shown: the bar above the
-// lists, and the dropdown in the share popover. Driven by sync.onMetaChange, so
-// a peer's rename lands here live.
+// lists, the share popover (which leads with the name — the id is just the link
+// slug), and the browser tab. Driven by sync.onMetaChange, so a peer's rename
+// lands everywhere live.
 function renderSessionMeta(meta) {
   sessionNameButton.replaceChildren(...iconLabel("rename", currentSessionLabel(meta)));
+  shareSessionNameEl.textContent = currentSessionLabel(meta);
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
+  updateDocumentTitle(meta);
 }
 sync.onMetaChange(renderSessionMeta);
 

@@ -108,6 +108,13 @@ export function sessionLabel(entry, now = new Date()) {
   return entry?.name?.trim() || sessionDateLabel(entry?.createdAt, now);
 }
 
+// The browser-tab title. Session-first: the night's label leads so parked tabs
+// can be told apart; the brand alone marks the home view. DOM-free here (not in
+// app.js) so it's testable without a browser.
+export function pageTitle(label) {
+  return label ? `${label} · Setlister` : "Setlister · Ukulele Tuesday";
+}
+
 // Used to tell apart two sessions started on the same day. Cheaper than
 // suffixing at create time, which would cost a round trip on the critical path
 // (and race two phones creating at once) for a name the user can edit anyway.

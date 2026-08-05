@@ -5,7 +5,13 @@
 // reads the wall clock here is a test that fails at midnight.
 
 import { describe, expect, it } from "vitest";
-import { disambiguate, sessionDateLabel, sessionLabel, sessionTimeLabel } from "../session-index.js";
+import {
+  disambiguate,
+  pageTitle,
+  sessionDateLabel,
+  sessionLabel,
+  sessionTimeLabel,
+} from "../session-index.js";
 
 // Tuesday 4 August 2026, 21:00 — a club night, mid-session.
 const NOW = new Date(2026, 7, 4, 21, 0);
@@ -152,5 +158,17 @@ describe("disambiguate", () => {
       NOW
     ).map((e) => e.label);
     expect(labels).toEqual(["Same", "Same"]);
+  });
+});
+
+describe("pageTitle", () => {
+  it("leads with the night's label in a session, so parked tabs are tellable apart", () => {
+    expect(pageTitle("Tonight")).toBe("Tonight · Setlister");
+    expect(pageTitle("Wexford weekender")).toBe("Wexford weekender · Setlister");
+  });
+
+  it("falls back to the brand on the home view", () => {
+    expect(pageTitle("")).toBe("Setlister · Ukulele Tuesday");
+    expect(pageTitle(null)).toBe("Setlister · Ukulele Tuesday");
   });
 });
