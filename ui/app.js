@@ -771,7 +771,7 @@ function whatsNewEntryBlock(entry) {
 function openWhatsNewSheet(entries) {
   whatsNewEntries.replaceChildren(...entries.map(whatsNewEntryBlock));
   // Long archives open at the top, not wherever the last visit left the scroll.
-  whatsNewEntries.parentElement.scrollTop = 0;
+  whatsNewEntries.scrollTop = 0;
   whatsNewSheet.hidden = false;
   // Opening is seeing — the banner has done its job for this entry.
   whatsNewBanner.hidden = true;

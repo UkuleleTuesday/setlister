@@ -362,6 +362,25 @@ footer#edition-note:empty { display: none; }
   color: #666; font-size: 0.85rem;
 }
 .whats-new-entry + .whats-new-entry { margin-top: 1.2rem; }
+/* The full history is taller than a phone, and the generic .sheet would let it
+   grow to the full viewport — which quietly breaks the only way out on a
+   phone: "tap outside" needs an outside big enough to hit (house ≥44px rule),
+   and the hint saying so must not be parked below the fold. So this sheet
+   alone pins its chrome and scrolls the entries between it. */
+#whats-new-sheet .sheet {
+  display: flex; flex-direction: column;
+  max-height: calc(100dvh - 6rem); overflow: hidden;
+}
+#whats-new-sheet .sheet > h2, #whats-new-sheet .sheet-hint { flex: none; }
+#whats-new-entries {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding-bottom: 0.2rem;
+}
+/* A hairline so the pinned hint reads as the sheet's floor rather than as one
+   more line of a list that happens to be mid-scroll. */
+#whats-new-sheet .sheet-hint {
+  margin-top: 0; padding-top: 0.7rem; border-top: 1px solid #eee;
+}
 
 /* --- Session bar: back / name / new --------------------------------------- */
 .session-bar {
