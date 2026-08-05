@@ -1081,8 +1081,19 @@ function makeCombobox({ placeholder, onPick }) {
   let matches = [];
   let active = -1;
 
+  // The dropdown has to escape its row card, but `.row-body` carries a z-index
+  // for the swipe layer — which makes every card its own stacking context, so
+  // the *next* card paints over this menu no matter how high its own z-index
+  // is. Lift the whole card for as long as the menu is open; the swipe
+  // layering inside it is untouched. No-op for the manual-add combobox, which
+  // isn't inside a row.
+  function setMenuOpen(open) {
+    menu.hidden = !open;
+    wrap.closest(".row-card")?.classList.toggle("picker-open", open);
+  }
+
   function close() {
-    menu.hidden = true;
+    setMenuOpen(false);
     menu.replaceChildren();
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
@@ -1110,7 +1121,7 @@ function makeCombobox({ placeholder, onPick }) {
       status.className = "song-picker-status";
       status.textContent = emptyStateMessage();
       menu.replaceChildren(status);
-      menu.hidden = false;
+      setMenuOpen(true);
       input.setAttribute("aria-expanded", "true");
       input.removeAttribute("aria-activedescendant");
       return;
@@ -1138,7 +1149,7 @@ function makeCombobox({ placeholder, onPick }) {
         return li;
       })
     );
-    menu.hidden = false;
+    setMenuOpen(true);
     input.setAttribute("aria-expanded", "true");
     // Screen readers track the arrow-key highlight through this.
     if (active >= 0) input.setAttribute("aria-activedescendant", `${menuId}-opt-${active}`);
@@ -1194,6 +1205,26 @@ function buildSongPicker(row) {
     placeholder: "Correct song…",
     onPick: (entry) => setMatch(row, entry),
   });
+}
+
+// The collapsed form of the picker, for review rows we matched confidently:
+// one button that swaps itself for the real picker in place. Deliberately not a
+// re-render — rebuilding the sheet would collapse it again and lose the tap, so
+// the row keeps its expanded picker until the next render (a correction, which
+// re-renders anyway, or closing the sheet).
+function buildPickerToggle(row) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "picker-toggle";
+  button.appendChild(icon("edit"));
+  button.title = "Change song";
+  button.setAttribute("aria-label", `Change song for “${row.raw_title}”`);
+  button.onclick = () => {
+    const picker = buildSongPicker(row);
+    button.replaceWith(picker);
+    picker.querySelector("input").focus();
+  };
+  return button;
 }
 
 // The standalone add field lives outside any row and creates a new confirmed
@@ -1631,9 +1662,13 @@ function renderRow(row, index, context) {
     tools.append(promoteButton);
   }
 
-  // The correct-song picker is a review-only affordance.
+  // The correct-song picker is a review-only affordance. A confident match
+  // rarely needs correcting, and the picker is a full-width field that roughly
+  // doubles a row's height — on a 25-row board that buries the two rows that do
+  // need attention. So confirmed rows collapse it behind a button and only the
+  // flagged ones open expanded.
   if (context === "review") {
-    tools.append(buildSongPicker(row));
+    tools.append(row.status === "confirmed" ? buildPickerToggle(row) : buildSongPicker(row));
   }
 
   // In the bin group, the only action is to lift a song back out — un-binning
