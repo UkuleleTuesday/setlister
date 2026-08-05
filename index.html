@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#faf7f2">
   <title>Whiteboard of Wishes · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-C4_qqyzE.js"></script>
+  <script type="module" crossorigin src="./assets/index-CTTdgTow.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-CcZVfkQT.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
     <button id="settings-toggle" class="settings-toggle" type="button"
             aria-label="Settings" aria-expanded="false" aria-controls="settings-panel">⚙️</button>
     <h1>🎶 Whiteboard of Wishes</h1>
-    <p class="subtitle">Snap the request board, get the setlist.</p>
+    <p class="subtitle">Snap the request board, build the setlist together.</p>
 
     <!-- In-session popover (mirrors the settings panel, anchored top-left).
          Only shown once a session is active; tapping Share while local-only
@@ -58,6 +58,10 @@
         <span>Your name</span>
         <input type="text" id="player-name" placeholder="e.g. Alex" autocomplete="name">
       </label>
+      <!-- The name travels further than it used to: song attribution, the
+           "Here now" roster, and "Started by" on the home list — say so, since
+           the field predates all three. -->
+      <p class="note">Shown on songs you add, in “Here now”, and on sessions you start.</p>
       <label class="field">
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
@@ -214,10 +218,10 @@
          they merge into Requests. Hidden until a scan completes. -->
     <section id="review" hidden>
       <h2>Review scan</h2>
-      <p class="note">Fix any misreads, drop what you don't want, then add them to your requests.</p>
+      <p class="note">Fix any misreads, drop what you don't want, then add them to Requests.</p>
       <ul id="review-rows"></ul>
       <div class="actions">
-        <button id="review-confirm">Add to requests</button>
+        <button id="review-confirm">Add to Requests</button>
         <button id="review-cancel" class="secondary">Cancel</button>
       </div>
     </section>
