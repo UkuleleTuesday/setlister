@@ -91,8 +91,10 @@ cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wish
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
-document.getElementById("copy").replaceChildren(...iconLabel("copy", "Copy list"));
-document.getElementById("download").replaceChildren(...iconLabel("download", "Download JSON"));
+// Icon-only (their names live in aria-label/title): they share the "Up next"
+// heading row, where a text label would crowd the heading at 320px.
+document.getElementById("copy").replaceChildren(icon("copy"));
+document.getElementById("download").replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogue is cached separately from the lists: it's ~20KB of derived
@@ -113,8 +115,10 @@ let app = {
   edition: null,
   catalogue: [],
   catalogueGeneratedAt: "",
-  // The current user's name — stamped onto every song they add (see `addedBy`),
-  // laying the groundwork for a future "multiplayer" mode.
+  // The name the user typed, or "" — the raw setting, not the identity. Every
+  // surface that shows a person resolves it through presence.displayName(),
+  // which falls back to this device's stable anonymous name, so an unnamed
+  // player reads the same in `addedBy`, "Here now" and "Started by".
   name: "",
   upNext: [],
   requests: [],
@@ -563,7 +567,11 @@ function flashButton(button, message) {
   if (!("originalHtml" in button.dataset)) {
     button.dataset.originalHtml = button.innerHTML;
   }
-  button.replaceChildren(...iconLabel("check", message));
+  // Match the button's own shape: a labelled button flashes the word, but an
+  // icon-only one (the export pair in the "Up next" heading) would grow mid-tap
+  // and shove the heading sideways, so it flashes just the tick.
+  const labelled = button.querySelector(".btn-label");
+  button.replaceChildren(...(labelled ? iconLabel("check", message) : [icon("check")]));
   button.dataset.flashTimer = String(
     setTimeout(() => {
       button.innerHTML = button.dataset.originalHtml;
@@ -1045,8 +1053,19 @@ function makeCombobox({ placeholder, onPick }) {
   let matches = [];
   let active = -1;
 
+  // The dropdown has to escape its row card, but `.row-body` carries a z-index
+  // for the swipe layer — which makes every card its own stacking context, so
+  // the *next* card paints over this menu no matter how high its own z-index
+  // is. Lift the whole card for as long as the menu is open; the swipe
+  // layering inside it is untouched. No-op for the manual-add combobox, which
+  // isn't inside a row.
+  function setMenuOpen(open) {
+    menu.hidden = !open;
+    wrap.closest(".row-card")?.classList.toggle("picker-open", open);
+  }
+
   function close() {
-    menu.hidden = true;
+    setMenuOpen(false);
     menu.replaceChildren();
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
@@ -1074,7 +1093,7 @@ function makeCombobox({ placeholder, onPick }) {
       status.className = "song-picker-status";
       status.textContent = emptyStateMessage();
       menu.replaceChildren(status);
-      menu.hidden = false;
+      setMenuOpen(true);
       input.setAttribute("aria-expanded", "true");
       input.removeAttribute("aria-activedescendant");
       return;
@@ -1102,7 +1121,7 @@ function makeCombobox({ placeholder, onPick }) {
         return li;
       })
     );
-    menu.hidden = false;
+    setMenuOpen(true);
     input.setAttribute("aria-expanded", "true");
     // Screen readers track the arrow-key highlight through this.
     if (active >= 0) input.setAttribute("aria-activedescendant", `${menuId}-opt-${active}`);
@@ -1160,6 +1179,26 @@ function buildSongPicker(row) {
   });
 }
 
+// The collapsed form of the picker, for review rows we matched confidently:
+// one button that swaps itself for the real picker in place. Deliberately not a
+// re-render — rebuilding the sheet would collapse it again and lose the tap, so
+// the row keeps its expanded picker until the next render (a correction, which
+// re-renders anyway, or closing the sheet).
+function buildPickerToggle(row) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "picker-toggle";
+  button.appendChild(icon("edit"));
+  button.title = "Change song";
+  button.setAttribute("aria-label", `Change song for “${row.raw_title}”`);
+  button.onclick = () => {
+    const picker = buildSongPicker(row);
+    button.replaceWith(picker);
+    picker.querySelector("input").focus();
+  };
+  return button;
+}
+
 // The standalone add field lives outside any row and creates a new confirmed
 // request instead of correcting an existing one.
 function mountManualAdd() {
@@ -1172,7 +1211,7 @@ function addManualEntry(entry) {
   app.requests.push({
     uid: newUid(),
     source: "manual",
-    addedBy: app.name,
+    addedBy: presence.displayName(app.name),
     raw_title: entry.display,
     raw_page: entry.page,
     notes: null,
@@ -1202,7 +1241,15 @@ function setMatch(row, entry) {
 
 // --- Photo scan -> review sheet --------------------------------------------
 function rowToEntry(row) {
-  return { ...row, uid: newUid(), source: "scan", addedBy: app.name, removed: false, played: false, binned: false };
+  return {
+    ...row,
+    uid: newUid(),
+    source: "scan",
+    addedBy: presence.displayName(app.name),
+    removed: false,
+    played: false,
+    binned: false,
+  };
 }
 
 // The camera control is a real <button> for keyboard/switch access; forward
@@ -1587,9 +1634,13 @@ function renderRow(row, index, context) {
     tools.append(promoteButton);
   }
 
-  // The correct-song picker is a review-only affordance.
+  // The correct-song picker is a review-only affordance. A confident match
+  // rarely needs correcting, and the picker is a full-width field that roughly
+  // doubles a row's height — on a 25-row board that buries the two rows that do
+  // need attention. So confirmed rows collapse it behind a button and only the
+  // flagged ones open expanded.
   if (context === "review") {
-    tools.append(buildSongPicker(row));
+    tools.append(row.status === "confirmed" ? buildPickerToggle(row) : buildSongPicker(row));
   }
 
   // In the bin group, the only action is to lift a song back out — un-binning

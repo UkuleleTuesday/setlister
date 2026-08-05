@@ -17,6 +17,7 @@ import {
   ListMinus,
   ListPlus,
   LoaderCircle,
+  Pencil,
   Plus,
   RotateCcw,
   Settings,
@@ -55,6 +56,8 @@ const ICONS = {
   news: Sparkles,
   // Session navigation: out to the history list.
   back: ArrowLeft,
+  // Correcting a confidently-matched review row.
+  edit: Pencil,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text
