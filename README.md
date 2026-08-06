@@ -14,10 +14,11 @@ Songs get in two ways:
   without scrolling past twenty cards.
 - **By photo of the whiteboard** — the club writes its requests on the physical
   "whiteboard of wishes", and one snap turns the whole board into matched
-  entries. That's a once-a-night act, so the camera sits at the bottom of a
-  working screen — and is the hero of an empty one.
+  entries. The board keeps circulating during the night, so it gets snapped
+  again each time it has filled up.
 
-Either way, a song already on the night's lists won't be added twice.
+Either way, a song already on the night's lists is never added twice — which is
+what makes re-snapping a board you've already scanned safe.
 
 The set plays from the top: the first tune wears a **NEXT** badge, and marking
 it played collapses it into a one-line count, so the running order consumes
