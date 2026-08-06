@@ -2,53 +2,60 @@
 
 **Live app:** https://ukuleletuesday.github.io/setlister/
 
-Proof of concept for turning photos of the Ukulele Tuesday song-request
-whiteboard — the "whiteboard of wishes" — into a clean, reviewable setlist,
-matched against the active UT songbook.
+Turns photos of the Ukulele Tuesday song-request whiteboard — the "whiteboard
+of wishes" — into a clean, reviewable setlist, matched against the active UT
+songbook.
 
 Take a photo of the board, and the app:
 
 1. reads each handwritten row (song title + page number) with a multimodal
-   vision model (Gemini),
+   vision model (Gemini) — the photo is downscaled in the browser first, so
+   pub Wi-Fi only carries what the model actually sees;
 2. matches every row against the published songbook catalogue
    (title fuzzy-matching + page-number cross-checking with
-   [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz)),
-3. shows a review screen where uncertain rows can be corrected, then drops
-   the songs into a **Requests** pool. You build the **Up next** running
-   order by promoting requests into it (and can add songs by name too),
-   then copy/export the result.
+   [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz));
+3. drops the confident matches straight into the **Requests** pool — skipping
+   anything already on the night's lists — and sends only the rows it was
+   unsure about to a review sheet for correction.
 
-The app opens on the club's **session history**: past nights, tagged with
-whoever started them, plus a button to start tonight's. A session is shared and
-live — everyone in the room edits the same lists — and stays in the history
-afterwards.
-
-Nights name themselves. A session is labelled from its date — *Tonight*,
-*Yesterday*, *Thursday*, *Tomorrow*, *28 July*, *16 December 2025* — rendered
-in each viewer's own locale rather than frozen into a stored string, so the
-label stays true as it ages. There are no custom titles: the date IS the
-identity. Starting a session asks for its date (prefilled with today), so a
-missed night can be backfilled and next Tuesday's set can be prepped in
-advance.
-
-Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
-club's list — the share link still opens it, so this is discoverability, not
-privacy. There is no private mode: every session is readable by anyone holding
-its id.
-
-The web UI is **mobile-first**: the whole point is to pull out a phone at the
-club, snap the board, and build the setlist on the spot. Design and test UI
-changes for a phone (touch targets, tap-to-dismiss, safe-area insets, small
-viewport) first; desktop is the incidental case.
+From there you build the **Up next** running order by promoting requests into
+it (songs can also be added by name), then copy or download the result.
 
 The songbook catalogue is derived from the public manifests published by
 [songbook-generator](https://github.com/UkuleleTuesday/songbook-generator) at
 `https://storage.googleapis.com/ukulele-tuesday-songbooks/<edition>/` — no
 credentials needed.
 
+## Sessions
+
+The app opens on the club's **session history**: past nights, tagged with
+whoever started them, plus a button to start tonight's. A session is shared and
+live — everyone in the room edits the same lists and can see who else is
+connected — and stays in the history afterwards.
+
+Nights name themselves. A session is labelled from its date — *Tonight*,
+*Yesterday*, *Thursday*, *Next Friday*, *28 July*, *16 December 2025* —
+rendered in each viewer's own locale rather than frozen into a stored string,
+so the label stays true as it ages. There are no custom titles: the date IS the
+identity. Starting a session asks for its date (prefilled with today), so a
+missed night can be backfilled and next Tuesday's set prepped in advance.
+
+Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
+club's list — the share link still opens it, so this is discoverability, not
+privacy. There is no private mode: every session is readable by anyone holding
+its id.
+
+## Mobile-first
+
+The whole point is to pull out a phone at the club, snap the board, and build
+the setlist on the spot. Design and test UI changes for a phone (touch targets,
+tap-to-dismiss, safe-area insets, small viewport) first; desktop is the
+incidental case.
+
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+, plus Node for the
+UI (CI uses 22).
 
 Gemini runs through Vertex AI over Application Default Credentials — no API
 key needed. Authenticate once with `gcloud auth application-default login`
@@ -64,11 +71,19 @@ uv run setlister editions                       # list songbook editions
 uv run setlister catalogue --edition current    # dump song -> page catalogue
 uv run setlister parse photo.jpg                # parse a whiteboard photo
 uv run setlister parse photo.jpg --json         # machine-readable output
-
-# Web app (mobile-first review UI): API + Vite dev server run separately
-uv run setlister serve                          # API on http://127.0.0.1:8080
-cd ui && npm ci && npm run dev                  # UI on http://localhost:3000
 ```
+
+The web app runs as three processes:
+
+```bash
+uv run setlister serve                                     # API on :8080
+cd ui && npm ci && npm run dev                             # UI on :3000
+npx --yes firebase-tools emulators:start --only firestore  # Firestore on :8081
+```
+
+On localhost the UI always talks to the emulator, never production Firestore.
+Since everything happens inside a session, the emulator is required rather than
+optional.
 
 ## Development
 
@@ -79,9 +94,10 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-The `ui/` app is built with [Vite](https://vite.dev/) — `index.html` + `app.js`
-+ `style.css`, npm-managed, no other framework. Run `npm ci` then `npm run dev`
-in `ui/` to start the Vite dev server on port 3000.
+The `ui/` app is plain ES modules bundled by [Vite](https://vite.dev/) and
+managed with npm — `index.html` + `app.js` plus focused modules (sync,
+presence, session index, dedupe, downscaling) and no framework; `firebase` and
+`lucide` are the only runtime dependencies.
 
 ```bash
 cd ui
@@ -99,58 +115,62 @@ Everything else is still verified by hand: drive the real page in a phone-sized,
 touch-enabled browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }`
 at a ~390px viewport, using `.tap()`) and confirm there are no console errors.
 
+User-visible changes also need an entry in `ui/whats-new.json`, the in-app
+changelog — see [AGENTS.md](./AGENTS.md) for that and the rest of the
+contributor guidance.
+
 ## Deployment
 
-The app deploys automatically on every merge to `main`
-(`.github/workflows/ci.yaml`):
+Every merge to `main` deploys automatically (`.github/workflows/ci.yaml`):
 
 - **API** — a gen2 Cloud Function `setlister-api` in the shared
   `songbook-generator` GCP project (`europe-west1`), deployed with
   `gcloud functions deploy --source utrequests` (the same pattern as
   songbook-generator: `requirements.txt` is generated from `uv.lock` with
   `uv export` at deploy time). Vertex AI calls stay in `us-central1`.
-- **UI** — built by Vite (`npm run build` in `ui/`); the `ui/dist` folder is
-  published to GitHub Pages via branch flow: CI pushes it to the `gh-pages`
-  branch, which Pages serves at `https://ukuleletuesday.github.io/setlister/`.
-  It calls the function cross-origin; allowed origins are configured via
-  `CORS_ALLOWED_ORIGINS` (see `.env.deploy`).
+- **UI** — built by Vite (`npm run build` in `ui/`); CI pushes `ui/dist` to the
+  `gh-pages` branch, which Pages serves at
+  `https://ukuleletuesday.github.io/setlister/`. It calls the function
+  cross-origin; allowed origins are configured via `CORS_ALLOWED_ORIGINS` (see
+  `.env.deploy`).
+- **Firestore rules** — pushed by the `deploy-rules` job.
 
-Every pull request also gets a **UI preview environment** on GitHub Pages
-(`deploy-ui` job, using [`rossjrw/pr-preview-action`](https://github.com/rossjrw/pr-preview-action)).
-CI builds the PR's `ui/dist` and publishes it to
-`https://ukuleletuesday.github.io/setlister/pr-preview/pr-<N>/`, then posts the
-link as a comment on the PR. Because Vite builds with relative asset URLs
-(`base: "./"`), the same build works under that subpath, and the preview shares
-the production `github.io` origin so no extra CORS entry is needed. The `main`
-deploy uses `clean-exclude: pr-preview/` so publishing production never wipes
-open previews, and the preview is removed automatically when the PR is merged or
-closed (`cleanup-ui-preview` job).
+Every pull request also gets a **UI preview environment** at
+`https://ukuleletuesday.github.io/setlister/pr-preview/pr-<N>/`
+([`rossjrw/pr-preview-action`](https://github.com/rossjrw/pr-preview-action)),
+linked from a comment on the PR. Vite builds with relative asset URLs
+(`base: "./"`), so the same build works under that subpath, and the preview
+shares the production `github.io` origin so no extra CORS entry is needed. The
+`main` deploy uses `clean-exclude: pr-preview/` so publishing production never
+wipes open previews, and `cleanup-ui-preview` removes a preview when its PR is
+merged or closed.
 
 The endpoint is public but guarded: uploads are capped at 20 MB, `/api/parse`
-is rate-limited per IP (in-process fixed window), and the function runs with
-`--max-instances 1` to bound worst-case Vertex AI spend (expected traffic is a
-handful of photos per club night, so one instance is plenty).
+is rate-limited per IP (8 requests per minute, in-process fixed window), and
+the function runs with `--max-instances 1` to bound worst-case Vertex AI spend
+(expected traffic is a handful of photos per club night, so one instance is
+plenty).
 
-- **Firestore (sessions)** — every setlist is a realtime collaborative session
-  stored as `sessions/{sessionId}`, plus a tiny `sessionIndex/{sessionId}`
-  listing row (who started it, when its night is) that the home screen queries to show
-  the club's history. The browser reads/writes both directly via the Firebase
-  Web SDK, so [`firestore.rules`](./firestore.rules) is the entire
-  access-control layer (deliberately unauthenticated — closed schema +
-  deny-by-default). Rules deploy automatically on merge to main
-  (`deploy-rules` job) and are covered by `ui/tests/rules.test.js`.
-  **Sessions are kept forever** — the app opens on past nights, so nothing
-  expires them. Local development runs the Firestore emulator on port **8081**
-  (8080 is the Python API): `npx firebase-tools emulators:start --only
-  firestore`.
+### Sessions in Firestore
 
-  Accepted risks, unchanged in kind but larger in blast radius now that
-  documents are immortal: anyone with the app URL can read the session list,
-  open any session, edit it, or un-list it. Session documents themselves can
-  never be deleted by a client. The real fix is authentication; until then the
-  bounds are the closed schema, the bounded string fields, the 60-day cap on
-  future-dated sessions, the 60-entry list query, and the budget alert below —
-  which should now cover Firestore, not just Vertex AI.
+Every setlist is a realtime collaborative session stored as
+`sessions/{sessionId}`, alongside a tiny `sessionIndex/{sessionId}` listing row
+(who started it, when its night is) that the home screen queries to show the
+club's history, and short-lived `presence` heartbeats for "who's here". The
+browser reads and writes all of it directly via the Firebase Web SDK, so
+[`firestore.rules`](./firestore.rules) is the entire access-control layer —
+deliberately unauthenticated, defended by a closed schema and deny-by-default,
+and covered by `ui/tests/rules.test.js`.
+
+**Sessions are kept forever** — the app opens on past nights, so nothing
+expires them, and no client can ever delete a session document.
+
+Accepted risks, unchanged in kind but larger in blast radius now that documents
+are immortal: anyone with the app URL can read the session list, open any
+session, edit it, or un-list it. The real fix is authentication; until then the
+bounds are the closed schema, the bounded string fields, the 60-day cap on
+future-dated sessions, the 60-entry list query, and the budget alert below —
+which should now cover Firestore, not just Vertex AI.
 
 ### One-time setup
 
@@ -178,10 +198,10 @@ gcloud services enable firebaserules.googleapis.com --project=songbook-generator
 gcloud firestore databases create --location=europe-west1 \
   --type=firestore-native --project=songbook-generator
 
-# Register a Web App to obtain the web config (apiKey, projectId, appId) that
-# the UI (#27) embeds.
+# Register a Web App and print its config, then paste the values into
+# ui/firebase-config.js — they are public client identifiers, not secrets.
 firebase apps:create web setlister --project=songbook-generator
-firebase apps:sdkconfig web --project=songbook-generator   # print the config
+firebase apps:sdkconfig web --project=songbook-generator
 
 # Then re-run ./deploy-gcs.sh so the deployer SA gains the Firebase rules roles.
 ```
