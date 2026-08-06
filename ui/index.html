@@ -227,15 +227,19 @@
            camera via the mode CSS. -->
       <!-- Room mode only (#86): requests from the room must carry a real name
            (addManualEntry refuses without one), and the settings gear — where
-           "Your name" normally lives — is hidden there, so the field moves
-           inline above the combobox. Same app.name underneath; the two inputs
-           mirror each other. The name is fire-and-forget: once one is set the
-           field collapses to the "Requesting as …" line below, and "change" is
-           the deliberate way back in (a typo, a borrowed phone).
-           renderRoomIdentity() drives the input/line swap via the hidden
-           attribute; room-mode visibility as a whole stays class-driven. -->
+           "Your name" normally lives — is hidden there. One slot, three
+           states, driven by renderRoomIdentity() via the hidden attribute
+           (room-mode visibility as a whole stays class-driven):
+             1. no name -> a real BUTTON, not a bare field: an open text input
+                next to the song search reads as two look-alike boxes, and its
+                placeholder vanishes on focus — a button is an affordance;
+             2. tapped (or a nameless add attempt) -> the input, focused;
+             3. named -> "Requesting as …", with "change" as the deliberate
+                way back in (a typo, a borrowed phone). Fire-and-forget.
+           Same swap-in-place idiom as buildPickerToggle. -->
+      <button id="room-name-cta" class="room-name-cta" type="button">Add your name</button>
       <input type="text" id="room-name" class="room-name" placeholder="Your name (shown on your requests)"
-             autocomplete="name" aria-label="Your name — shown on your requests">
+             autocomplete="name" aria-label="Your name — shown on your requests" hidden>
       <p id="room-identity" class="room-identity" hidden>
         <span id="room-identity-text"></span>
         <button id="room-identity-change" class="link-button" type="button">change</button>

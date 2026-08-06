@@ -64,6 +64,7 @@ const sharePresenceCount = document.getElementById("share-presence-count");
 const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
 const roomNameInput = document.getElementById("room-name");
+const roomNameCta = document.getElementById("room-name-cta");
 const roomIdentity = document.getElementById("room-identity");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
@@ -116,6 +117,7 @@ shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
+roomNameCta.replaceChildren(...iconLabel("edit", "Add your name"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
 copyButton.replaceChildren(icon("copy"));
@@ -182,27 +184,32 @@ function setPlayerName(value) {
 playerName.addEventListener("input", () => setPlayerName(playerName.value));
 roomNameInput.addEventListener("input", () => setPlayerName(roomNameInput.value));
 
-// The room-mode name is fire-and-forget: the input shows only until a name is
-// set, then collapses to a one-line "Requesting as X · change". Collapse is
-// driven by blur/Enter, never the input event — app.name updates per
-// keystroke, and collapsing mid-word would yank the field out from under a
-// typing thumb. `editing` forces the input back open (the change button, or a
-// nameless add attempt).
+// The room-mode name is fire-and-forget: one slot, three states. No name yet
+// shows a button (not a bare field — see the index.html comment), tapping it
+// swaps in the focused input, and a committed name collapses to a one-line
+// "Requesting as X · change". Settling is driven by blur/Enter, never the
+// input event — app.name updates per keystroke, and collapsing mid-word would
+// yank the field out from under a typing thumb. Blurring with nothing typed
+// falls back to the button. `editing` forces the input open (the CTA, the
+// change button, or a nameless add attempt).
 function renderRoomIdentity({ editing = false } = {}) {
   const name = app.name.trim();
-  const showInput = editing || !name;
-  roomNameInput.hidden = !showInput;
-  roomIdentity.hidden = showInput;
+  const state = editing ? "input" : name ? "identity" : "cta";
+  roomNameCta.hidden = state !== "cta";
+  roomNameInput.hidden = state !== "input";
+  roomIdentity.hidden = state !== "identity";
   if (name) roomIdentityText.textContent = `Requesting as ${name}`;
+}
+function editRoomName() {
+  renderRoomIdentity({ editing: true });
+  roomNameInput.focus();
 }
 roomNameInput.addEventListener("blur", () => renderRoomIdentity());
 roomNameInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") roomNameInput.blur(); // blur handler collapses
+  if (event.key === "Enter") roomNameInput.blur(); // blur handler settles it
 });
-roomIdentityChange.addEventListener("click", () => {
-  renderRoomIdentity({ editing: true });
-  roomNameInput.focus();
-});
+roomNameCta.addEventListener("click", editRoomName);
+roomIdentityChange.addEventListener("click", editRoomName);
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -1303,8 +1310,7 @@ function addManualEntry(entry) {
   // anon-name fallback.
   if (viewMode === "room" && !app.name.trim()) {
     flashNote(addFeedback, "Add your name first — it goes on your request.");
-    renderRoomIdentity({ editing: true }); // make sure the field is on screen
-    roomNameInput.focus();
+    editRoomName();
     return;
   }
   // Same song already on the night's lists (#52)? Say where it is instead of
