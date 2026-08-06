@@ -13,6 +13,13 @@ import { icon, iconLabel } from "./icons.js";
 import { duplicateLabel, findDuplicate, matchKey, normalizeText, rowKey } from "./dupes.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
+import {
+  buildSessionUrl,
+  readStoredMode,
+  resolveMode,
+  sourceLabel,
+  writeStoredMode,
+} from "./view-mode.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -49,12 +56,14 @@ const sharePanel = document.getElementById("share-panel");
 const shareSessionIdEl = document.getElementById("share-session-id");
 const shareSessionNameEl = document.getElementById("share-session-name");
 const shareLinkButton = document.getElementById("share-link");
+const shareRoomLinkButton = document.getElementById("share-room-link");
 const shareVisibility = document.getElementById("share-visibility");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
 const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
+const roomNameInput = document.getElementById("room-name");
 const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
@@ -101,6 +110,7 @@ shareToggle.replaceChildren(icon("share"));
 photoLightboxClose.replaceChildren(icon("close"));
 cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wishes"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
+shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
@@ -155,12 +165,19 @@ for (const control of [modelSelect, disableThinking, sendCatalogue, includeCross
 
 // Remember the name across sessions so provenance survives a reload. In a
 // shared session, also push it to the presence roster so overriding your
-// generated default name shows up for everyone immediately.
-playerName.addEventListener("input", () => {
-  app.name = playerName.value;
+// generated default name shows up for everyone immediately. Two inputs feed
+// the one app.name: the settings field, and the inline room-mode field (the
+// gear icon is hidden there) — each mirrors into the other so switching views
+// never shows a stale name.
+function setPlayerName(value) {
+  app.name = value;
+  playerName.value = value;
+  roomNameInput.value = value;
   persist();
   presence.refreshPresence();
-});
+}
+playerName.addEventListener("input", () => setPlayerName(playerName.value));
+roomNameInput.addEventListener("input", () => setPlayerName(roomNameInput.value));
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -334,12 +351,16 @@ function applyRemoteState(state) {
   persist();
 }
 
-// The full app URL carrying `?session=<id>` — this is what gets shared. Built
-// from location.href so the GitHub Pages subpath survives.
+// The full app URL carrying `?session=<id>` — this is what gets shared.
+// buildSessionUrl strips any `mode` param, so sharing from a room-mode device
+// never propagates room mode by accident.
 function sessionUrl(id) {
-  const url = new URL(location.href);
-  url.searchParams.set("session", id);
-  return url.toString();
+  return buildSessionUrl(location.href, id);
+}
+
+// The requests-only variant (#86): same session, `?mode=request` set.
+function roomSessionUrl(id) {
+  return buildSessionUrl(location.href, id, { room: true });
 }
 
 function showSessionError(message) {
@@ -361,10 +382,27 @@ function currentRouteId() {
   return new URLSearchParams(location.search).get("session");
 }
 
+// Which view of a session this device gets: the full app or the requests-only
+// room view (#86). Resolved from the URL plus the sticky flag on every route
+// change, so `?mode=request` / `?mode=full` links work whenever they arrive
+// and a room device stays a room device across plain-link reloads. The
+// classes drive the CSS (see "Room mode" in style.css) and only apply while a
+// session is showing — home renders normally either way.
+let viewMode = "full";
+function applyViewMode() {
+  const resolved = resolveMode(new URLSearchParams(location.search), readStoredMode());
+  writeStoredMode(resolved.store);
+  viewMode = resolved.mode;
+  const room = viewMode === "room" && !sessionView.hidden;
+  sessionView.classList.toggle("room", room);
+  document.body.classList.toggle("room-mode", room);
+}
+
 function setView(view) {
   const home = view === "home";
   homeSection.hidden = !home;
   sessionView.hidden = home;
+  applyViewMode();
   // In a session the night's date IS the working title, so it takes over the
   // h1 and the brand retreats to home — one title bar instead of a brand row
   // stacked on a session row. CSS keys the sizing off this class.
@@ -594,28 +632,44 @@ function flashButton(button, message) {
   );
 }
 
-// Offer the current session's link: the native share sheet on mobile (the
-// primary target), else copy to clipboard with transient feedback.
-async function shareSessionLink() {
-  const id = sync.getSessionId();
-  if (!id) return;
-  const url = sessionUrl(id);
+// Offer a link: the native share sheet on mobile (the primary target), else
+// copy to clipboard with transient feedback on the button that was tapped.
+async function offerLink(url, title, button) {
   if (navigator.share) {
     try {
-      // Carry the night's date label in the share payload, so the recipient
-      // sees which session this is, not a generic app title.
-      const label = currentSessionLabel();
-      await navigator.share({
-        title: label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
-        url,
-      });
+      await navigator.share({ title, url });
     } catch {
       /* user dismissed the share sheet, or it rejected the payload — no-op */
     }
     return;
   }
   await copyToClipboard(url);
-  flashButton(shareLinkButton, "Link copied");
+  flashButton(button, "Link copied");
+}
+
+// The full-app link. Carries the night's date label in the share payload, so
+// the recipient sees which session this is, not a generic app title.
+async function shareSessionLink() {
+  const id = sync.getSessionId();
+  if (!id) return;
+  const label = currentSessionLabel();
+  await offerLink(
+    sessionUrl(id),
+    label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
+    shareLinkButton
+  );
+}
+
+// The requests-only link (#86): what goes to the room's WhatsApp group.
+async function shareRoomLink() {
+  const id = sync.getSessionId();
+  if (!id) return;
+  const label = currentSessionLabel();
+  await offerLink(
+    roomSessionUrl(id),
+    label ? `Requests for ${label} · Ukulele Tuesday` : "Ukulele Tuesday requests",
+    shareRoomLinkButton
+  );
 }
 
 // Tap Share: the popover is now purely in-session (every set of lists already
@@ -644,6 +698,7 @@ async function onVisibilityChange() {
 
 shareToggle.addEventListener("click", onShareTap);
 shareLinkButton.addEventListener("click", shareSessionLink);
+shareRoomLinkButton.addEventListener("click", shareRoomLink);
 shareVisibility.addEventListener("change", onVisibilityChange);
 
 // Same forgiving dismissal as the settings popover: tap outside or Escape.
@@ -1215,6 +1270,15 @@ function mountManualAdd() {
 }
 
 function addManualEntry(entry) {
+  // Room-mode requests must carry a real name — the pool has no organiser
+  // curating the input there, so provenance is the only visibility into who's
+  // using it. Deliberately not enforced anywhere else: the full app keeps its
+  // anon-name fallback.
+  if (viewMode === "room" && !app.name.trim()) {
+    flashNote(addFeedback, "Add your name first — it goes on your request.");
+    roomNameInput.focus();
+    return;
+  }
   // Same song already on the night's lists (#52)? Say where it is instead of
   // quietly doubling it. Binned copies don't block — see dupes.js.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
@@ -1224,7 +1288,7 @@ function addManualEntry(entry) {
   }
   app.requests.push({
     uid: newUid(),
-    source: "manual",
+    source: viewMode === "room" ? "room" : "manual",
     addedBy: presence.displayName(app.name),
     raw_title: entry.display,
     raw_page: entry.page,
@@ -1570,8 +1634,13 @@ function rerender() {
 // mode honest; open/closeReview call it too since an in-flight scan counts as
 // "songs are coming".
 function updateSessionMode() {
+  // Never in room mode: the fresh state is a camera hero, and room mode has no
+  // camera — an empty pool there shows the combobox and the empty note.
   const fresh =
-    app.upNext.length === 0 && app.requests.length === 0 && !app.review;
+    app.upNext.length === 0 &&
+    app.requests.length === 0 &&
+    !app.review &&
+    viewMode !== "room";
   sessionView.classList.toggle("fresh", fresh);
 }
 
@@ -1652,9 +1721,13 @@ function renderRequests() {
   const visible = app.requests.filter((e) => !e.binned);
   requestsEmpty.hidden = visible.length > 0;
   renderCount(requestsCount, visible.length);
+  // Room mode gets read-only rows: the "room" context matches none of
+  // renderRow's control branches, so no promote/bin buttons and no swipe.
   requestsRows.replaceChildren(
     ...app.requests
-      .map((e, i) => (e.binned ? null : renderRow(e, i, "requests")))
+      .map((e, i) =>
+        e.binned ? null : renderRow(e, i, viewMode === "room" ? "room" : "requests")
+      )
       .filter(Boolean)
   );
   // The bin group replaces the old standalone Bin section: every binned row
@@ -1773,12 +1846,10 @@ function renderRow(row, index, context) {
 
     // Provenance: who added this tune and where it came from. Name it only
     // when we have one (a legacy or name-less entry shows just the source).
-    const sourceLabel = row.source === "manual" ? "added manually" : "from whiteboard";
+    const origin = sourceLabel(row.source);
     const provenance = document.createElement("div");
     provenance.className = "added-by";
-    provenance.textContent = row.addedBy
-      ? `Added by ${row.addedBy} · ${sourceLabel}`
-      : sourceLabel;
+    provenance.textContent = row.addedBy ? `Added by ${row.addedBy} · ${origin}` : origin;
     main.appendChild(provenance);
 
     if (row.explanation) {
@@ -1809,7 +1880,7 @@ function renderRow(row, index, context) {
     // text earns its place only when it differs from the match.
     const parts = [];
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
-    if (row.source !== "manual") parts.push("from the whiteboard");
+    if (row.source !== "manual") parts.push(sourceLabel(row.source));
     else if (!row.addedBy) parts.push("added manually");
     if (row.match) {
       if (row.raw_title && row.raw_title !== row.match.display) {
@@ -2300,10 +2371,14 @@ downloadButton.addEventListener("click", () => {
 // --- Init ------------------------------------------------------------------
 (async function init() {
   restore();
+  // Resolve the view mode before the first render: renderRequests keys row
+  // interactivity off it, so a sticky room device must know before painting.
+  applyViewMode();
   // Hydrate search from the cached catalogue immediately; the network fetch
   // below replaces it (a Cloud Function cold start can take several seconds).
   restoreCatalogueCache();
   playerName.value = app.name;
+  roomNameInput.value = app.name;
   mountManualAdd();
   renderUpNext();
   renderRequests();

@@ -56,10 +56,16 @@
         <p class="share-presence-head">Here now · <span id="share-presence-count">1</span></p>
         <ul id="share-presence-list"></ul>
       </div>
+      <!-- The room link (#86) opens the requests-only view — it's what goes to
+           the club's WhatsApp group, distinct from the full link above. The
+           note names the difference; without it two share buttons read as one
+           mistake. -->
+      <p class="note">The request link is a requests-only view: people can add tunes, not change the set.</p>
       <div class="actions">
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
         <button id="share-link">Share link</button>
+        <button id="share-room-link" class="secondary">Share request link</button>
       </div>
     </div>
 
@@ -219,6 +225,13 @@
            combobox mounts here (mountManualAdd) and its dropdown opens down
            over the list. In the fresh state it moves visually next to the
            camera via the mode CSS. -->
+      <!-- Room mode only (#86): requests from the room must carry a real name
+           (addManualEntry refuses without one), and the settings gear — where
+           "Your name" normally lives — is hidden there, so the field moves
+           inline above the combobox. Same app.name underneath; the two inputs
+           mirror each other. Shown purely via the room-mode CSS class. -->
+      <input type="text" id="room-name" class="room-name" placeholder="Your name (shown on your requests)"
+             autocomplete="name" aria-label="Your name — shown on your requests">
       <div id="manual-add" class="manual-add"></div>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving

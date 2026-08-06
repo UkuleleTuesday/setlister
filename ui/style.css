@@ -543,6 +543,33 @@ h2 .count { color: #999; font-weight: 600; letter-spacing: 0.04em; }
   content: ""; flex: 1; height: 1px; background: #ddd;
 }
 
+/* --- Room mode: the requests-only view (#86) -------------------------------
+   A device that arrived through a `?mode=request` link gets just the name
+   field, the add-by-name combobox and the (read-only) Requests pool — no
+   running order, no camera, no reorder, no header chrome. Like `fresh`, the
+   classes (`#session-view.room`, `body.room-mode`) are kept current by
+   applyViewMode() in app.js and visibility is class-driven only — the
+   [hidden] attribute would fight these rules. This hides a VIEW, not a
+   permission: anyone with the plain link has the full app (see #86). */
+body.room-mode .share-toggle,
+body.room-mode .share-count-badge,
+body.room-mode .settings-toggle,
+body.room-mode #edition-note { display: none; }
+#session-view.room .session-bar,
+#session-view.room .fresh-intro,
+#session-view.room #upnext,
+#session-view.room #add,
+#session-view.room #review,
+#session-view.room #bin-group { display: none; }
+/* The inline name field exists only for room mode (see index.html); it wears
+   the same clothes as the settings fields, at the house ≥44px tap height. */
+.room-name { display: none; }
+#session-view.room .room-name {
+  display: block; width: 100%; min-height: 44px;
+  margin: 0 0 0.7rem; padding: 0.6rem; font-size: 1rem;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+}
+
 #upnext-rows, #requests-rows, #review-rows, .group-rows { list-style: none; margin: 0; padding: 0; }
 
 /* Collapsed groups: played songs above Up next, binned songs below Requests.
