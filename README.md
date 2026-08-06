@@ -2,26 +2,45 @@
 
 **Live app:** https://ukuleletuesday.github.io/setlister/
 
-Turns photos of the Ukulele Tuesday song-request whiteboard — the "whiteboard
-of wishes" — into a clean, reviewable setlist, matched against the active UT
-songbook.
+The shared setlist for a Ukulele Tuesday night, run from everyone's phone. The
+room works two live lists: **Requests**, the pool of what people want to play,
+and **Up next**, the running order you actually play from. Songs are matched
+against the active UT songbook, so a row carries the page to turn to.
 
-Take a photo of the board, and the app:
+Songs get in two ways:
 
-1. reads each handwritten row (song title + page number) with a multimodal
-   vision model (Gemini) — the photo is downscaled in the browser first, so
-   pub Wi-Fi only carries what the model actually sees;
-2. matches every row against the published songbook catalogue
-   (title fuzzy-matching + page-number cross-checking with
+- **By name** — type-ahead search over the songbook. The field sits at the top
+  of the pool, because mid-night someone shouts a request and it has to land
+  without scrolling past twenty cards.
+- **By photo of the whiteboard** — the club writes its requests on the physical
+  "whiteboard of wishes", and one snap turns the whole board into matched
+  entries. That's a once-a-night act, so the camera sits at the bottom of a
+  working screen — and is the hero of an empty one.
+
+Either way, a song already on the night's lists won't be added twice.
+
+The set plays from the top: the first tune wears a **NEXT** badge, and marking
+it played collapses it into a one-line count, so the running order consumes
+itself as the evening goes. Requests are promoted into Up next — or binned — by
+a tap or a thumb-swipe, and nothing is destroyed: played and binned rows stay
+recoverable. The night can be copied as text or downloaded as JSON at any point.
+
+## The scan
+
+Snapping the board:
+
+1. downscales the photo in the browser, so pub Wi-Fi only carries what the model
+   actually sees;
+2. reads each handwritten row (song title + page number) with a multimodal
+   vision model (Gemini);
+3. matches every row against the songbook catalogue (title fuzzy-matching +
+   page-number cross-checking with
    [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz));
-3. drops the confident matches straight into the **Requests** pool — skipping
-   anything already on the night's lists — and sends only the rows it was
-   unsure about to a review sheet for correction.
+4. drops confident matches straight into Requests, and sends only the rows it
+   was unsure about to a review sheet, where a misread can be corrected against
+   the photo before it lands.
 
-From there you build the **Up next** running order by promoting requests into
-it (songs can also be added by name), then copy or download the result.
-
-The songbook catalogue is derived from the public manifests published by
+The catalogue is derived from the public manifests published by
 [songbook-generator](https://github.com/UkuleleTuesday/songbook-generator) at
 `https://storage.googleapis.com/ukulele-tuesday-songbooks/<edition>/` — no
 credentials needed.
@@ -47,8 +66,9 @@ its id.
 
 ## Mobile-first
 
-The whole point is to pull out a phone at the club, snap the board, and build
-the setlist on the spot. Design and test UI changes for a phone (touch targets,
+The whole point is a phone in one hand at the club — snapping the board,
+promoting the next tune, ticking off what's been played, all while holding a
+ukulele in the other. Design and test UI changes for a phone (touch targets,
 tap-to-dismiss, safe-area insets, small viewport) first; desktop is the
 incidental case.
 
