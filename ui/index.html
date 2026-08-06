@@ -229,9 +229,17 @@
            (addManualEntry refuses without one), and the settings gear — where
            "Your name" normally lives — is hidden there, so the field moves
            inline above the combobox. Same app.name underneath; the two inputs
-           mirror each other. Shown purely via the room-mode CSS class. -->
+           mirror each other. The name is fire-and-forget: once one is set the
+           field collapses to the "Requesting as …" line below, and "change" is
+           the deliberate way back in (a typo, a borrowed phone).
+           renderRoomIdentity() drives the input/line swap via the hidden
+           attribute; room-mode visibility as a whole stays class-driven. -->
       <input type="text" id="room-name" class="room-name" placeholder="Your name (shown on your requests)"
              autocomplete="name" aria-label="Your name — shown on your requests">
+      <p id="room-identity" class="room-identity" hidden>
+        <span id="room-identity-text"></span>
+        <button id="room-identity-change" class="link-button" type="button">change</button>
+      </p>
       <div id="manual-add" class="manual-add"></div>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving

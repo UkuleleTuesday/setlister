@@ -64,6 +64,9 @@ const sharePresenceCount = document.getElementById("share-presence-count");
 const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
 const roomNameInput = document.getElementById("room-name");
+const roomIdentity = document.getElementById("room-identity");
+const roomIdentityText = document.getElementById("room-identity-text");
+const roomIdentityChange = document.getElementById("room-identity-change");
 const modelSelect = document.getElementById("model");
 const disableThinking = document.getElementById("disable-thinking");
 const sendCatalogue = document.getElementById("send-catalogue");
@@ -178,6 +181,28 @@ function setPlayerName(value) {
 }
 playerName.addEventListener("input", () => setPlayerName(playerName.value));
 roomNameInput.addEventListener("input", () => setPlayerName(roomNameInput.value));
+
+// The room-mode name is fire-and-forget: the input shows only until a name is
+// set, then collapses to a one-line "Requesting as X · change". Collapse is
+// driven by blur/Enter, never the input event — app.name updates per
+// keystroke, and collapsing mid-word would yank the field out from under a
+// typing thumb. `editing` forces the input back open (the change button, or a
+// nameless add attempt).
+function renderRoomIdentity({ editing = false } = {}) {
+  const name = app.name.trim();
+  const showInput = editing || !name;
+  roomNameInput.hidden = !showInput;
+  roomIdentity.hidden = showInput;
+  if (name) roomIdentityText.textContent = `Requesting as ${name}`;
+}
+roomNameInput.addEventListener("blur", () => renderRoomIdentity());
+roomNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") roomNameInput.blur(); // blur handler collapses
+});
+roomIdentityChange.addEventListener("click", () => {
+  renderRoomIdentity({ editing: true });
+  roomNameInput.focus();
+});
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -396,6 +421,8 @@ function applyViewMode() {
   const room = viewMode === "room" && !sessionView.hidden;
   sessionView.classList.toggle("room", room);
   document.body.classList.toggle("room-mode", room);
+  // Entering room mode decides which of the name input / identity line shows.
+  if (room) renderRoomIdentity();
 }
 
 function setView(view) {
@@ -1276,6 +1303,7 @@ function addManualEntry(entry) {
   // anon-name fallback.
   if (viewMode === "room" && !app.name.trim()) {
     flashNote(addFeedback, "Add your name first — it goes on your request.");
+    renderRoomIdentity({ editing: true }); // make sure the field is on screen
     roomNameInput.focus();
     return;
   }
@@ -1720,6 +1748,12 @@ function renderRequests() {
   updateExportButtons();
   const visible = app.requests.filter((e) => !e.binned);
   requestsEmpty.hidden = visible.length > 0;
+  // The empty note mentions snapping the board, but room mode has no camera —
+  // there, adding by name is the only door.
+  requestsEmpty.textContent =
+    viewMode === "room"
+      ? "No requests yet — add one above."
+      : "No requests yet — snap the board or add one above.";
   renderCount(requestsCount, visible.length);
   // Room mode gets read-only rows: the "room" context matches none of
   // renderRow's control branches, so no promote/bin buttons and no swipe.
@@ -2379,6 +2413,7 @@ downloadButton.addEventListener("click", () => {
   restoreCatalogueCache();
   playerName.value = app.name;
   roomNameInput.value = app.name;
+  renderRoomIdentity();
   mountManualAdd();
   renderUpNext();
   renderRequests();
