@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-06",
+    "items": [
+      "Take requests from the room: “Share request link” in the share panel opens a requests-only view — anyone who gets the link can add tunes (with their name) from their own phone, without being able to touch the running order."
+    ]
+  },
+  {
     "date": "2026-08-05",
     "items": [
       "Every night is now its own session, named by its date — starting a new one no longer wipes the last, and the app opens on the club's session history so you can revisit a past night or set one up in advance.",

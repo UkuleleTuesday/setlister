@@ -56,10 +56,16 @@
         <p class="share-presence-head">Here now · <span id="share-presence-count">1</span></p>
         <ul id="share-presence-list"></ul>
       </div>
+      <!-- The room link (#86) opens the requests-only view — it's what goes to
+           the club's WhatsApp group, distinct from the full link above. The
+           note names the difference; without it two share buttons read as one
+           mistake. -->
+      <p class="note">The request link is a requests-only view: people can add tunes, not change the set.</p>
       <div class="actions">
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
         <button id="share-link">Share link</button>
+        <button id="share-room-link" class="secondary">Share request link</button>
       </div>
     </div>
 
@@ -219,6 +225,17 @@
            combobox mounts here (mountManualAdd) and its dropdown opens down
            over the list. In the fresh state it moves visually next to the
            camera via the mode CSS. -->
+      <!-- Room mode only (#86): the name is asked for in a sheet at the moment
+           it's needed — picking a song — rather than by a field parked here
+           (see #room-name-sheet). Once set it's fire-and-forget, and this
+           quiet line is the only trace it leaves; "change" reopens the same
+           sheet, since the settings gear that normally holds "Your name" is
+           hidden in room mode. Shown via the hidden attribute by
+           renderRoomIdentity(); room-mode visibility stays class-driven. -->
+      <p id="room-identity" class="room-identity" hidden>
+        <span id="room-identity-text"></span>
+        <button id="room-identity-change" class="link-button" type="button">change</button>
+      </p>
       <div id="manual-add" class="manual-add"></div>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving
@@ -321,6 +338,33 @@
       <div class="actions">
         <button id="new-session-start">Start</button>
         <button id="new-session-cancel" class="secondary">Cancel</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- Room mode (#86): the one thing a requester from the room must supply is
+       a name, and the moment to ask is the moment they pick a song — the ask
+       is then contextual ("Requesting Hey Jude"), happens once per device,
+       and the pick can't be lost because submitting it IS this sheet's
+       button. Same centred-sheet idiom as starting a night, so it inherits
+       the backdrop, tap-outside dismissal and mobile focus behaviour instead
+       of re-inventing them inline. Also reached from "change" above, which
+       opens it with nothing to submit — a rename. -->
+  <div id="room-name-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="room-name-title">
+    <div class="sheet">
+      <h2 id="room-name-title">Who’s asking?</h2>
+      <p id="room-name-song" class="note" hidden></p>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" id="room-name" autocomplete="name" placeholder="e.g. Alex">
+      </label>
+      <p class="note">It goes on your request, so the room knows whose tune it is.</p>
+      <div id="room-name-error" class="error" hidden></div>
+      <div class="actions">
+        <button id="room-name-add">Add request</button>
+        <button id="room-name-cancel" class="secondary">Cancel</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
     </div>
