@@ -63,8 +63,12 @@ const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
 const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
+const roomNameSheet = document.getElementById("room-name-sheet");
 const roomNameInput = document.getElementById("room-name");
-const roomNameCta = document.getElementById("room-name-cta");
+const roomNameSong = document.getElementById("room-name-song");
+const roomNameError = document.getElementById("room-name-error");
+const roomNameAdd = document.getElementById("room-name-add");
+const roomNameCancel = document.getElementById("room-name-cancel");
 const roomIdentity = document.getElementById("room-identity");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
@@ -117,7 +121,6 @@ shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
-roomNameCta.replaceChildren(...iconLabel("edit", "Add your name"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
 copyButton.replaceChildren(icon("copy"));
@@ -170,81 +173,80 @@ for (const control of [modelSelect, disableThinking, sendCatalogue, includeCross
 
 // Remember the name across sessions so provenance survives a reload. In a
 // shared session, also push it to the presence roster so overriding your
-// generated default name shows up for everyone immediately. Two inputs feed
-// the one app.name: the settings field, and the inline room-mode field (the
-// gear icon is hidden there) — each mirrors into the other so switching views
-// never shows a stale name.
+// generated default name shows up for everyone immediately. Two surfaces set
+// it: the settings field, and room mode's name sheet (the gear is hidden
+// there) — both funnel through here so neither can leave a stale value.
 function setPlayerName(value) {
   app.name = value;
   playerName.value = value;
-  roomNameInput.value = value;
   persist();
   presence.refreshPresence();
 }
 playerName.addEventListener("input", () => setPlayerName(playerName.value));
-roomNameInput.addEventListener("input", () => setPlayerName(roomNameInput.value));
 
-// The room-mode name is fire-and-forget: one slot, three states. No name yet
-// shows a button (not a bare field — see the index.html comment), tapping it
-// swaps in the focused input, and a committed name collapses to a one-line
-// "Requesting as X · change". Settling is driven by blur/Enter, never the
-// input event — app.name updates per keystroke, and collapsing mid-word would
-// yank the field out from under a typing thumb. Blurring with nothing typed
-// falls back to the button. `editing` forces the input open (the CTA, the
-// change button, or a nameless add attempt).
-function renderRoomIdentity({ editing = false } = {}) {
+// Room mode's name, once set, is fire-and-forget: this one quiet line is all
+// that remains of it (the sheet below is where it's actually entered).
+function renderRoomIdentity() {
   const name = app.name.trim();
-  const state = editing ? "input" : name ? "identity" : "cta";
-  roomNameCta.hidden = state !== "cta";
-  roomNameInput.hidden = state !== "input";
-  roomIdentity.hidden = state !== "identity";
+  roomIdentity.hidden = !name;
   if (name) roomIdentityText.textContent = `Requesting as ${name}`;
 }
-// When the editor was opened by a tap (the CTA, or a pick hitting the name
-// gate), the browser's synthesized mouse events from that same tap can land
-// on the page ~150ms later and steal focus from the input we just opened —
-// on a phone the keyboard pops and instantly vanishes. Same race the
-// combobox's 120ms blur-close delay guards against: for a short grace window
-// after opening, a blur re-claims focus instead of settling the slot.
-let roomNameEditStarted = 0;
-function editRoomName() {
-  roomNameEditStarted = Date.now();
-  renderRoomIdentity({ editing: true });
+
+// The song this sheet will submit once a name is given, or null when it was
+// opened from "change" — same sheet, nothing to add, just a rename.
+let roomNameEntry = null;
+
+function openRoomNameSheet(entry) {
+  roomNameEntry = entry;
+  roomNameSong.textContent = entry ? `Requesting “${entry.title}”` : "";
+  roomNameSong.hidden = !entry;
+  roomNameError.hidden = true;
+  roomNameInput.value = app.name;
+  // The button says what will actually happen: a pick is waiting on this
+  // sheet, a rename isn't.
+  roomNameAdd.replaceChildren(document.createTextNode(entry ? "Add request" : "Save"));
+  roomNameSheet.hidden = false;
   roomNameInput.focus();
 }
 
-// A song picked before any name was set: held — visibly, the pinned note in
-// #add-feedback names it — until the name arrives, then submitted. Replaced
-// by a newer nameless pick, cleared on submit. Without this the name gate
-// would discard the first thing a first-time user did and make them redo the
-// search one-handed in a pub.
-let pendingRoomEntry = null;
-
-// Committing a name (blur/Enter) settles the slot — and if a pick was waiting
-// on the gate, submits it now, so search → pick → type your name is one
-// continuous gesture with nothing to redo.
-function commitRoomName() {
-  renderRoomIdentity();
-  if (viewMode !== "room" || !app.name.trim() || !pendingRoomEntry) return;
-  const entry = pendingRoomEntry;
-  pendingRoomEntry = null;
-  // addManualEntry re-runs the duplicate guard and flashes its own note if it
-  // refuses; on success, say so — the user is looking at the name slot, not
-  // at the pool where the row just landed.
-  if (addManualEntry(entry)) flashNote(addFeedback, `Added “${entry.title}”`);
+function closeRoomNameSheet() {
+  roomNameSheet.hidden = true;
+  roomNameEntry = null;
 }
-roomNameInput.addEventListener("blur", () => {
-  if (Date.now() - roomNameEditStarted < 400) {
-    roomNameInput.focus(); // the opening tap's own tail — not a real dismissal
+
+// Confirming the sheet: the name is only committed here, not per keystroke,
+// so an abandoned sheet leaves app.name untouched. A waiting pick then goes
+// in as part of the same tap — the pick can't be lost between the two.
+function onRoomNameConfirm() {
+  if (!roomNameInput.value.trim()) {
+    roomNameError.textContent = "Add a name so the room knows whose request it is.";
+    roomNameError.hidden = false;
+    roomNameInput.focus();
     return;
   }
-  commitRoomName();
-});
+  setPlayerName(roomNameInput.value);
+  const entry = roomNameEntry;
+  closeRoomNameSheet();
+  renderRoomIdentity();
+  // addManualEntry re-runs the duplicate guard and flashes its own note if it
+  // refuses; on success say so, since the sheet just covered the pool where
+  // the row landed.
+  if (entry && addManualEntry(entry)) flashNote(addFeedback, `Added “${entry.title}”`);
+}
+
+roomNameAdd.addEventListener("click", onRoomNameConfirm);
+roomNameCancel.addEventListener("click", closeRoomNameSheet);
 roomNameInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") roomNameInput.blur(); // blur handler settles it
+  if (event.key === "Enter") onRoomNameConfirm();
 });
-roomNameCta.addEventListener("click", editRoomName);
-roomIdentityChange.addEventListener("click", editRoomName);
+roomIdentityChange.addEventListener("click", () => openRoomNameSheet(null));
+// Same forgiving dismissal as the other sheets: tap the backdrop, or Escape.
+roomNameSheet.addEventListener("click", (event) => {
+  if (event.target === roomNameSheet) closeRoomNameSheet();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !roomNameSheet.hidden) closeRoomNameSheet();
+});
 
 // Settings live in a panel behind the gear icon; toggle it and close on
 // outside click or Escape so it behaves like a normal popover.
@@ -1153,6 +1155,25 @@ function refreshPickers() {
   for (const refresh of pickerRefreshers) refresh();
 }
 
+// A tap that we fully handle at pointerdown still leaves the browser to
+// synthesize a trailing click from the same gesture, tens to hundreds of
+// milliseconds later. By then onPick may have put something new under that
+// point — room mode's name sheet does — and the stray click lands on it as a
+// phantom second tap (it was closing the sheet on its own backdrop). One
+// gesture is one interaction: swallow that trailing click.
+function swallowNextClick() {
+  let timer;
+  const swallow = (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    clearTimeout(timer);
+    document.removeEventListener("click", swallow, true);
+  };
+  document.addEventListener("click", swallow, true);
+  // Nothing to swallow when the pick came from the keyboard — retire quietly.
+  timer = setTimeout(() => document.removeEventListener("click", swallow, true), 700);
+}
+
 // A small custom combobox. We rolled our own instead of a native <datalist>
 // because datalist support is unreliable on the mobile browsers this app
 // targets (no dropdown on iOS Safari, flaky on Android). Shared by the per-row
@@ -1206,6 +1227,7 @@ function makeCombobox({ placeholder, onPick }) {
   function pick(entry) {
     input.value = "";
     close();
+    swallowNextClick(); // see above: one gesture, one interaction
     onPick(entry);
   }
 
@@ -1338,23 +1360,16 @@ function mountManualAdd() {
   );
 }
 
-// Returns whether a row was actually added, so commitRoomName can tell a
-// completed pending pick from a refusal.
+// Returns whether a row was actually added, so the name sheet can tell a
+// completed pick from a refusal.
 function addManualEntry(entry) {
   // Room-mode requests must carry a real name — the pool has no organiser
   // curating the input there, so provenance is the only visibility into who's
   // using it. Deliberately not enforced anywhere else: the full app keeps its
-  // anon-name fallback. The pick is NOT discarded: it waits, visibly, for the
-  // name (see pendingRoomEntry / commitRoomName), and the note is pinned
-  // because it's a standing promise, not transient feedback.
+  // anon-name fallback. The pick isn't discarded: the sheet carries it and
+  // submits it on confirm.
   if (viewMode === "room" && !app.name.trim()) {
-    pendingRoomEntry = entry;
-    flashNote(
-      addFeedback,
-      `Who's asking for “${entry.title}”? Add your name and it'll go in.`,
-      { pinned: true }
-    );
-    editRoomName();
+    openRoomNameSheet(entry);
     return false;
   }
   // Same song already on the night's lists (#52)? Say where it is instead of
@@ -1598,14 +1613,10 @@ photoInput.addEventListener("change", async () => {
 // Self-retiring per element: long enough to read across the room, gone before
 // it reads as a permanent fixture.
 const flashTimers = new Map();
-function flashNote(el, message, { pinned = false } = {}) {
+function flashNote(el, message) {
   el.textContent = message;
   el.hidden = false;
   clearTimeout(flashTimers.get(el));
-  // A pinned note is a standing promise (e.g. a pick waiting on the room-mode
-  // name gate), not transient feedback: it stays until the next note — from
-  // the completed add, a replacement pick, or a refusal — takes its place.
-  if (pinned) return;
   flashTimers.set(
     el,
     setTimeout(() => {
@@ -2467,7 +2478,6 @@ downloadButton.addEventListener("click", () => {
   // below replaces it (a Cloud Function cold start can take several seconds).
   restoreCatalogueCache();
   playerName.value = app.name;
-  roomNameInput.value = app.name;
   renderRoomIdentity();
   mountManualAdd();
   renderUpNext();

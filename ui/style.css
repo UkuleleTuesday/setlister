@@ -561,31 +561,13 @@ body.room-mode #edition-note { display: none; }
 #session-view.room #add,
 #session-view.room #review,
 #session-view.room #bin-group { display: none; }
-/* The inline name field and the "Requesting as …" line exist only for room
-   mode (see index.html): the field shows until a name is set, then collapses
-   to the line — renderRoomIdentity() swaps them via the hidden attribute,
-   which composes with these mode rules because [hidden]'s !important beats
-   them. The field wears the same clothes as the settings fields, at the house
-   ≥44px tap height. */
-.room-name, .room-name-cta, .room-identity { display: none; }
-/* The empty-state affordance is a real button (secondary register — the song
-   search below stays the hero): tappable at a glance, unlike a placeholder
-   that vanishes on focus. */
-#session-view.room .room-name-cta {
-  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
-  width: 100%; min-height: 44px; margin: 0 0 0.7rem; padding: 0.7rem;
-  background: var(--accent-soft); color: var(--accent);
-  border: none; border-radius: var(--radius);
-  font-family: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-}
-#session-view.room .room-name-cta:active { opacity: 0.85; }
-#session-view.room .room-name {
-  display: block; width: 100%; min-height: 44px;
-  margin: 0 0 0.7rem; padding: 0.6rem; font-size: 1rem;
-  border: 1px solid var(--border); border-radius: 8px; background: var(--card);
-}
-/* One quiet line in the note register; the change button keeps its .link-button
-   44px hit area, so the line stays visually slim but comfortably tappable. */
+/* The "Requesting as …" line is room mode's only trace of the name — it's
+   entered in #room-name-sheet, which wears the house sheet styles. One quiet
+   line in the note register; the change button keeps its .link-button 44px
+   hit area, so the line stays slim but comfortably tappable.
+   renderRoomIdentity() shows it via the hidden attribute, which composes with
+   this mode rule because [hidden]'s !important beats it. */
+.room-identity { display: none; }
 #session-view.room .room-identity {
   display: flex; align-items: center; gap: 0.5rem;
   margin: 0 0 0.7rem; min-height: 24px;
