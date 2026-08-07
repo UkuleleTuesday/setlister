@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-B1tfMYoW.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-l6YDBwYY.css">
+  <script type="module" crossorigin src="./assets/index-jgwl1ChX.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CCA9vbuK.css">
 </head>
 <body>
   <header>
@@ -226,21 +226,13 @@
            combobox mounts here (mountManualAdd) and its dropdown opens down
            over the list. In the fresh state it moves visually next to the
            camera via the mode CSS. -->
-      <!-- Room mode only (#86): requests from the room must carry a real name
-           (addManualEntry refuses without one), and the settings gear — where
-           "Your name" normally lives — is hidden there. One slot, three
-           states, driven by renderRoomIdentity() via the hidden attribute
-           (room-mode visibility as a whole stays class-driven):
-             1. no name -> a real BUTTON, not a bare field: an open text input
-                next to the song search reads as two look-alike boxes, and its
-                placeholder vanishes on focus — a button is an affordance;
-             2. tapped (or a nameless add attempt) -> the input, focused;
-             3. named -> "Requesting as …", with "change" as the deliberate
-                way back in (a typo, a borrowed phone). Fire-and-forget.
-           Same swap-in-place idiom as buildPickerToggle. -->
-      <button id="room-name-cta" class="room-name-cta" type="button">Add your name</button>
-      <input type="text" id="room-name" class="room-name" placeholder="Your name (shown on your requests)"
-             autocomplete="name" aria-label="Your name — shown on your requests" hidden>
+      <!-- Room mode only (#86): the name is asked for in a sheet at the moment
+           it's needed — picking a song — rather than by a field parked here
+           (see #room-name-sheet). Once set it's fire-and-forget, and this
+           quiet line is the only trace it leaves; "change" reopens the same
+           sheet, since the settings gear that normally holds "Your name" is
+           hidden in room mode. Shown via the hidden attribute by
+           renderRoomIdentity(); room-mode visibility stays class-driven. -->
       <p id="room-identity" class="room-identity" hidden>
         <span id="room-identity-text"></span>
         <button id="room-identity-change" class="link-button" type="button">change</button>
@@ -347,6 +339,33 @@
       <div class="actions">
         <button id="new-session-start">Start</button>
         <button id="new-session-cancel" class="secondary">Cancel</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- Room mode (#86): the one thing a requester from the room must supply is
+       a name, and the moment to ask is the moment they pick a song — the ask
+       is then contextual ("Requesting Hey Jude"), happens once per device,
+       and the pick can't be lost because submitting it IS this sheet's
+       button. Same centred-sheet idiom as starting a night, so it inherits
+       the backdrop, tap-outside dismissal and mobile focus behaviour instead
+       of re-inventing them inline. Also reached from "change" above, which
+       opens it with nothing to submit — a rename. -->
+  <div id="room-name-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="room-name-title">
+    <div class="sheet">
+      <h2 id="room-name-title">Who’s asking?</h2>
+      <p id="room-name-song" class="note" hidden></p>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" id="room-name" autocomplete="name" placeholder="e.g. Alex">
+      </label>
+      <p class="note">It goes on your request, so the room knows whose tune it is.</p>
+      <div id="room-name-error" class="error" hidden></div>
+      <div class="actions">
+        <button id="room-name-add">Add request</button>
+        <button id="room-name-cancel" class="secondary">Cancel</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
     </div>
