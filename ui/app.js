@@ -200,11 +200,46 @@ function renderRoomIdentity({ editing = false } = {}) {
   roomIdentity.hidden = state !== "identity";
   if (name) roomIdentityText.textContent = `Requesting as ${name}`;
 }
+// When the editor was opened by a tap (the CTA, or a pick hitting the name
+// gate), the browser's synthesized mouse events from that same tap can land
+// on the page ~150ms later and steal focus from the input we just opened —
+// on a phone the keyboard pops and instantly vanishes. Same race the
+// combobox's 120ms blur-close delay guards against: for a short grace window
+// after opening, a blur re-claims focus instead of settling the slot.
+let roomNameEditStarted = 0;
 function editRoomName() {
+  roomNameEditStarted = Date.now();
   renderRoomIdentity({ editing: true });
   roomNameInput.focus();
 }
-roomNameInput.addEventListener("blur", () => renderRoomIdentity());
+
+// A song picked before any name was set: held — visibly, the pinned note in
+// #add-feedback names it — until the name arrives, then submitted. Replaced
+// by a newer nameless pick, cleared on submit. Without this the name gate
+// would discard the first thing a first-time user did and make them redo the
+// search one-handed in a pub.
+let pendingRoomEntry = null;
+
+// Committing a name (blur/Enter) settles the slot — and if a pick was waiting
+// on the gate, submits it now, so search → pick → type your name is one
+// continuous gesture with nothing to redo.
+function commitRoomName() {
+  renderRoomIdentity();
+  if (viewMode !== "room" || !app.name.trim() || !pendingRoomEntry) return;
+  const entry = pendingRoomEntry;
+  pendingRoomEntry = null;
+  // addManualEntry re-runs the duplicate guard and flashes its own note if it
+  // refuses; on success, say so — the user is looking at the name slot, not
+  // at the pool where the row just landed.
+  if (addManualEntry(entry)) flashNote(addFeedback, `Added “${entry.title}”`);
+}
+roomNameInput.addEventListener("blur", () => {
+  if (Date.now() - roomNameEditStarted < 400) {
+    roomNameInput.focus(); // the opening tap's own tail — not a real dismissal
+    return;
+  }
+  commitRoomName();
+});
 roomNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") roomNameInput.blur(); // blur handler settles it
 });
@@ -1303,22 +1338,31 @@ function mountManualAdd() {
   );
 }
 
+// Returns whether a row was actually added, so commitRoomName can tell a
+// completed pending pick from a refusal.
 function addManualEntry(entry) {
   // Room-mode requests must carry a real name — the pool has no organiser
   // curating the input there, so provenance is the only visibility into who's
   // using it. Deliberately not enforced anywhere else: the full app keeps its
-  // anon-name fallback.
+  // anon-name fallback. The pick is NOT discarded: it waits, visibly, for the
+  // name (see pendingRoomEntry / commitRoomName), and the note is pinned
+  // because it's a standing promise, not transient feedback.
   if (viewMode === "room" && !app.name.trim()) {
-    flashNote(addFeedback, "Add your name first — it goes on your request.");
+    pendingRoomEntry = entry;
+    flashNote(
+      addFeedback,
+      `Who's asking for “${entry.title}”? Add your name and it'll go in.`,
+      { pinned: true }
+    );
     editRoomName();
-    return;
+    return false;
   }
   // Same song already on the night's lists (#52)? Say where it is instead of
   // quietly doubling it. Binned copies don't block — see dupes.js.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
   if (existing) {
     flashNote(addFeedback, duplicateLabel(existing.where));
-    return;
+    return false;
   }
   app.requests.push({
     uid: newUid(),
@@ -1340,6 +1384,7 @@ function addManualEntry(entry) {
   });
   renderRequests();
   persist();
+  return true;
 }
 
 function setMatch(row, entry) {
@@ -1553,10 +1598,14 @@ photoInput.addEventListener("change", async () => {
 // Self-retiring per element: long enough to read across the room, gone before
 // it reads as a permanent fixture.
 const flashTimers = new Map();
-function flashNote(el, message) {
+function flashNote(el, message, { pinned = false } = {}) {
   el.textContent = message;
   el.hidden = false;
   clearTimeout(flashTimers.get(el));
+  // A pinned note is a standing promise (e.g. a pick waiting on the room-mode
+  // name gate), not transient feedback: it stays until the next note — from
+  // the completed add, a replacement pick, or a refusal — takes its place.
+  if (pinned) return;
   flashTimers.set(
     el,
     setTimeout(() => {
