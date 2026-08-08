@@ -8,7 +8,7 @@
 // time an unrelated row is voted).
 
 import { describe, expect, it } from "vitest";
-import { hasVoted, sortForDisplay, toggleVote, voteCount } from "../votes.js";
+import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "../votes.js";
 
 const A = "client-a";
 const B = "client-b";
@@ -65,6 +65,51 @@ describe("toggleVote", () => {
     expect(toggleVote({ song1: "nonsense" }, "song1", A)).toEqual({
       song1: { [A]: true },
     });
+  });
+});
+
+// The point of seeding isn't warmth, it's parity: someone using the app can add
+// a song and then thumb it up, where whoever wrote on the whiteboard isn't in
+// the app to do either. Both channels have to enter the pool at the same score,
+// or the sort quietly ranks app requests above board ones.
+describe("seedAsker", () => {
+  it("puts an app request in at one, as the requester's own vote", () => {
+    const votes = seedAsker({}, "song1", A);
+    expect(voteCount(votes, "song1")).toBe(1);
+    expect(hasVoted(votes, "song1", A)).toBe(true);
+  });
+
+  it("puts a scanned row in at one too, but attributed to nobody", () => {
+    const votes = seedAsker({}, "song1", ASKER);
+    expect(voteCount(votes, "song1")).toBe(1);
+    expect(hasVoted(votes, "song1", A)).toBe(false);
+    expect(hasVoted(votes, "song1", B)).toBe(false);
+  });
+
+  it("leaves the two on equal footing", () => {
+    const fromApp = seedAsker({}, "song1", A);
+    const fromBoard = seedAsker({}, "song2", ASKER);
+    expect(voteCount(fromApp, "song1")).toBe(voteCount(fromBoard, "song2"));
+  });
+
+  // Otherwise the requester's own tap would be a free second vote, which is the
+  // exact advantage the seeding exists to remove.
+  it("gives the requester nothing more to add", () => {
+    const votes = seedAsker({}, "song1", A);
+    expect(toggleVote(votes, "song1", A)).toEqual({});
+  });
+
+  it("never double-seeds an existing vote", () => {
+    const once = seedAsker({}, "song1", A);
+    expect(seedAsker(once, "song1", A)).toBe(once);
+    expect(voteCount(seedAsker(once, "song1", A), "song1")).toBe(1);
+  });
+
+  it("does not mutate what it was given", () => {
+    const votes = { song1: { [B]: true } };
+    const before = structuredClone(votes);
+    seedAsker(votes, "song1", A);
+    expect(votes).toEqual(before);
   });
 });
 

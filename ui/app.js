@@ -26,7 +26,7 @@ import {
   readLastRoomAdd,
   writeLastRoomAdd,
 } from "./room-limits.js";
-import { hasVoted, sortForDisplay, toggleVote, voteCount } from "./votes.js";
+import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "./votes.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -1506,8 +1506,9 @@ function addManualEntry(entry) {
     flashNote(addFeedback, duplicateLabel(existing.where));
     return false;
   }
+  const uid = newUid();
   app.requests.push({
-    uid: newUid(),
+    uid,
     source: viewMode === "room" ? "room" : "manual",
     addedBy: presence.displayName(app.name),
     raw_title: entry.display,
@@ -1524,6 +1525,11 @@ function addManualEntry(entry) {
     played: false,
     binned: false,
   });
+  // Asking for a song IS wanting it, so it counts as this device's vote (#83).
+  // One row added by one person, so it's attributed rather than anonymous:
+  // their thumb lights up, and the tap they'd otherwise spend upvoting their
+  // own request is already spent.
+  app.votes = seedAsker(app.votes, uid, presence.getClientId());
   // Start the cool-down from the moment a request actually lands, not from the
   // pick that opened the sheet — a slow typist shouldn't spend their wait
   // inside the dialog. Persisted, so a reload isn't a way around it.
@@ -1680,6 +1686,11 @@ photoInput.addEventListener("change", async () => {
     }
     if (fresh.length) {
       app.requests.push(...fresh);
+      // Whoever wrote each of these on the board counts as its asker, so board
+      // requests start level with app ones (#83). Anonymous, not attributed to
+      // the person holding the camera: one photo makes many rows and they asked
+      // for none of them.
+      for (const row of fresh) app.votes = seedAsker(app.votes, row.uid, ASKER);
       renderRequests();
       persist();
     }
@@ -1830,6 +1841,7 @@ reviewConfirm.addEventListener("click", () => {
   if (!app.review) return;
   const kept = app.review.entries.filter((e) => !e.removed);
   app.requests.push(...kept);
+  for (const row of kept) app.votes = seedAsker(app.votes, row.uid, ASKER);
   closeReview();
   renderRequests();
   persist();

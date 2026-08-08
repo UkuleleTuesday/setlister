@@ -52,6 +52,25 @@ export function toggleVote(votes, uid, clientId) {
   return next;
 }
 
+// A row's asker always counts as one, which is what keeps the two ways of
+// requesting on equal footing. Someone using the app can add a song and then
+// thumb it up — two taps — while whoever wrote on the whiteboard isn't in the
+// app to do either, so without this the pool quietly sorts app requests above
+// board ones. Seeding the vote also spends the requester's own tap, so adding
+// then upvoting stops being a free extra.
+//
+// Scanned rows use this reserved voter instead of a client id: one photo makes
+// twenty rows and the person holding the camera didn't ask for any of them.
+// Nobody's thumb lights up for it and no tap can take it away. Safe as a key
+// because client ids are UUIDs or `c-<n>-<n>`, never this.
+export const ASKER = "asker";
+
+/** Add `voter`'s vote to a brand-new row, leaving an existing one alone. */
+export function seedAsker(votes, uid, voter) {
+  if (hasVoted(votes, uid, voter)) return votes;
+  return toggleVote(votes, uid, voter);
+}
+
 // Most-wanted first, for rendering only — `requestsOrder` stays arrival order.
 // Sorting the real array would rewrite that order array on every vote, and it
 // is whole-array last-writer-wins, so vote churn would fight every concurrent
