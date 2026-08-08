@@ -54,7 +54,8 @@ live — everyone in the room edits the same lists and can see who else is
 connected — and stays in the history afterwards.
 
 Nights name themselves. A session is labelled from its date — *Tonight*,
-*Yesterday*, *Thursday*, *Next Friday*, *28 July*, *16 December 2025* —
+*Tomorrow*, *Yesterday*, *Thursday*, *Next Friday*, *28 July*,
+*Thursday 16 December 2025* —
 rendered in each viewer's own locale rather than frozen into a stored string,
 so the label stays true as it ages. There are no custom titles: the date IS the
 identity. Starting a session asks for its date (prefilled with today), so a
@@ -64,6 +65,21 @@ Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
 club's list — the share link still opens it, so this is discoverability, not
 privacy. There is no private mode: every session is readable by anyone holding
 its id.
+
+## Requests from the room
+
+A session has two links. The **share link** opens the full app. The **request
+link** opens a requests-only view meant for the room's own phones: they add
+tunes by name, with their name on them, and can't touch the running order. A
+phone that arrived through it stays in that view across reloads. Each request is
+confirmed before it lands, and one phone waits a minute between requests, so a
+single keen person can't fill the night.
+
+The share panel switches that link between **Taking requests** and **View
+only**. On view only the pool is still there to watch, it just stops accepting
+tunes and points people back at the whiteboard. Like Unlisted, this is a view
+rather than a permission: anyone holding the plain share link has the full app
+either way.
 
 ## Mobile-first
 
@@ -107,6 +123,8 @@ Since everything happens inside a session, the emulator is required rather than
 optional.
 
 ## Development
+
+Two pieces: `utrequests/` is the Python API, `ui/` the web app.
 
 ```bash
 uv run pytest              # offline test suite (no API key needed)
