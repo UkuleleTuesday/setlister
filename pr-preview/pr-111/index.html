@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-BBZTEte_.js"></script>
+  <script type="module" crossorigin src="./assets/index-DQyRS4me.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DfxdENW2.css">
 </head>
 <body>
@@ -52,14 +52,19 @@
       <p class="note">Anyone with the link can open it either way.</p>
       <!-- Whether the request link below still takes tunes (#86). Sits next to
            Visibility because both are things you decide about the night rather
-           than about the lists, and directly above the request link it governs.
-           Closing sends the room back to the physical whiteboard; it does not
-           touch the full app, so an organiser keeps adding either way. -->
+           than about the lists, and directly above the link it governs.
+           The row is named after that LINK, not after "requests", and its
+           states describe what the link does. Both halves of that are load
+           bearing: "Requests: Closed" sitting above a button offering to share
+           a request link read as a contradiction, and to an organiser it read
+           as the club having stopped taking requests at all, when the
+           whiteboard carries on untouched. Naming the link keeps the row's
+           claim to the one channel it actually governs. -->
       <label class="field">
-        <span>Requests</span>
+        <span>Request link</span>
         <select id="share-requests">
-          <option value="open">Open</option>
-          <option value="closed">Closed</option>
+          <option value="open">Taking requests</option>
+          <option value="closed">View only</option>
         </select>
       </label>
       <!-- "Who's here": the live roster of people connected to this session.
@@ -73,7 +78,13 @@
            the club's WhatsApp group, distinct from the full link above. The
            note names the difference; without it two share buttons read as one
            mistake. -->
-      <p class="note">The request link is a requests-only view: people can add tunes, not change the set.</p>
+      <!-- Says what the link does RIGHT NOW, rewritten by applyRequestsOpen()
+           whenever the row above changes. A fixed sentence promising people
+           can add tunes would be a lie for half the switch's states, and this
+           is also where the organiser gets told the whiteboard is unaffected.
+           The markup carries the open wording so the panel reads correctly
+           before the first render. -->
+      <p class="note" id="share-request-note">The request link is a requests-only view: people can add tunes, not change the set.</p>
       <div class="actions">
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
