@@ -20,6 +20,12 @@ import {
   sourceLabel,
   writeStoredMode,
 } from "./view-mode.js";
+import {
+  cooldownLabel,
+  cooldownRemaining,
+  readLastRoomAdd,
+  writeLastRoomAdd,
+} from "./room-limits.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -63,12 +69,14 @@ const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
 const sharePresenceList = document.getElementById("share-presence-list");
 const playerName = document.getElementById("player-name");
-const roomNameSheet = document.getElementById("room-name-sheet");
-const roomNameInput = document.getElementById("room-name");
-const roomNameSong = document.getElementById("room-name-song");
-const roomNameError = document.getElementById("room-name-error");
-const roomNameAdd = document.getElementById("room-name-add");
-const roomNameCancel = document.getElementById("room-name-cancel");
+const requestSheet = document.getElementById("room-request-sheet");
+const requestSheetTitle = document.getElementById("room-request-title");
+const requestSheetSong = document.getElementById("room-request-song");
+const requestSheetNameField = document.getElementById("room-request-name-field");
+const requestSheetName = document.getElementById("room-request-name");
+const requestSheetError = document.getElementById("room-request-error");
+const requestSheetConfirm = document.getElementById("room-request-confirm");
+const requestSheetCancel = document.getElementById("room-request-cancel");
 const roomIdentity = document.getElementById("room-identity");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
@@ -192,60 +200,80 @@ function renderRoomIdentity() {
   if (name) roomIdentityText.textContent = `Requesting as ${name}`;
 }
 
-// The song this sheet will submit once a name is given, or null when it was
-// opened from "change" — same sheet, nothing to add, just a rename.
-let roomNameEntry = null;
+// The request this sheet will submit, or null when it was opened from
+// "change" — same sheet, nothing to add, just a rename.
+let requestSheetEntry = null;
 
-function openRoomNameSheet(entry) {
-  roomNameEntry = entry;
-  roomNameSong.textContent = entry ? `Requesting “${entry.title}”` : "";
-  roomNameSong.hidden = !entry;
-  roomNameError.hidden = true;
-  roomNameInput.value = app.name;
-  // The button says what will actually happen: a pick is waiting on this
+// One sheet, doing as little as the situation needs: it always confirms the
+// request (a room submitter can't take a row back out), and adds the name
+// field only while there's no name to put on it.
+function openRequestSheet(entry) {
+  requestSheetEntry = entry;
+  const askName = !app.name.trim() || !entry;
+  requestSheetTitle.textContent = entry
+    ? app.name.trim()
+      ? "Add this request?"
+      : "Who’s asking?"
+    : "Your name";
+  requestSheetSong.textContent = entry ? entry.display : "";
+  requestSheetSong.hidden = !entry;
+  requestSheetNameField.hidden = !askName;
+  requestSheetError.hidden = true;
+  requestSheetName.value = app.name;
+  // The button says what will actually happen: a request is waiting on this
   // sheet, a rename isn't.
-  roomNameAdd.replaceChildren(document.createTextNode(entry ? "Add request" : "Save"));
-  roomNameSheet.hidden = false;
-  roomNameInput.focus();
+  requestSheetConfirm.replaceChildren(
+    document.createTextNode(entry ? "Add request" : "Save")
+  );
+  requestSheet.hidden = false;
+  // Only raise the keyboard when there's typing to do; a confirm-only sheet
+  // puts the thumb on the button instead.
+  if (askName) requestSheetName.focus();
+  else requestSheetConfirm.focus();
 }
 
-function closeRoomNameSheet() {
-  roomNameSheet.hidden = true;
-  roomNameEntry = null;
+function closeRequestSheet() {
+  requestSheet.hidden = true;
+  requestSheetEntry = null;
 }
 
-// Confirming the sheet: the name is only committed here, not per keystroke,
-// so an abandoned sheet leaves app.name untouched. A waiting pick then goes
-// in as part of the same tap — the pick can't be lost between the two.
-function onRoomNameConfirm() {
-  if (!roomNameInput.value.trim()) {
-    roomNameError.textContent = "Add a name so the room knows whose request it is.";
-    roomNameError.hidden = false;
-    roomNameInput.focus();
+// Confirming: the name is committed here, not per keystroke, so an abandoned
+// sheet leaves app.name untouched. The request then goes in as part of the
+// same tap — it can't be lost between the two.
+function onRequestSheetConfirm() {
+  const askedName = !requestSheetNameField.hidden;
+  if (askedName && !requestSheetName.value.trim()) {
+    requestSheetError.textContent = "Add a name so the room knows whose request it is.";
+    requestSheetError.hidden = false;
+    requestSheetName.focus();
     return;
   }
-  setPlayerName(roomNameInput.value);
-  const entry = roomNameEntry;
-  closeRoomNameSheet();
+  if (askedName) setPlayerName(requestSheetName.value);
+  const entry = requestSheetEntry;
+  closeRequestSheet();
   renderRoomIdentity();
-  // addManualEntry re-runs the duplicate guard and flashes its own note if it
-  // refuses; on success say so, since the sheet just covered the pool where
-  // the row landed.
-  if (entry && addManualEntry(entry)) flashNote(addFeedback, `Added “${entry.title}”`);
+  // addManualEntry re-runs the duplicate guard (the pool may have moved while
+  // the sheet was open) and flashes its own note if it refuses. On success say
+  // so — the sheet just covered the pool where the row landed — and set the
+  // expectation for the cool-down before it bites.
+  if (entry && addManualEntry(entry)) {
+    flashNote(addFeedback, `Added “${entry.title}”. Next one in a minute.`);
+  }
 }
 
-roomNameAdd.addEventListener("click", onRoomNameConfirm);
-roomNameCancel.addEventListener("click", closeRoomNameSheet);
-roomNameInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") onRoomNameConfirm();
+requestSheetConfirm.addEventListener("click", onRequestSheetConfirm);
+requestSheetCancel.addEventListener("click", closeRequestSheet);
+requestSheetName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") onRequestSheetConfirm();
 });
-roomIdentityChange.addEventListener("click", () => openRoomNameSheet(null));
+roomIdentityChange.addEventListener("click", () => openRequestSheet(null));
 // Same forgiving dismissal as the other sheets: tap the backdrop, or Escape.
-roomNameSheet.addEventListener("click", (event) => {
-  if (event.target === roomNameSheet) closeRoomNameSheet();
+// Dismissing is a "no" — the request simply doesn't happen.
+requestSheet.addEventListener("click", (event) => {
+  if (event.target === requestSheet) closeRequestSheet();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !roomNameSheet.hidden) closeRoomNameSheet();
+  if (event.key === "Escape" && !requestSheet.hidden) closeRequestSheet();
 });
 
 // Settings live in a panel behind the gear icon; toggle it and close on
@@ -562,8 +590,8 @@ async function applyRoute(id) {
     sync.leaveSession();
     showHomeError(
       err?.notFound
-        ? "That session wasn’t found — it may have been deleted."
-        : `Couldn’t open that session — ${err.message}`
+        ? "That session wasn’t found. It may have been deleted."
+        : `Couldn’t open that session: ${err.message}`
     );
     await navigateTo(null, { replace: true });
   }
@@ -600,8 +628,8 @@ function updateShareUi() {
   let label;
   if (!id) label = "Share session";
   else if (connectedCount > 1)
-    label = `Sharing session ${id} — ${connectedCount} people here, tap for options`;
-  else label = `Sharing session ${id} — tap for options`;
+    label = `Sharing session ${id}, ${connectedCount} people here. Tap for options`;
+  else label = `Sharing session ${id}. Tap for options`;
   shareToggle.setAttribute("aria-label", label);
   if (id) shareSessionIdEl.textContent = id;
   else setSharePanelOpen(false); // no session → nothing to show
@@ -761,7 +789,7 @@ async function onVisibilityChange() {
     await sync.setSessionListed(listed);
   } catch (err) {
     shareVisibility.value = listed ? "unlisted" : "shared"; // the write didn't land
-    showSessionError(`Couldn’t change the session’s visibility — ${err.message}`);
+    showSessionError(`Couldn’t change the session’s visibility: ${err.message}`);
   } finally {
     shareVisibility.disabled = false;
   }
@@ -795,7 +823,7 @@ sync.onStatusChange((status) => {
     presence.startPresence(status.id, () => app.name);
   } else if (status.status === "expired") {
     presence.stopPresence();
-    showHomeError("That session is no longer there — it looks like it was deleted.");
+    showHomeError("That session is no longer there. It looks like it was deleted.");
     navigateTo(null, { replace: true });
   } else if (status.status === "left") {
     presence.stopPresence();
@@ -847,7 +875,7 @@ async function refreshSessionList() {
     sessionListStatus.hidden = entries.length > 0;
     sessionListStatus.textContent = entries.length
       ? ""
-      : "No sessions yet — start one above.";
+      : "No sessions yet. Start one above.";
   } catch {
     sessionListEl.replaceChildren();
     sessionListStatus.hidden = false;
@@ -1017,7 +1045,7 @@ async function onSheetStart() {
   } catch (err) {
     // Keep the sheet open with the picked date intact so Start is one tap away
     // once they're back on wifi. There is no local-only mode to fall back to.
-    sheetError.textContent = `Couldn’t start a session — ${err.message}`;
+    sheetError.textContent = `Couldn’t start a session: ${err.message}`;
     sheetError.hidden = false;
     sheetStart.disabled = false;
     sheetStart.replaceChildren(document.createTextNode("Start"));
@@ -1235,7 +1263,7 @@ function makeCombobox({ placeholder, onPick }) {
   // catalogue unreachable, or a genuine no-match.
   function emptyStateMessage() {
     if (catalogueStatus === "loading") return "Loading the songbook…";
-    if (catalogueStatus === "error") return "Couldn't load the songbook — check your connection";
+    if (catalogueStatus === "error") return "Couldn't load the songbook. Check your connection";
     return `No matches for “${input.value.trim()}”`;
   }
 
@@ -1356,22 +1384,41 @@ function buildPickerToggle(row) {
 // request instead of correcting an existing one.
 function mountManualAdd() {
   manualAddHost.replaceChildren(
-    makeCombobox({ placeholder: "Add a tune by name…", onPick: addManualEntry })
+    makeCombobox({ placeholder: "Add a tune by name…", onPick: onManualPick })
   );
 }
 
-// Returns whether a row was actually added, so the name sheet can tell a
+// Where the two modes part company (#88). The full app adds on the spot: an
+// organiser transcribing the board adds in bulk, and anything they regret is
+// one tap in the bin. A request from the room goes through the brakes first —
+// it can't be taken back once it lands, and one keen phone shouldn't be able
+// to fill the pool in a minute.
+function onManualPick(entry) {
+  if (viewMode !== "room") {
+    addManualEntry(entry);
+    return;
+  }
+  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
+  if (waiting) {
+    flashNote(
+      addFeedback,
+      `One at a time! You can add another in ${cooldownLabel(waiting)}.`
+    );
+    return;
+  }
+  // Check for a duplicate up front so the sheet never offers to add something
+  // that would only be refused on confirm (#52).
+  const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
+  if (existing) {
+    flashNote(addFeedback, duplicateLabel(existing.where));
+    return;
+  }
+  openRequestSheet(entry);
+}
+
+// Returns whether a row was actually added, so the request sheet can tell a
 // completed pick from a refusal.
 function addManualEntry(entry) {
-  // Room-mode requests must carry a real name — the pool has no organiser
-  // curating the input there, so provenance is the only visibility into who's
-  // using it. Deliberately not enforced anywhere else: the full app keeps its
-  // anon-name fallback. The pick isn't discarded: the sheet carries it and
-  // submits it on confirm.
-  if (viewMode === "room" && !app.name.trim()) {
-    openRoomNameSheet(entry);
-    return false;
-  }
   // Same song already on the night's lists (#52)? Say where it is instead of
   // quietly doubling it. Binned copies don't block — see dupes.js.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
@@ -1397,6 +1444,10 @@ function addManualEntry(entry) {
     played: false,
     binned: false,
   });
+  // Start the cool-down from the moment a request actually lands, not from the
+  // pick that opened the sheet — a slow typist shouldn't spend their wait
+  // inside the dialog. Persisted, so a reload isn't a way around it.
+  if (viewMode === "room") writeLastRoomAdd(Date.now());
   renderRequests();
   persist();
   return true;
@@ -1571,8 +1622,8 @@ photoInput.addEventListener("change", async () => {
       const skippedNote = skipped ? ` · skipped ${skipped} already listed` : "";
       let message;
       if (fresh.length) message = `Added ${fresh.length} from the board${skippedNote}`;
-      else if (skipped) message = "Nothing new — everything on the board is already listed.";
-      else message = "Couldn't read any songs off that photo — try a closer, straighter shot.";
+      else if (skipped) message = "Nothing new. Everything on the board is already listed.";
+      else message = "Couldn't read any songs off that photo. Try a closer, straighter shot.";
       showScanResult(message);
     }
   } catch (err) {
@@ -1584,10 +1635,10 @@ photoInput.addEventListener("change", async () => {
       previewWrap.hidden = true;
       if (scanEndedBy === "timeout") {
         errorBox.textContent =
-          "That scan took too long — check your signal and try snapping it again.";
+          "That scan took too long. Check your signal and snap it again.";
         errorBox.hidden = false;
       } else {
-        showScanResult("Scan cancelled — nothing was added.");
+        showScanResult("Scan cancelled. Nothing was added.");
       }
     } else {
       // A fetch that never reached the server rejects with a TypeError and an
@@ -1595,7 +1646,7 @@ photoInput.addEventListener("change", async () => {
       // errors carry a user-facing `detail` and pass through.
       errorBox.textContent =
         err instanceof TypeError
-          ? "Couldn't reach the server — check your signal and try again."
+          ? "Couldn't reach the server. Check your signal and try again."
           : err.message;
       errorBox.hidden = false;
     }
@@ -1638,9 +1689,9 @@ function openReview() {
     const dupesNote = dupes ? ` (${dupes} already listed)` : "";
     reviewNote.textContent =
       `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
-      `Requests${dupesNote} — these need a look first.`;
+      `Requests${dupesNote}. These need a look first.`;
   } else if (dupes) {
-    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed — these need a look first.`;
+    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed. These need a look first.`;
   } else {
     reviewNote.textContent = "Fix any misreads, drop what you don't want, then add them to Requests.";
   }
@@ -1818,8 +1869,8 @@ function renderRequests() {
   // there, adding by name is the only door.
   requestsEmpty.textContent =
     viewMode === "room"
-      ? "No requests yet — add one above."
-      : "No requests yet — snap the board or add one above.";
+      ? "No requests yet. Add one above."
+      : "No requests yet. Snap the board, or add one above.";
   renderCount(requestsCount, visible.length);
   // Room mode gets read-only rows: the "room" context matches none of
   // renderRow's control branches, so no promote/bin buttons and no swipe.
@@ -1918,7 +1969,7 @@ function renderRow(row, index, context) {
     warn.className = "warn-icon";
     warn.appendChild(icon("warn"));
     const reason = row.explanation || "Needs a check";
-    warn.title = `${reason} — tap to see the photo`;
+    warn.title = `${reason}. Tap to see the photo`;
     warn.setAttribute("aria-label", `${reason}. Show the scanned photo to check this match.`);
     warn.onclick = () => openPhotoLightbox();
     title.append(" ", warn);
@@ -2031,7 +2082,7 @@ function renderRow(row, index, context) {
     handle.type = "button";
     handle.appendChild(icon("drag"));
     handle.title = "Drag or press ↑/↓ to reorder";
-    handle.setAttribute("aria-label", "Reorder — drag, or press up/down arrow keys");
+    handle.setAttribute("aria-label", "Reorder: drag, or press the up and down arrow keys");
     wireDrag(handle, li);
     wireKeyboardReorder(handle, row);
     // The handle is a full-height grab strip down the card's left edge, not a

@@ -114,7 +114,7 @@ def _parse(request):
         return _error(
             request,
             429,
-            "Too many requests — try again shortly",
+            "Easy there, that's a lot of scanning. Try again shortly",
             {"Retry-After": str(decision.retry_after)},
         )
 

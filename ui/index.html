@@ -188,7 +188,7 @@
          affordances (see #session-view.fresh in style.css; the class is kept
          current by updateSessionMode()). Shown/hidden purely via that class,
          never the hidden attribute, which would override the mode CSS. -->
-    <p class="fresh-intro">A fresh night — snap the board or add tunes by name.</p>
+    <p class="fresh-intro">A fresh night, an empty stage. Snap the board, or add tunes by name.</p>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
@@ -213,7 +213,7 @@
            played. Populated by renderGroup(). -->
       <div id="played-group" class="row-group" hidden></div>
       <ul id="upnext-rows"></ul>
-      <p id="upnext-empty" class="note">Nothing queued yet — promote a request below.</p>
+      <p id="upnext-empty" class="note">Nothing queued yet. Promote a request from below.</p>
     </section>
 
     <!-- "Requests" is the incoming pool: everything added by name or snapped off
@@ -227,7 +227,7 @@
            camera via the mode CSS. -->
       <!-- Room mode only (#86): the name is asked for in a sheet at the moment
            it's needed — picking a song — rather than by a field parked here
-           (see #room-name-sheet). Once set it's fire-and-forget, and this
+           (see #room-request-sheet). Once set it's fire-and-forget, and this
            quiet line is the only trace it leaves; "change" reopens the same
            sheet, since the settings gear that normally holds "Your name" is
            hidden in room mode. Shown via the hidden attribute by
@@ -242,7 +242,7 @@
            focus. Populated by flashNote(). -->
       <p id="add-feedback" class="flash-note" aria-live="polite" hidden></p>
       <ul id="requests-rows"></ul>
-      <p id="requests-empty" class="note">No requests yet — snap the board or add one above.</p>
+      <p id="requests-empty" class="note">No requests yet. Snap the board, or add one above.</p>
     </section>
 
     <!-- The scan ritual: the camera CTA sits below the pool (scanning is a
@@ -343,28 +343,34 @@
     </div>
   </div>
 
-  <!-- Room mode (#86): the one thing a requester from the room must supply is
-       a name, and the moment to ask is the moment they pick a song — the ask
-       is then contextual ("Requesting Hey Jude"), happens once per device,
-       and the pick can't be lost because submitting it IS this sheet's
-       button. Same centred-sheet idiom as starting a night, so it inherits
-       the backdrop, tap-outside dismissal and mobile focus behaviour instead
-       of re-inventing them inline. Also reached from "change" above, which
-       opens it with nothing to submit — a rename. -->
-  <div id="room-name-sheet" class="sheet-backdrop" hidden role="dialog"
-       aria-modal="true" aria-labelledby="room-name-title">
+  <!-- Room mode (#86, #88): the one sheet a room requester ever sees, doing
+       two jobs at the moment they pick a song. It CONFIRMS the request —
+       a room submitter has no bin, so a row in the pool is in for everyone,
+       and a mis-tap in a dark pub shouldn't be permanent — and on the first
+       request it also asks the name that will go on it. The name field is
+       dropped once there is a name, so a regular is one tap from adding.
+       Also reached from "change" above with no request attached: then it's
+       just a rename (see openRequestSheet). Same centred-sheet idiom as
+       starting a night, so it inherits the backdrop, tap-outside dismissal
+       and mobile focus behaviour instead of re-inventing them inline. -->
+  <div id="room-request-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="room-request-title">
     <div class="sheet">
-      <h2 id="room-name-title">Who’s asking?</h2>
-      <p id="room-name-song" class="note" hidden></p>
-      <label class="field">
-        <span>Your name</span>
-        <input type="text" id="room-name" autocomplete="name" placeholder="e.g. Alex">
-      </label>
-      <p class="note">It goes on your request, so the room knows whose tune it is.</p>
-      <div id="room-name-error" class="error" hidden></div>
+      <h2 id="room-request-title">Add this request?</h2>
+      <!-- The song is what's being confirmed, so it reads as the sheet's
+           subject rather than as a caption. -->
+      <p id="room-request-song" class="room-request-song" hidden></p>
+      <div id="room-request-name-field" hidden>
+        <label class="field">
+          <span>Your name</span>
+          <input type="text" id="room-request-name" autocomplete="name" placeholder="e.g. Alex">
+        </label>
+        <p class="note">It goes on your request, so the room knows whose tune it is.</p>
+      </div>
+      <div id="room-request-error" class="error" hidden></div>
       <div class="actions">
-        <button id="room-name-add">Add request</button>
-        <button id="room-name-cancel" class="secondary">Cancel</button>
+        <button id="room-request-confirm">Add request</button>
+        <button id="room-request-cancel" class="secondary">Cancel</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
     </div>

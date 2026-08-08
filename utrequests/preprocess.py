@@ -25,9 +25,7 @@ def prepare_image(data: bytes, max_edge: int | None = None) -> tuple[bytes, str]
     except (UnidentifiedImageError, OSError, ValueError) as e:
         # The message travels verbatim to the UI's error box, so keep it human —
         # PIL's own text leaks internals (BytesIO reprs) that mean nothing there.
-        raise ImageError(
-            "Could not read that image — try taking the photo again"
-        ) from e
+        raise ImageError("Could not read that image. Try taking the photo again") from e
 
     if max(image.size) > max_edge:
         image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)

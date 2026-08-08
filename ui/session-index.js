@@ -218,7 +218,7 @@ export async function listSessions({ max = DEFAULT_MAX } = {}) {
   // ask is the worst thing this screen can do, so a cache-only answer is an
   // error, not an empty list.
   if (snap.metadata.fromCache) {
-    throw new Error("Couldn’t reach Firestore — showing no sessions would be a lie");
+    throw new Error("Couldn’t reach Firestore. Showing no sessions would be a lie");
   }
   return snap.docs.map((d) => toEntry(d.id, d.data()));
 }

@@ -85,7 +85,7 @@ def get_client() -> genai.Client:
         )
     except google.auth.exceptions.GoogleAuthError as e:
         raise VisionConfigError(
-            "No Google Application Default Credentials — run "
+            "No Google Application Default Credentials. Run "
             "`gcloud auth application-default login` (Gemini runs through "
             f"Vertex AI in project {settings.gcp_project})."
         ) from e
