@@ -76,6 +76,8 @@ export. Every UI change is a mobile change first; desktop is incidental.
   three items** — when a fourth lands, merge related items into one sentence
   or drop the least important; the cap is enforced by
   `ui/tests/whats-new.test.js`.
+- **No em dashes in copy.** You can use whimsical/funny copy as long as it's
+  clear and understandable.
 - **Nothing in the session view may destroy other people's work.** "Start over"
   was removed for exactly this reason: in a shared session it wiped the night
   for everyone in the room. Row-level removal is fine (it's recoverable from the
