@@ -2025,10 +2025,10 @@ function votingEnabled() {
   return viewMode !== "room" || sync.getMeta().requestsOpen;
 }
 
-// The want button: a raised hand plus the count, pressed while this device is
-// one of the hands. The count is real text rather than a CSS pseudo-element so
-// screen readers get it, and the aria-label says the number out loud because a
-// bare "8" next to a hand icon doesn't say what it counts.
+// The want button: a thumb plus the count, pressed while this device is one of
+// them. The count is real text rather than a CSS pseudo-element so screen
+// readers get it, and the aria-label says the number out loud because a bare
+// "8" next to an icon doesn't say what it counts.
 function buildVoteButton(row) {
   const clientId = presence.getClientId();
   const count = voteCount(app.votes, row.uid);
