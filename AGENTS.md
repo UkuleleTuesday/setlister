@@ -24,8 +24,8 @@ Layout: `utrequests/` is the Python API, `ui/` the web app.
 
 ## Working in `ui/`
 
-- Keep runtime deps minimal and justified — `firebase` and `lucide` are the only
-  two.
+- Keep runtime deps minimal and justified; adding one is a decision, not a
+  detail.
 - **Everything happens inside a session.** Two views on one page, routed off
   `?session=<id>`. No local-only mode, and the URL is the only source of truth
   for which view shows, which is what makes the phone's Back button work.
