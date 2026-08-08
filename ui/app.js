@@ -65,6 +65,7 @@ const shareLinkButton = document.getElementById("share-link");
 const shareRoomLinkButton = document.getElementById("share-room-link");
 const shareVisibility = document.getElementById("share-visibility");
 const shareRequests = document.getElementById("share-requests");
+const shareRequestNote = document.getElementById("share-request-note");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
@@ -518,6 +519,13 @@ function applyViewMode() {
 function applyRequestsOpen() {
   const open = sync.getMeta().requestsOpen;
   sessionView.classList.toggle("requests-closed", !open);
+  // The note next to the share buttons describes the link's CURRENT state, so
+  // the panel can't promise people can add tunes while the switch says they
+  // can't. The second sentence is for the organiser reading this row: it
+  // governs the link, and nothing else, so the board is still the board.
+  shareRequestNote.textContent = open
+    ? "The request link is a requests-only view: people can add tunes, not change the set."
+    : "View only: people can open tonight's pool and watch it, but can't add to it. The whiteboard carries on as usual.";
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
@@ -827,10 +835,11 @@ async function onVisibilityChange() {
   }
 }
 
-// Open / Closed. Closing takes the add field off every room phone on the
-// session (live, through onMetaChange) and points them at the whiteboard; the
-// full app carries on regardless. Same optimistic-then-revert shape as
-// visibility, since both are one tap that has to survive a flaky pub wifi.
+// Taking requests / View only. Dropping to view-only takes the add field off
+// every room phone on the session (live, through onMetaChange) and points them
+// at the whiteboard; the full app carries on regardless. Same
+// optimistic-then-revert shape as visibility, since both are one tap that has
+// to survive a flaky pub wifi.
 async function onRequestsChange() {
   const open = shareRequests.value === "open";
   errorBox.hidden = true;
@@ -841,7 +850,7 @@ async function onRequestsChange() {
     renderRequests();
   } catch (err) {
     shareRequests.value = open ? "closed" : "open"; // the write didn't land
-    showSessionError(`Couldn’t change whether requests are open: ${err.message}`);
+    showSessionError(`Couldn’t change the request link: ${err.message}`);
   } finally {
     shareRequests.disabled = false;
   }
