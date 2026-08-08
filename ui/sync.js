@@ -246,8 +246,9 @@ function deepCopy(obj) {
 // serialized state and return the id. `applyStateFn` powers the live listener.
 //
 // `sessionMeta` is { createdBy, listed, createdAt }. The new-session sheet
-// offers no requests-open choice, so readMeta's default applies and every night
-// starts open. `createdAt` is a Date only when the creator picked a day other
+// offers no requests-open choice, and the doc gets no `requestsOpen` field at
+// all, so readMeta's default applies and every night starts open (see the
+// write below). `createdAt` is a Date only when the creator picked a day other
 // than today (backfilling a missed night, or prepping a future one); absent,
 // the server stamps the moment of creation.
 // When listed, the history row is written in the SAME transaction, so there can
@@ -273,9 +274,15 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
           edition: serialized.edition,
           createdBy: next.createdBy,
           listed: next.listed,
-          // Written explicitly even though absent would read the same, so the
-          // share panel's switch has a field to flip from day one.
-          requestsOpen: next.requestsOpen,
+          // No `requestsOpen` here, deliberately. Absent already reads as open
+          // (see readMeta), so writing it would buy nothing but a hard
+          // dependency on the new rules being live: firestore.rules deploys
+          // from main while the UI also ships to PR previews, and the two
+          // deploy jobs don't order themselves. A client that writes an
+          // unrecognised key gets the WHOLE set rejected by hasOnly, which
+          // would turn "start a session" — the app's primary action — into a
+          // permission error for as long as the bundle ran ahead of the rules.
+          // The switch mints the field on first use instead.
           createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
