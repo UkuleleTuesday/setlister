@@ -26,13 +26,12 @@ Layout: `utrequests/` is the Python API, `ui/` the web app.
 
 - Keep runtime deps minimal and justified; adding one is a decision, not a
   detail.
-- **Everything happens inside a session.** Two views on one page, routed off
-  `?session=<id>`. No local-only mode, and the URL is the only source of truth
-  for which view shows, which is what makes the phone's Back button work.
-- `upNext` and `requests` are the durable objects (`localStorage` + synced to
-  `sessions/{id}`); the review sheet is transient scan state.
-  `createdBy`/`listed`/`requestsOpen` are metadata sitting *outside* the synced
-  list state — see the `ui/sync.js` header.
+- **Don't add a local-only mode, and don't route off anything but
+  `?session=<id>`.** The URL being the only source of truth for which view shows
+  is what makes the phone's Back button work.
+- **Keep session metadata (`createdBy`/`listed`/`requestsOpen`) outside the
+  synced list state**, or the debounced row push starts writing it — see the
+  `ui/sync.js` header.
 - **Never reintroduce session titles or stored formatted dates.** Stored formats
   once mixed US and UK strings in one list and froze "today" into labels that
   outlived the day; a free-text name field read as mandatory and got filled with
