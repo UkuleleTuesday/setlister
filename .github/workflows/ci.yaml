@@ -155,11 +155,30 @@ jobs:
         working-directory: ui
 
   deploy-ui:
-    needs: [test, test-ui, build-ui]
+    # deploy-rules is in here for ORDERING, not for testing: firestore.rules uses
+    # a closed hasOnly key set, so a bundle that writes a field the live rules
+    # don't know about has its whole write rejected. Rules must land first. Both
+    # jobs used to hang off `test` alone and raced; on the run that added
+    # `requestsOpen` the UI went out 12 seconds ahead of the rules.
+    needs: [test, test-ui, build-ui, deploy-rules]
     # Runs for the production deploy (push to main) and for PR previews
     # (opened/reopened/synchronize). The `closed` event is handled by the
     # cleanup-ui-preview job instead.
+    #
+    # `!cancelled()` is load bearing: deploy-rules is main-only, and a SKIPPED
+    # job in `needs` skips its dependents by default, which would silently stop
+    # every PR preview. It also discards the implicit "all needs succeeded"
+    # gate, so each dependency is re-asserted below by hand — without those
+    # lines a failing test-ui would no longer block a deploy.
+    # (Hyphenated job ids need index syntax: `needs.test-ui` parses the hyphen
+    # as subtraction.)
     if: >-
+      !cancelled() &&
+      needs.test.result == 'success' &&
+      needs['test-ui'].result == 'success' &&
+      needs['build-ui'].result == 'success' &&
+      (needs['deploy-rules'].result == 'success' ||
+       needs['deploy-rules'].result == 'skipped') &&
       github.event.action != 'closed' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
        github.event_name == 'pull_request')
