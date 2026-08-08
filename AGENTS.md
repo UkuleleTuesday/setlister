@@ -2,6 +2,9 @@
 
 > **Agents: don't edit this file unless a human asked you to in that
 > conversation.** Suggest changes in your reply instead.
+>
+> **Docs and comments: optimize for clarity, readability and token count.** No
+> preamble, no filler prose. All markdown (this file included) and code comments.
 
 Guidance for AI agents and contributors working in this repo. See `README.md`
 for the full project overview, quickstart, and deployment details.
