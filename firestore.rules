@@ -76,7 +76,7 @@ function isValidSession(id) {
   let d = request.resource.data;
   // Session ids are `adjective-noun`, lowercase, one dash (e.g. misty-banjo).
   return id.matches('^[a-z]+-[a-z]+$')
-    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'createdAt', 'updatedAt', 'expiresAt'])
+    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'requestsOpen', 'createdAt', 'updatedAt', 'expiresAt'])
     && d.v == 1
     && d.rows is map
     && d.upNextOrder is list
@@ -93,6 +93,13 @@ function isValidSession(id) {
     && (!('name' in d) || (d.name is string && d.name.size() <= 80))
     && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
     && (!('listed' in d) || d.listed is bool)
+    // Whether the room's request link still accepts tunes (#86). Like room mode
+    // itself this is a VIEW, not a permission: `rows` below is an unvalidated
+    // map and anyone with the id can write, so closing requests stops the
+    // ordinary case (a link still circulating in the WhatsApp group), not a
+    // determined one. Absent means open, so no session predating the field
+    // silently shuts.
+    && (!('requestsOpen' in d) || d.requestsOpen is bool)
     // Legacy TTL field, tolerated but never written by current clients (see the
     // header). No cap: sessions are kept forever now, so the old
     // "expiresAt <= now + 31d" ceiling has nothing left to bound.

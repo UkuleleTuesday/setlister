@@ -573,6 +573,19 @@ body.room-mode #edition-note { display: none; }
   margin: 0 0 0.7rem; min-height: 24px;
   color: var(--muted); font-size: 0.9rem;
 }
+/* Closed to requests (#86): the room loses the way in, not the view. The add
+   field and its feedback line go, the note takes their place, and the pool
+   below stays so the room can still see what's coming. Full-app devices are
+   untouched by all of this — an organiser adds whatever the switch says. */
+.requests-closed-note { display: none; }
+#session-view.room.requests-closed #manual-add,
+#session-view.room.requests-closed #add-feedback,
+#session-view.room.requests-closed .room-identity { display: none; }
+#session-view.room.requests-closed .requests-closed-note {
+  display: block;
+  margin: 0 0 0.8rem;
+}
+
 /* The song named in the request sheet is what's being confirmed, so it reads
    as the sheet's subject rather than as a caption. Long titles wrap instead of
    widening the sheet. */

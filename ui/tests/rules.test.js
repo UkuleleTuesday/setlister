@@ -51,6 +51,7 @@ function session(overrides = {}) {
     name: "Tuesday 4 August 2026",
     createdBy: "Alex",
     listed: true,
+    requestsOpen: true,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -106,11 +107,12 @@ describe("sessions/{id}", () => {
     );
   });
 
-  it("accepts a legacy doc with no name/createdBy/listed at all", async () => {
+  it("accepts a legacy doc with no name/createdBy/listed/requestsOpen at all", async () => {
     const legacy = session();
     delete legacy.name;
     delete legacy.createdBy;
     delete legacy.listed;
+    delete legacy.requestsOpen;
     await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), legacy));
   });
 
@@ -135,6 +137,20 @@ describe("sessions/{id}", () => {
   it("rejects a non-boolean listed", async () => {
     await assertFails(
       setDoc(doc(db, "sessions", "misty-banjo"), session({ listed: "yes" }))
+    );
+  });
+
+  it("accepts requestsOpen either way", async () => {
+    for (const requestsOpen of [true, false]) {
+      await assertSucceeds(
+        setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen }))
+      );
+    }
+  });
+
+  it("rejects a non-boolean requestsOpen", async () => {
+    await assertFails(
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen: "closed" }))
     );
   });
 
