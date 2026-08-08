@@ -52,6 +52,7 @@ function session(overrides = {}) {
     createdBy: "Alex",
     listed: true,
     requestsOpen: true,
+    votes: {},
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -152,6 +153,44 @@ describe("sessions/{id}", () => {
     await assertFails(
       setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen: "closed" }))
     );
+  });
+
+  it("accepts a votes map, and a doc with no votes at all", async () => {
+    const ref = doc(db, "sessions", "misty-banjo");
+    await assertSucceeds(setDoc(ref, session({ votes: { "row-1": { "client-1": true } } })));
+    const legacy = session();
+    delete legacy.votes;
+    await assertSucceeds(setDoc(ref, legacy));
+  });
+
+  it("rejects a non-map votes", async () => {
+    await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ votes: 3 })));
+  });
+
+  // The whole reason votes live in their own top-level map instead of on the
+  // row: nested field paths merge per key, so the room all voting at once
+  // converges instead of last-writer-wins. Both path segments are UUIDs with
+  // hyphens, which is the part worth proving rather than assuming.
+  it("merges concurrent votes written as nested field paths", async () => {
+    const ref = doc(db, "sessions", "misty-banjo");
+    const row = "c028d0b7-0206-48a6-bd90-e9cf7cd8afc6";
+    const a = "9f1c2d3e-aaaa-4bbb-8ccc-111111111111";
+    const b = "7e2b1a0f-dddd-4eee-9fff-222222222222";
+    const base = session();
+    delete base.votes;
+    await setDoc(ref, base);
+
+    await assertSucceeds(updateDoc(ref, { [`votes.${row}.${a}`]: true }));
+    await assertSucceeds(updateDoc(ref, { [`votes.${row}.${b}`]: true }));
+    expect((await getDoc(ref)).data().votes[row]).toEqual({ [a]: true, [b]: true });
+
+    // Un-voting takes out one leaf and leaves the other standing.
+    await assertSucceeds(updateDoc(ref, { [`votes.${row}.${a}`]: deleteField() }));
+    expect((await getDoc(ref)).data().votes[row]).toEqual({ [b]: true });
+
+    // And a whole-row write can't take votes with it.
+    await assertSucceeds(updateDoc(ref, { [`rows.${row}`]: { uid: row } }));
+    expect((await getDoc(ref)).data().votes[row]).toEqual({ [b]: true });
   });
 
   it("rejects a malformed id", async () => {

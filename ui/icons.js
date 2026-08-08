@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Download,
   GripVertical,
+  Hand,
   Link,
   ListMinus,
   ListPlus,
@@ -58,6 +59,10 @@ const ICONS = {
   back: ArrowLeft,
   // Correcting a confidently-matched review row.
   edit: Pencil,
+  // "I want this one" on a request (#83). A raised hand, not a chevron or a
+  // thumb: the pool is a show of hands round a table, and an arrow next to the
+  // promote/demote pair would read as a third reorder control.
+  want: Hand,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text

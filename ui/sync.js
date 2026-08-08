@@ -8,7 +8,8 @@
 // The Firestore doc's schema is validated by firestore.rules (#26) — adding a
 // field here means editing the rules' hasOnly list in the same change:
 //   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
-//     edition, createdBy, listed, requestsOpen, createdAt, updatedAt }
+//     edition, votes: {uid: {clientId: true}}, createdBy, listed, requestsOpen,
+//     createdAt, updatedAt }
 //
 // `createdBy` / `listed` / `requestsOpen` are session METADATA (#77, #86), not
 // list state: they're deliberately outside serialize()/syncFields()/diff() so
@@ -189,6 +190,7 @@ export function serialize(state) {
     upNextOrder: state.upNext.map((row) => row.uid),
     requestsOrder: state.requests.map((row) => row.uid),
     edition: state.edition ?? null,
+    votes: state.votes ?? {},
   };
 }
 
@@ -221,7 +223,11 @@ export function deserialize(remote) {
       requests.push(rows[uid]);
     }
   }
-  return { upNext, requests, edition: remote?.edition ?? null };
+  // Votes (#83) are keyed by row uid rather than living on the row, so they
+  // ride alongside the lists rather than inside them. No healing needed: a vote
+  // for a row that no longer exists simply counts for nothing.
+  const votes = remote && typeof remote.votes === "object" && remote.votes ? remote.votes : {};
+  return { upNext, requests, edition: remote?.edition ?? null, votes };
 }
 
 // The doc carries v/createdAt/updatedAt/expiresAt too; the diff only cares
@@ -232,6 +238,7 @@ function syncFields(data) {
     upNextOrder: Array.isArray(data?.upNextOrder) ? data.upNextOrder : [],
     requestsOrder: Array.isArray(data?.requestsOrder) ? data.requestsOrder : [],
     edition: data?.edition ?? null,
+    votes: data && typeof data.votes === "object" && data.votes ? data.votes : {},
   };
 }
 
@@ -545,6 +552,31 @@ export function diff(prev, next, fx) {
   if (JSON.stringify(prev?.edition) !== JSON.stringify(next.edition)) {
     updates.edition = next.edition;
     changed = true;
+  }
+  // Votes (#83) go out as individual leaves — `votes.<rowUid>.<clientId>` —
+  // never as a whole map. That is the entire point of the field existing:
+  // Firestore merges nested paths per key, so everyone voting the same song at
+  // once converges, where a wholesale write would be last-writer-wins and lose
+  // all but one. Writing `updates.votes = next.votes` here would silently undo
+  // the design; ui/tests/rules.test.js proves the merge against the emulator.
+  const prevVotes = prev?.votes || {};
+  const nextVotes = next.votes || {};
+  const voters = (map, uid) => (map[uid] && typeof map[uid] === "object" ? map[uid] : {});
+  for (const uid of new Set([...Object.keys(prevVotes), ...Object.keys(nextVotes)])) {
+    const before = voters(prevVotes, uid);
+    const after = voters(nextVotes, uid);
+    for (const clientId of Object.keys(after)) {
+      if (!before[clientId]) {
+        updates[`votes.${uid}.${clientId}`] = true;
+        changed = true;
+      }
+    }
+    for (const clientId of Object.keys(before)) {
+      if (!after[clientId]) {
+        updates[`votes.${uid}.${clientId}`] = fx.deleteField();
+        changed = true;
+      }
+    }
   }
   return changed ? updates : null;
 }

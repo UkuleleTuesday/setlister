@@ -26,6 +26,7 @@ import {
   readLastRoomAdd,
   writeLastRoomAdd,
 } from "./room-limits.js";
+import { hasVoted, sortForDisplay, toggleVote, voteCount } from "./votes.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -162,6 +163,10 @@ let app = {
   name: "",
   upNext: [],
   requests: [],
+  // Upvotes on requests (#83): { rowUid: { clientId: true } }. Keyed by row
+  // rather than stored on it — see the header in votes.js for why that is a
+  // correctness requirement and not a preference.
+  votes: {},
   review: null,
   // Whether the collapsed played/bin groups are expanded. Pure UI state: not
   // persisted (a reload starts collapsed) and not synced (each peer keeps
@@ -332,6 +337,7 @@ function persist() {
       JSON.stringify({
         upNext: app.upNext,
         requests: app.requests,
+        votes: app.votes,
         edition: app.edition,
         name: app.name,
         // Persist the active session id so a reload silently rejoins (see
@@ -353,12 +359,11 @@ function persist() {
   // Every mutation already funnels through persist(), so this single choke
   // point pushes local changes to every session peer. sync ignores it (and the
   // Firestore chunk stays unloaded) when no session is active.
+  // Through sessionState() rather than a second literal: this listed the synced
+  // fields by hand and drifted the moment one was added, pushing everything
+  // except the new field and making it look like sync was dropping writes.
   if (sync.getSessionId()) {
-    sync.notifyLocalChange({
-      upNext: app.upNext,
-      requests: app.requests,
-      edition: app.edition,
-    });
+    sync.notifyLocalChange(sessionState());
   }
 }
 
@@ -377,6 +382,7 @@ function restore() {
     ) {
       app.upNext = saved.setlist;
     }
+    if (saved.votes && typeof saved.votes === "object") app.votes = saved.votes;
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
     // Lists with no session behind them can only come from a build predating
@@ -441,7 +447,12 @@ function saveCatalogueCache() {
 let hasCarryover = false;
 
 function sessionState() {
-  return { upNext: app.upNext, requests: app.requests, edition: app.edition };
+  return {
+    upNext: app.upNext,
+    requests: app.requests,
+    edition: app.edition,
+    votes: app.votes,
+  };
 }
 
 // Called by sync when a remote change arrives: swap in the fresh lists and
@@ -450,6 +461,7 @@ function sessionState() {
 function applyRemoteState(state) {
   app.upNext = state.upNext;
   app.requests = state.requests;
+  app.votes = state.votes || {};
   if (state.edition) app.edition = state.edition;
   renderUpNext();
   renderRequests();
@@ -1943,14 +1955,19 @@ function renderRequests() {
         : "No requests yet."
       : "No requests yet. Snap the board, or add one above.";
   renderCount(requestsCount, visible.length);
-  // Room mode gets read-only rows: the "room" context matches none of
-  // renderRow's control branches, so no promote/bin buttons and no swipe.
+  // Most-wanted first (#83). Display only: `requestsOrder` stays arrival order,
+  // because reordering the real array would rewrite that whole-array
+  // last-writer-wins field on every vote and fight every concurrent edit in the
+  // room. The sort is stable, so a tie keeps arrival order rather than
+  // reshuffling the pool under the MC's thumb.
+  //
+  // Room mode gets read-only rows apart from the want button: the "room"
+  // context matches none of renderRow's other control branches, so no
+  // promote/bin buttons and no swipe.
   requestsRows.replaceChildren(
-    ...app.requests
-      .map((e, i) =>
-        e.binned ? null : renderRow(e, i, viewMode === "room" ? "room" : "requests")
-      )
-      .filter(Boolean)
+    ...sortForDisplay(visible, app.votes).map((e, i) =>
+      renderRow(e, i, viewMode === "room" ? "room" : "requests")
+    )
   );
   // The bin group replaces the old standalone Bin section: every binned row
   // from both working lists (they stay in their home arrays so un-binning
@@ -1998,6 +2015,52 @@ function renderGroup(container, { iconName, noun, rows, open, onToggle, context 
     list.append(...rows.map((e, i) => renderRow(e, i, context)));
     container.appendChild(list);
   }
+}
+
+// A room device on a View-only link doesn't vote either: the share panel
+// promises those people can "open tonight's pool and watch it", and a live
+// control would make that copy a lie. The full app always votes — closing the
+// link is about the link.
+function votingEnabled() {
+  return viewMode !== "room" || sync.getMeta().requestsOpen;
+}
+
+// The want button: a raised hand plus the count, pressed while this device is
+// one of the hands. The count is real text rather than a CSS pseudo-element so
+// screen readers get it, and the aria-label says the number out loud because a
+// bare "8" next to a hand icon doesn't say what it counts.
+function buildVoteButton(row) {
+  const clientId = presence.getClientId();
+  const count = voteCount(app.votes, row.uid);
+  const mine = hasVoted(app.votes, row.uid, clientId);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "vote-button";
+  if (mine) button.classList.add("voted");
+  button.setAttribute("aria-pressed", mine ? "true" : "false");
+  button.title = mine ? "You want this one" : "I want this one";
+  button.setAttribute(
+    "aria-label",
+    count === 0
+      ? "I want this one, nobody has yet"
+      : `${mine ? "You and " : ""}${count} ${count === 1 ? "person wants" : "people want"} this one`
+  );
+  const tally = document.createElement("span");
+  tally.className = "vote-count";
+  tally.textContent = String(count);
+  button.append(icon("want"), tally);
+  button.onclick = () => toggleRowVote(row.uid);
+  return button;
+}
+
+// Optimistic like every other row mutation: flip it locally, re-render, and let
+// persist() carry it to the debounced push. diff() turns this into a single
+// `votes.<uid>.<clientId>` leaf write, so two people voting at once both land.
+function toggleRowVote(uid) {
+  app.votes = toggleVote(app.votes, uid, presence.getClientId());
+  renderRequests();
+  persist();
 }
 
 function renderRow(row, index, context) {
@@ -2171,6 +2234,19 @@ function renderRow(row, index, context) {
     demoteButton.onclick = () => demote(row.uid);
 
     tools.append(demoteButton);
+  }
+
+  // "I want this one" (#83), on both pool contexts. This is the ONE control a
+  // room device gets — everything else there is read-only — because the room
+  // saying what it wants is the entire point of the feature. It sits first in
+  // the tools row so the two lists' shared actions (promote, bin) keep the
+  // positions muscle memory expects.
+  //
+  // No confirm sheet and no cool-down, unlike a room request: a vote is
+  // reversible with a second tap, so the reasoning in room-limits.js (a request
+  // can't be taken back once it's in the pool) simply doesn't apply.
+  if ((context === "requests" || context === "room") && votingEnabled()) {
+    tools.append(buildVoteButton(row));
   }
 
   // A request is promoted into the running order; no reorder in the pool.
