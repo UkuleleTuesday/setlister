@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-Bplswc4s.js"></script>
+  <script type="module" crossorigin src="./assets/index-BQU6Ppgs.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-YD1KuCwM.css">
 </head>
 <body>
@@ -189,7 +189,7 @@
          affordances (see #session-view.fresh in style.css; the class is kept
          current by updateSessionMode()). Shown/hidden purely via that class,
          never the hidden attribute, which would override the mode CSS. -->
-    <p class="fresh-intro">A fresh night — snap the board or add tunes by name.</p>
+    <p class="fresh-intro">A fresh night, an empty stage. Snap the board, or add tunes by name.</p>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
@@ -214,7 +214,7 @@
            played. Populated by renderGroup(). -->
       <div id="played-group" class="row-group" hidden></div>
       <ul id="upnext-rows"></ul>
-      <p id="upnext-empty" class="note">Nothing queued yet — promote a request below.</p>
+      <p id="upnext-empty" class="note">Nothing queued yet. Promote a request from below.</p>
     </section>
 
     <!-- "Requests" is the incoming pool: everything added by name or snapped off
@@ -243,7 +243,7 @@
            focus. Populated by flashNote(). -->
       <p id="add-feedback" class="flash-note" aria-live="polite" hidden></p>
       <ul id="requests-rows"></ul>
-      <p id="requests-empty" class="note">No requests yet — snap the board or add one above.</p>
+      <p id="requests-empty" class="note">No requests yet. Snap the board, or add one above.</p>
     </section>
 
     <!-- The scan ritual: the camera CTA sits below the pool (scanning is a
