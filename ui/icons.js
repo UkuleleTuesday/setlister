@@ -59,10 +59,7 @@ const ICONS = {
   back: ArrowLeft,
   // Correcting a confidently-matched review row.
   edit: Pencil,
-  // "I want this one" on a request (#83). A thumb rather than an arrow, a heart
-  // or a person: an up arrow would be the row's second upward meaning (promote
-  // already moves a song up into Up next), a heart says how you feel where this
-  // is a public tally, and a person glyph collides with the "Here now" roster.
+  // "I want this one" on a request (#83).
   want: ThumbsUp,
 };
 
