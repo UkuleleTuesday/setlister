@@ -22,6 +22,7 @@ import {
   RotateCcw,
   Settings,
   Sparkles,
+  ThumbsUp,
   TriangleAlert,
   Trash2,
   X,
@@ -58,6 +59,8 @@ const ICONS = {
   back: ArrowLeft,
   // Correcting a confidently-matched review row.
   edit: Pencil,
+  // "I want this one" on a request (#83).
+  want: ThumbsUp,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text

@@ -76,7 +76,7 @@ function isValidSession(id) {
   let d = request.resource.data;
   // Session ids are `adjective-noun`, lowercase, one dash (e.g. misty-banjo).
   return id.matches('^[a-z]+-[a-z]+$')
-    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'requestsOpen', 'createdAt', 'updatedAt', 'expiresAt'])
+    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'requestsOpen', 'votes', 'createdAt', 'updatedAt', 'expiresAt'])
     && d.v == 1
     && d.rows is map
     && d.upNextOrder is list
@@ -100,6 +100,14 @@ function isValidSession(id) {
     // determined one. Absent means open, so no session predating the field
     // silently shuts.
     && (!('requestsOpen' in d) || d.requestsOpen is bool)
+    // Upvotes on requests (#83): { rowUid: { clientId: true } }. Its own
+    // top-level map rather than a field on the row, because `rows.<uid>` writes
+    // replace the whole row (see diff() in ui/sync.js) — votes living there
+    // would clobber each other in exactly the moment the room all votes at
+    // once. Only `is map`: the contents are as unvalidated as `rows`, and
+    // one-vote-per-person is a client-side honour rule, not something rules can
+    // enforce without auth.
+    && (!('votes' in d) || d.votes is map)
     // Legacy TTL field, tolerated but never written by current clients (see the
     // header). No cap: sessions are kept forever now, so the old
     // "expiresAt <= now + 31d" ceiling has nothing left to bound.

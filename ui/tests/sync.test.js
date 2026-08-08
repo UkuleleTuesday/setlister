@@ -55,12 +55,9 @@ describe("serialize / deserialize", () => {
   });
 
   it("survives a malformed or empty remote doc", () => {
-    expect(deserialize(null)).toEqual({ upNext: [], requests: [], edition: null });
-    expect(deserialize({ rows: "nope", upNextOrder: 3 })).toEqual({
-      upNext: [],
-      requests: [],
-      edition: null,
-    });
+    const empty = { upNext: [], requests: [], edition: null, votes: {} };
+    expect(deserialize(null)).toEqual(empty);
+    expect(deserialize({ rows: "nope", upNextOrder: 3, votes: "nope" })).toEqual(empty);
   });
 });
 
@@ -159,5 +156,40 @@ describe("diff", () => {
     const updates = diff(null, base, fx);
     expect(updates).toHaveProperty("rows.a");
     expect(updates).toHaveProperty("upNextOrder");
+  });
+
+  // Votes (#83) must go out leaf by leaf. A wholesale `votes` write would be
+  // last-writer-wins, which is precisely what the separate field exists to
+  // avoid: the room votes for the same song at the same moment, and all of
+  // those taps have to survive.
+  describe("votes", () => {
+    const voted = (votes) => ({ ...structuredClone(base), votes });
+
+    it("writes one leaf per new vote, never the whole map", () => {
+      const updates = diff(voted({}), voted({ a: { alex: true } }), fx);
+      expect(updates).toEqual({ "votes.a.alex": true });
+      expect(updates).not.toHaveProperty("votes");
+    });
+
+    it("deletes just the leaf when someone takes their vote back", () => {
+      const updates = diff(voted({ a: { alex: true, sam: true } }), voted({ a: { sam: true } }), fx);
+      expect(updates).toEqual({ "votes.a.alex": DELETED });
+    });
+
+    it("leaves a peer's vote alone while adding your own", () => {
+      const updates = diff(voted({ a: { sam: true } }), voted({ a: { sam: true, alex: true } }), fx);
+      expect(updates).toEqual({ "votes.a.alex": true });
+    });
+
+    it("clears the last leaf when a row's key is dropped entirely", () => {
+      expect(diff(voted({ a: { alex: true } }), voted({}), fx)).toEqual({
+        "votes.a.alex": DELETED,
+      });
+    });
+
+    it("stays quiet when the votes are unchanged", () => {
+      const votes = { a: { alex: true } };
+      expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
+    });
   });
 });
