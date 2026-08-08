@@ -86,6 +86,16 @@ export. Every UI change is a mobile change first; desktop is incidental.
   suite: run `npm run test:emulator` in `ui/` after touching it. Adding a field
   to a Firestore doc means editing the rules' `hasOnly` list in the same change,
   or the write is silently denied.
+- **A new field must not be written on the session-creation path in the release
+  that introduces it.** The rules and the bundle deploy from the same merge but
+  as separate jobs, so briefly one is live without the other (CI now makes the
+  rules go first, and a browser running a cached bundle can be behind for far
+  longer than that). `hasOnly` rejects the *entire* write over one unknown key,
+  so a field written by `createSession` turns that window into a broken "New
+  session" button rather than one degraded control. Give the field a safe
+  absent-means-X default, let a deliberate user action mint it, and only move it
+  onto the create path in a later release, if at all. `requestsOpen` in
+  `ui/sync.js` is the worked example.
 - Match the surrounding style: small focused functions, comments that explain
   *why* (especially the mobile/touch reasoning), not *what*.
 
