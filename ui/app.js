@@ -257,7 +257,7 @@ function onRequestSheetConfirm() {
   // so — the sheet just covered the pool where the row landed — and set the
   // expectation for the cool-down before it bites.
   if (entry && addManualEntry(entry)) {
-    flashNote(addFeedback, `Added “${entry.title}” — you can add another in a minute.`);
+    flashNote(addFeedback, `Added “${entry.title}”. Next one in a minute.`);
   }
 }
 
@@ -590,8 +590,8 @@ async function applyRoute(id) {
     sync.leaveSession();
     showHomeError(
       err?.notFound
-        ? "That session wasn’t found — it may have been deleted."
-        : `Couldn’t open that session — ${err.message}`
+        ? "That session wasn’t found. It may have been deleted."
+        : `Couldn’t open that session: ${err.message}`
     );
     await navigateTo(null, { replace: true });
   }
@@ -628,8 +628,8 @@ function updateShareUi() {
   let label;
   if (!id) label = "Share session";
   else if (connectedCount > 1)
-    label = `Sharing session ${id} — ${connectedCount} people here, tap for options`;
-  else label = `Sharing session ${id} — tap for options`;
+    label = `Sharing session ${id}, ${connectedCount} people here. Tap for options`;
+  else label = `Sharing session ${id}. Tap for options`;
   shareToggle.setAttribute("aria-label", label);
   if (id) shareSessionIdEl.textContent = id;
   else setSharePanelOpen(false); // no session → nothing to show
@@ -789,7 +789,7 @@ async function onVisibilityChange() {
     await sync.setSessionListed(listed);
   } catch (err) {
     shareVisibility.value = listed ? "unlisted" : "shared"; // the write didn't land
-    showSessionError(`Couldn’t change the session’s visibility — ${err.message}`);
+    showSessionError(`Couldn’t change the session’s visibility: ${err.message}`);
   } finally {
     shareVisibility.disabled = false;
   }
@@ -823,7 +823,7 @@ sync.onStatusChange((status) => {
     presence.startPresence(status.id, () => app.name);
   } else if (status.status === "expired") {
     presence.stopPresence();
-    showHomeError("That session is no longer there — it looks like it was deleted.");
+    showHomeError("That session is no longer there. It looks like it was deleted.");
     navigateTo(null, { replace: true });
   } else if (status.status === "left") {
     presence.stopPresence();
@@ -875,7 +875,7 @@ async function refreshSessionList() {
     sessionListStatus.hidden = entries.length > 0;
     sessionListStatus.textContent = entries.length
       ? ""
-      : "No sessions yet — start one above.";
+      : "No sessions yet. Start one above.";
   } catch {
     sessionListEl.replaceChildren();
     sessionListStatus.hidden = false;
@@ -1045,7 +1045,7 @@ async function onSheetStart() {
   } catch (err) {
     // Keep the sheet open with the picked date intact so Start is one tap away
     // once they're back on wifi. There is no local-only mode to fall back to.
-    sheetError.textContent = `Couldn’t start a session — ${err.message}`;
+    sheetError.textContent = `Couldn’t start a session: ${err.message}`;
     sheetError.hidden = false;
     sheetStart.disabled = false;
     sheetStart.replaceChildren(document.createTextNode("Start"));
@@ -1263,7 +1263,7 @@ function makeCombobox({ placeholder, onPick }) {
   // catalogue unreachable, or a genuine no-match.
   function emptyStateMessage() {
     if (catalogueStatus === "loading") return "Loading the songbook…";
-    if (catalogueStatus === "error") return "Couldn't load the songbook — check your connection";
+    if (catalogueStatus === "error") return "Couldn't load the songbook. Check your connection";
     return `No matches for “${input.value.trim()}”`;
   }
 
@@ -1402,7 +1402,7 @@ function onManualPick(entry) {
   if (waiting) {
     flashNote(
       addFeedback,
-      `That's your request in — you can add another in ${cooldownLabel(waiting)}.`
+      `One at a time! You can add another in ${cooldownLabel(waiting)}.`
     );
     return;
   }
@@ -1622,8 +1622,8 @@ photoInput.addEventListener("change", async () => {
       const skippedNote = skipped ? ` · skipped ${skipped} already listed` : "";
       let message;
       if (fresh.length) message = `Added ${fresh.length} from the board${skippedNote}`;
-      else if (skipped) message = "Nothing new — everything on the board is already listed.";
-      else message = "Couldn't read any songs off that photo — try a closer, straighter shot.";
+      else if (skipped) message = "Nothing new. Everything on the board is already listed.";
+      else message = "Couldn't read any songs off that photo. Try a closer, straighter shot.";
       showScanResult(message);
     }
   } catch (err) {
@@ -1635,10 +1635,10 @@ photoInput.addEventListener("change", async () => {
       previewWrap.hidden = true;
       if (scanEndedBy === "timeout") {
         errorBox.textContent =
-          "That scan took too long — check your signal and try snapping it again.";
+          "That scan took too long. Check your signal and snap it again.";
         errorBox.hidden = false;
       } else {
-        showScanResult("Scan cancelled — nothing was added.");
+        showScanResult("Scan cancelled. Nothing was added.");
       }
     } else {
       // A fetch that never reached the server rejects with a TypeError and an
@@ -1646,7 +1646,7 @@ photoInput.addEventListener("change", async () => {
       // errors carry a user-facing `detail` and pass through.
       errorBox.textContent =
         err instanceof TypeError
-          ? "Couldn't reach the server — check your signal and try again."
+          ? "Couldn't reach the server. Check your signal and try again."
           : err.message;
       errorBox.hidden = false;
     }
@@ -1689,9 +1689,9 @@ function openReview() {
     const dupesNote = dupes ? ` (${dupes} already listed)` : "";
     reviewNote.textContent =
       `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
-      `Requests${dupesNote} — these need a look first.`;
+      `Requests${dupesNote}. These need a look first.`;
   } else if (dupes) {
-    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed — these need a look first.`;
+    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed. These need a look first.`;
   } else {
     reviewNote.textContent = "Fix any misreads, drop what you don't want, then add them to Requests.";
   }
@@ -1869,8 +1869,8 @@ function renderRequests() {
   // there, adding by name is the only door.
   requestsEmpty.textContent =
     viewMode === "room"
-      ? "No requests yet — add one above."
-      : "No requests yet — snap the board or add one above.";
+      ? "No requests yet. Add one above."
+      : "No requests yet. Snap the board, or add one above.";
   renderCount(requestsCount, visible.length);
   // Room mode gets read-only rows: the "room" context matches none of
   // renderRow's control branches, so no promote/bin buttons and no swipe.
@@ -1969,7 +1969,7 @@ function renderRow(row, index, context) {
     warn.className = "warn-icon";
     warn.appendChild(icon("warn"));
     const reason = row.explanation || "Needs a check";
-    warn.title = `${reason} — tap to see the photo`;
+    warn.title = `${reason}. Tap to see the photo`;
     warn.setAttribute("aria-label", `${reason}. Show the scanned photo to check this match.`);
     warn.onclick = () => openPhotoLightbox();
     title.append(" ", warn);
@@ -2082,7 +2082,7 @@ function renderRow(row, index, context) {
     handle.type = "button";
     handle.appendChild(icon("drag"));
     handle.title = "Drag or press ↑/↓ to reorder";
-    handle.setAttribute("aria-label", "Reorder — drag, or press up/down arrow keys");
+    handle.setAttribute("aria-label", "Reorder: drag, or press the up and down arrow keys");
     wireDrag(handle, li);
     wireKeyboardReorder(handle, row);
     // The handle is a full-height grab strip down the card's left edge, not a

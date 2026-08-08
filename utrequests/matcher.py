@@ -123,7 +123,7 @@ def match_row(row: BoardRow, catalogue: Catalogue) -> MatchedRow:
                 0.85,
                 entry,
                 f"Title matches “{entry.display}” but the written page is off by "
-                f"{abs(delta)} — photo of an older songbook edition?",
+                f"{abs(delta)}. Photo of an older songbook edition?",
                 candidates[1:],
             )
         alternatives = candidates[1:]
@@ -171,7 +171,7 @@ def match_row(row: BoardRow, catalogue: Catalogue) -> MatchedRow:
         MatchMethod.NONE,
         0.0,
         None,
-        "No confident match — pick the song manually",
+        "No confident match. Pick the song manually",
         candidates,
     )
 

@@ -2,19 +2,19 @@
   {
     "date": "2026-08-08",
     "items": [
-      "Requesting from the room now asks you to confirm before your tune goes in — there's no taking it back once it's in the pool — and there's a minute's pause between requests, so one keen phone can't fill the night on its own."
+      "Requesting from the room now asks you to confirm before your tune goes in, because there's no taking it back once it's in the pool. There's also a minute's pause between requests, so one very keen phone can't fill the whole night on its own."
     ]
   },
   {
     "date": "2026-08-06",
     "items": [
-      "Take requests from the room: “Share request link” in the share panel opens a requests-only view — anyone who gets the link can add tunes (with their name) from their own phone, without being able to touch the running order."
+      "Take requests from the room: “Share request link” in the share panel opens a requests-only view. Anyone who gets the link can add tunes (with their name) from their own phone, without being able to touch the running order."
     ]
   },
   {
     "date": "2026-08-05",
     "items": [
-      "Every night is now its own session, named by its date — starting a new one no longer wipes the last, and the app opens on the club's session history so you can revisit a past night or set one up in advance.",
+      "Every night is now its own session, named by its date. Starting a new one no longer wipes the last, and the app opens on the club's session history so you can revisit a past night or set one up in advance.",
       "Now called Setlister, the app got a session-screen redesign: the night's date is the title, the next tune is highlighted, adding by name sits right above the request pool, a fresh night opens on just the camera, and copy/download live on the “Up next” heading.",
       "Snapping the board is faster and no longer a one-way wait: the photo is shrunk on your phone before it's sent, clear matches go straight to Requests (you only review what the scanner wasn't sure about, and nothing already listed is added twice), and a slow scan can be cancelled instead of leaving you stuck."
     ]
@@ -38,9 +38,9 @@
     "date": "2026-07-15",
     "items": [
       "Share a session: everyone with the link sees the same lists, live.",
-      "Set your name in settings — songs show who added them.",
+      "Set your name in settings, and songs will show who added them.",
       "Swipe right to mark a song played, swipe left to bin it.",
-      "Requests and Up next are separate lists — promote what you'll actually play.",
+      "Requests and Up next are separate lists. Promote what you'll actually play.",
       "Type-ahead songbook search when adding a request by name."
     ]
   },
