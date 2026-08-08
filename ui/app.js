@@ -64,6 +64,7 @@ const shareSessionNameEl = document.getElementById("share-session-name");
 const shareLinkButton = document.getElementById("share-link");
 const shareRoomLinkButton = document.getElementById("share-room-link");
 const shareVisibility = document.getElementById("share-visibility");
+const shareRequests = document.getElementById("share-requests");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
@@ -252,6 +253,12 @@ function onRequestSheetConfirm() {
   const entry = requestSheetEntry;
   closeRequestSheet();
   renderRoomIdentity();
+  // The door can shut while this sheet is open. applyRequestsOpen() dismisses
+  // it when that snapshot arrives, but a tap racing the snapshot gets here.
+  if (entry && !sync.getMeta().requestsOpen) {
+    flashNote(addFeedback, "Requests just closed. Try the whiteboard of wishes!");
+    return;
+  }
   // addManualEntry re-runs the duplicate guard (the pool may have moved while
   // the sheet was open) and flashes its own note if it refuses. On success say
   // so — the sheet just covered the pool where the row landed — and set the
@@ -493,8 +500,28 @@ function applyViewMode() {
   const room = viewMode === "room" && !sessionView.hidden;
   sessionView.classList.toggle("room", room);
   document.body.classList.toggle("room-mode", room);
+  // Before the first paint, so a device landing on a closed session never
+  // flashes an add field it can't use.
+  applyRequestsOpen();
   // Entering room mode decides which of the name input / identity line shows.
   if (room) renderRoomIdentity();
+}
+
+// Whether this session still takes requests from the room (#86). The class is
+// what the room-mode CSS keys off; it's set in both views because the switch is
+// flipped from the full app and read by the room one, and only the room rules
+// act on it.
+//
+// Called from applyViewMode (arrival) and renderSessionMeta (a peer's flip
+// landing live), so there is no path where a room phone keeps the add field
+// after the door shuts.
+function applyRequestsOpen() {
+  const open = sync.getMeta().requestsOpen;
+  sessionView.classList.toggle("requests-closed", !open);
+  // A phone left holding the confirm sheet when the organiser closed up would
+  // otherwise still land its request on the next tap. Dismissing is the same
+  // "no" as tapping the backdrop.
+  if (!open && viewMode === "room" && !requestSheet.hidden) closeRequestSheet();
 }
 
 function setView(view) {
@@ -656,6 +683,11 @@ function renderSessionMeta(meta) {
   if (!sessionView.hidden) headerTitle.textContent = currentSessionLabel();
   shareSessionNameEl.textContent = currentSessionLabel();
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
+  shareRequests.value = meta.requestsOpen ? "open" : "closed";
+  applyRequestsOpen();
+  // The room's empty note changes with the switch, and a room device may be
+  // sitting on this session right now.
+  renderRequests();
   updateDocumentTitle();
 }
 sync.onMetaChange(renderSessionMeta);
@@ -795,10 +827,31 @@ async function onVisibilityChange() {
   }
 }
 
+// Open / Closed. Closing takes the add field off every room phone on the
+// session (live, through onMetaChange) and points them at the whiteboard; the
+// full app carries on regardless. Same optimistic-then-revert shape as
+// visibility, since both are one tap that has to survive a flaky pub wifi.
+async function onRequestsChange() {
+  const open = shareRequests.value === "open";
+  errorBox.hidden = true;
+  shareRequests.disabled = true;
+  try {
+    await sync.setRequestsOpen(open);
+    applyRequestsOpen();
+    renderRequests();
+  } catch (err) {
+    shareRequests.value = open ? "closed" : "open"; // the write didn't land
+    showSessionError(`Couldn’t change whether requests are open: ${err.message}`);
+  } finally {
+    shareRequests.disabled = false;
+  }
+}
+
 shareToggle.addEventListener("click", onShareTap);
 shareLinkButton.addEventListener("click", shareSessionLink);
 shareRoomLinkButton.addEventListener("click", shareRoomLink);
 shareVisibility.addEventListener("change", onVisibilityChange);
+shareRequests.addEventListener("change", onRequestsChange);
 
 // Same forgiving dismissal as the settings popover: tap outside or Escape.
 document.addEventListener("click", (event) => {
@@ -1398,6 +1451,12 @@ function onManualPick(entry) {
     addManualEntry(entry);
     return;
   }
+  // Belt and braces: the combobox is already gone when requests are closed
+  // (#86), so this only catches the flip landing between paint and tap.
+  if (!sync.getMeta().requestsOpen) {
+    flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
+    return;
+  }
   const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
   if (waiting) {
     flashNote(
@@ -1866,10 +1925,13 @@ function renderRequests() {
   const visible = app.requests.filter((e) => !e.binned);
   requestsEmpty.hidden = visible.length > 0;
   // The empty note mentions snapping the board, but room mode has no camera —
-  // there, adding by name is the only door.
+  // there, adding by name is the only door, and once requests are closed (#86)
+  // there is no door at all, so pointing at one above would be a lie.
   requestsEmpty.textContent =
     viewMode === "room"
-      ? "No requests yet. Add one above."
+      ? sync.getMeta().requestsOpen
+        ? "No requests yet. Add one above."
+        : "No requests yet."
       : "No requests yet. Snap the board, or add one above.";
   renderCount(requestsCount, visible.length);
   // Room mode gets read-only rows: the "room" context matches none of

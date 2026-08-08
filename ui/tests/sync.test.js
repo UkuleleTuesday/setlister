@@ -88,12 +88,39 @@ describe("readMeta", () => {
   });
 
   it("survives a missing document", () => {
-    expect(readMeta(null)).toEqual({ createdBy: "", listed: false, legacy: true });
+    expect(readMeta(null)).toEqual({
+      createdBy: "",
+      listed: false,
+      requestsOpen: true,
+      legacy: true,
+    });
   });
 
   it("ignores wrong-typed fields rather than trusting them", () => {
     const meta = readMeta({ createdBy: null, listed: "yes" });
-    expect(meta).toEqual({ createdBy: "", listed: false, legacy: false });
+    expect(meta).toEqual({
+      createdBy: "",
+      listed: false,
+      requestsOpen: true,
+      legacy: false,
+    });
+  });
+
+  // requestsOpen defaults the OTHER way to listed: every session that exists
+  // predates the switch and has been taking requests all along, so absent has
+  // to mean open. Getting this backwards would shut the door on the club's
+  // whole history the moment the change deployed.
+  it("treats a missing requestsOpen as open", () => {
+    expect(readMeta({ createdBy: "" }).requestsOpen).toBe(true);
+    expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBe(true);
+  });
+
+  it("closes only on an explicit false", () => {
+    expect(readMeta({ requestsOpen: false }).requestsOpen).toBe(false);
+    expect(readMeta({ requestsOpen: true }).requestsOpen).toBe(true);
+    // A wrong-typed value is not a close: falling open beats a session nobody
+    // can request from because a stray write put a string in the field.
+    expect(readMeta({ requestsOpen: "no" }).requestsOpen).toBe(true);
   });
 });
 

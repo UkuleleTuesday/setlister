@@ -49,6 +49,18 @@
         </select>
       </label>
       <p class="note">Anyone with the link can open it either way.</p>
+      <!-- Whether the request link below still takes tunes (#86). Sits next to
+           Visibility because both are things you decide about the night rather
+           than about the lists, and directly above the request link it governs.
+           Closing sends the room back to the physical whiteboard; it does not
+           touch the full app, so an organiser keeps adding either way. -->
+      <label class="field">
+        <span>Requests</span>
+        <select id="share-requests">
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+      </label>
       <!-- "Who's here": the live roster of people connected to this session.
            Populated by renderPresence(); "you" is marked, and unnamed peers
            show their generated default name. -->
@@ -237,6 +249,14 @@
         <button id="room-identity-change" class="link-button" type="button">change</button>
       </p>
       <div id="manual-add" class="manual-add"></div>
+      <!-- What replaces the add field once the organiser closes the session to
+           requests (#86). Room mode only, and shown purely by the mode CSS (no
+           hidden attribute) so a room device that loads a closed session never
+           flashes a combobox it can't use. The pool below stays: the room still
+           gets to watch what's coming. -->
+      <p id="requests-closed-note" class="requests-closed-note note">
+        Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
+      </p>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving
            focus. Populated by flashNote(). -->
