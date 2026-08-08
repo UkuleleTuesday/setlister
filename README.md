@@ -124,6 +124,8 @@ presence, session index, dedupe, downscaling) and no framework; `firebase` and
 cd ui
 npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
+npm run build         # production bundle into ui/dist
+npm run preview       # serve that build locally
 ```
 
 `ui/tests/rules.test.js` runs against the Firestore emulator and covers
