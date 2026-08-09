@@ -51,11 +51,21 @@ describe("sessionDateLabel", () => {
     expect(sessionDateLabel(started, at(2026, 7, 5, 10, 0))).toBe("Yesterday");
   });
 
-  it("uses a bare weekday inside the last week", () => {
-    // Only one Tuesday can fall in a 7-day window, so no "Last " prefix is
-    // needed — and none of the ambiguity one would bring.
-    expect(sessionDateLabel(at(2026, 6, 30), NOW)).toBe("Thursday");
-    expect(sessionDateLabel(at(2026, 6, 29), NOW)).toBe("Wednesday");
+  it("stamps a night beyond yesterday with its date, weekday kept off-Tuesday", () => {
+    // A bare "Thursday" said when, a bare "Tuesday" said nothing to a club
+    // that meets every Tuesday — so beyond the neighbouring nights it's the
+    // date, with the weekday only where it's the interesting part.
+    expect(sessionDateLabel(at(2026, 6, 30), NOW)).toMatch(/^Thursday /);
+    expect(sessionDateLabel(at(2026, 6, 29), NOW)).toMatch(/^Wednesday /);
+  });
+
+  it("gives a past club Tuesday inside the week the bare date", () => {
+    // Viewed on a Sunday evening, the previous Tuesday is 5 nights back:
+    // "Tuesday" alone wouldn't say which one, the date does.
+    const sunday = new Date(2026, 7, 9, 21, 0);
+    expect(sessionDateLabel(at(2026, 7, 4, 20, 14), sunday)).toBe(
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 4))
+    );
   });
 
   it("drops to a date once a week has passed", () => {
