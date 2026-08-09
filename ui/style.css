@@ -418,7 +418,6 @@ h2 .count { color: #999; font-weight: 600; letter-spacing: 0.04em; }
   font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere;
 }
 .next-session-meta { display: block; margin-top: 0.2rem; color: #6b6b6b; font-size: 0.85rem; }
-.next-session-cta { display: block; margin-top: 0.5rem; color: var(--accent); font-size: 0.85rem; font-weight: 600; }
 /* Further prepped nights read as joinable — accented like the hero, a notch
    quieter — where a past night keeps the plain card. */
 .session-item.upcoming { border-color: var(--accent); box-shadow: var(--shadow-next); }
