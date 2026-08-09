@@ -981,9 +981,11 @@ function renderNextSession(entry) {
   meta.className = "next-session-meta";
   meta.textContent = startedByText(entry);
 
+  // Promises only what's always true: a prepped future night has no set to
+  // "see" yet, but there's always a pool to look at and add to.
   const cta = document.createElement("span");
   cta.className = "next-session-cta";
-  cta.textContent = "Open it to see the set and request a song";
+  cta.textContent = "See what's on and add your requests";
 
   card.append(kicker, name, meta, cta);
   nextSessionEl.replaceChildren(card);
