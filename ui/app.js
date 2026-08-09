@@ -1028,7 +1028,7 @@ function renderSessionList(entries) {
 
   renderNextSession(upcoming[0]);
   upcomingListEl.replaceChildren(...upcoming.slice(1).map((e) => sessionListItem(e, "upcoming")));
-  upcomingHeading.hidden = upcoming.length < 2;
+  upcomingHeading.hidden = upcoming.length === 0;
 
   // Never hide a single item behind a tap: at the threshold, one more row
   // costs less than a one-row disclosure.
