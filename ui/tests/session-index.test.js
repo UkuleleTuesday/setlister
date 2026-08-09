@@ -81,14 +81,16 @@ describe("sessionDateLabel", () => {
     expect(sessionDateLabel(at(2026, 7, 5, 20), NOW)).toBe("Tomorrow");
   });
 
-  it("prefixes Next inside the coming week, where a bare weekday would read as last week", () => {
-    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toBe("Next Friday"); // Fri 7 Aug
-    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toBe("Next Monday"); // Mon 10 Aug
+  it("stamps a night beyond tomorrow with its date, never a Next prefix", () => {
+    // "Next Friday" above a past "Tuesday" put two relative weekdays on one
+    // screen; ahead of tomorrow the concrete date is the label, weekday kept
+    // for any night that isn't the club's Tuesday.
+    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toMatch(/^Friday /); // Fri 7 Aug
+    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toMatch(/^Monday /); // Mon 10 Aug
   });
 
-  it("gives next club Tuesday the bare date — exactly 7 nights out, past the Next window", () => {
-    // 11 Aug 2026 is the next Tuesday: a full week away, so the weekday alone
-    // would be ambiguous and "Next Tuesday" never renders.
+  it("gives next club Tuesday the bare date", () => {
+    // 11 Aug 2026 is the next Tuesday — the club's normal night, so no weekday.
     expect(sessionDateLabel(at(2026, 7, 11), NOW)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11))
     );

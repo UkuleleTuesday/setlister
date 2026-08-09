@@ -98,15 +98,15 @@ export function sessionDateLabel(date, now = new Date()) {
   if (days === 0) return isEvening(date) ? "Tonight" : "Today";
   if (days === 1) return "Yesterday";
   if (days === -1) return "Tomorrow";
-  // Inside a week only one Tuesday can exist, so the bare weekday is
+  // Inside the PAST week only one Tuesday can exist, so the bare weekday is
   // unambiguous — and it dodges the "last Tuesday means which Tuesday?"
   // argument that a "Last " prefix would start.
   if (days > 1 && days < 7) return WEEKDAY_FORMAT.format(date);
-  // Ahead, the bare weekday would read as LAST week, so it needs the prefix.
-  // Note next club Tuesday is exactly 7 nights from a Tuesday, so it falls
-  // through to the date stamp below — "Next Tuesday" never actually renders
-  // on a Tuesday, but the other weekdays need it.
-  if (days > -7 && days < -1) return `Next ${WEEKDAY_FORMAT.format(date)}`;
+  // Ahead of tomorrow, the concrete date. This used to say "Next Tuesday",
+  // which put two near-identical Tuesdays on one screen (a "Next Tuesday" card
+  // above a past "Tuesday" one) — and now that upcoming nights sit under their
+  // own Coming up heading, the tense is already told; the date is the useful
+  // part when you're planning ahead.
 
   const sameYear = date.getFullYear() === now.getFullYear();
   const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
