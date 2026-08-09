@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:emulator": "npx --yes firebase-tools emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"vitest run\""
+    "test:emulator": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"vitest run\""
   },
   "dependencies": {
     "firebase": "^12.16.0",

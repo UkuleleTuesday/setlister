@@ -18,9 +18,10 @@ from .vision import VisionConfigError, VisionError
 
 _ALLOWED_METHODS = "GET, POST, OPTIONS"
 
-# The endpoint is public, so the tuning knobs are bounded before use. Models
-# are limited to the flash tier to keep per-call cost predictable.
-_ALLOWED_MODEL_PREFIXES = ("gemini-2.5-flash",)
+# The endpoint is public, so the tuning knobs are bounded before use. Exact
+# names, not a prefix: "gemini-2.5-flash" prefixes the image tier too, which is
+# priced per generated image.
+_ALLOWED_MODELS = frozenset({"gemini-2.5-flash", "gemini-2.5-flash-lite"})
 _THINKING_BUDGET_MAX = 24576
 _IMAGE_EDGE_MIN, _IMAGE_EDGE_MAX = 256, 4096
 
@@ -49,7 +50,7 @@ def _parse_knobs(request) -> dict:
     """
     knobs: dict = {}
     model = request.form.get("model") or ""
-    if model.startswith(_ALLOWED_MODEL_PREFIXES):
+    if model in _ALLOWED_MODELS:
         knobs["model"] = model
     budget = _clamp_int(request.form.get("thinking_budget"), 0, _THINKING_BUDGET_MAX)
     if budget is not None:

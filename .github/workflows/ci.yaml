@@ -84,7 +84,10 @@ jobs:
             "$URL/api/editions" | grep -q '"current"'
 
   deploy-rules:
-    needs: test
+    # test-ui too: `test` is the Python suite, and firestore.rules is covered by
+    # ui/tests/rules.test.js. Gating on Python alone shipped the rules even when
+    # their own tests were red.
+    needs: [test, test-ui]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -106,7 +109,9 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
       - name: Deploy Firestore rules
-        run: npx --yes firebase-tools deploy --only firestore:rules --project "$GCP_PROJECT_ID"
+        # Pinned: unpinned, this resolves whatever `latest` is at that minute and
+        # runs it — with the deployer SA's credentials already in the job.
+        run: npx --yes firebase-tools@15.26.0 deploy --only firestore:rules --project "$GCP_PROJECT_ID"
 
   build-ui:
     if: github.event.action != 'closed'

@@ -84,11 +84,25 @@ def check(
     if prev_bucket != bucket:
         count = 0
     decision = evaluate(count, limit, now, window_seconds)
-    if decision.allowed:
-        if len(_counters) >= _MAX_KEYS and key not in _counters:
-            _counters.clear()
+    if decision.allowed and (key in _counters or _room_for_new_key(bucket)):
         _counters[key] = (bucket, count + 1)
     return decision
+
+
+def _room_for_new_key(current_bucket: int) -> bool:
+    """Whether a not-yet-tracked key can be recorded; prunes stale windows first.
+
+    Never displaces a live counter. Clearing the table (or evicting current-window
+    entries to make room) hands any caller a rate-limit reset: flood _MAX_KEYS
+    fresh keys and everyone else's budget goes back to zero. A table still full
+    after pruning instead stops tracking *new* keys until the window turns, which
+    bounds memory without touching anyone's existing budget.
+    """
+    if len(_counters) < _MAX_KEYS:
+        return True
+    for k in [k for k, (b, _) in _counters.items() if b != current_bucket]:
+        del _counters[k]
+    return len(_counters) < _MAX_KEYS
 
 
 def clear() -> None:
