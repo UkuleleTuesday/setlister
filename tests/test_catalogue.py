@@ -111,3 +111,26 @@ def test_list_editions_falls_back_on_error(monkeypatch):
     monkeypatch.setattr(catalogue.httpx, "get", fake_get)
     ids = [e.id for e in list_editions()]
     assert "current" in ids and "complete" in ids
+
+
+@pytest.mark.parametrize(
+    "edition",
+    [
+        "../../evil-bucket",
+        "current/../../evil-bucket",
+        "ukulele-tuesday-songbooks?",
+        "Current",
+        "a/b",
+    ],
+)
+def test_fetch_catalogue_rejects_editions_that_leave_the_bucket(mock_bucket, edition):
+    # httpx normalises dot segments, so an unchecked edition reaches another
+    # bucket entirely — and a trailing "?" picks the object name too.
+    with pytest.raises(CatalogueError):
+        fetch_catalogue(edition)
+
+
+def test_a_rejected_edition_never_takes_a_cache_slot(mock_bucket):
+    with pytest.raises(CatalogueError):
+        fetch_catalogue("../../evil-bucket")
+    assert catalogue._cache == {}

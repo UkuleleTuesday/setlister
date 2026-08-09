@@ -22,6 +22,13 @@ from .models import Catalogue, CatalogueEntry, EditionInfo
 
 _cache: dict[str, tuple[float, Catalogue]] = {}
 
+# Edition IDs are kebab-case YAML filenames in songbook-generator; Drive-based
+# editions publish under their raw Drive folder ID (mixed case) — skip those.
+# Also the guard on `edition` reaching a URL: httpx normalises dot segments, so
+# an unchecked value walks out of the bucket and takes the songbook — and the
+# prompt built from it — with it.
+_EDITION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
 
 class CatalogueError(RuntimeError):
     pass
@@ -83,6 +90,9 @@ def fetch_catalogue(
 ) -> Catalogue:
     settings = get_settings()
     edition = edition or settings.default_edition
+    # Before the cache lookup, so a rejected value can never take a slot either.
+    if not _EDITION_ID.match(edition):
+        raise CatalogueError(f"Unknown edition '{edition}'")
     ttl = settings.catalogue_cache_ttl if ttl is None else ttl
 
     cached = _cache.get(edition)
@@ -118,11 +128,6 @@ def fetch_catalogue(
 
 def clear_cache() -> None:
     _cache.clear()
-
-
-# Edition IDs are kebab-case YAML filenames in songbook-generator; Drive-based
-# editions publish under their raw Drive folder ID (mixed case) — skip those.
-_EDITION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 def list_editions() -> list[EditionInfo]:

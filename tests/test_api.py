@@ -215,3 +215,20 @@ def test_parse_rate_limited_429(client, mock_bucket, fake_vision, monkeypatch):
     assert response.status_code == 429
     assert int(response.headers["Retry-After"]) >= 1
     assert "detail" in response.get_json()
+
+
+def test_parse_ignores_flash_prefixed_image_model(client, mock_bucket, fake_vision):
+    photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
+    form = _image_form(photo, "current")
+    # Prefixes the flash tier but is priced per generated image.
+    form["model"] = "gemini-2.5-flash-image"
+    response = client.post("/api/parse", data=form)
+    assert response.status_code == 200
+    assert fake_vision.calls[0]["model"] == get_settings().gemini_model
+
+
+def test_catalogue_rejects_an_edition_that_leaves_the_bucket(client, mock_bucket):
+    # mock_bucket serves any edition, so an unvalidated traversal would 200 here.
+    response = client.get("/api/catalogue?edition=../../evil-bucket")
+    assert response.status_code == 502
+    assert "Unknown edition" in response.get_json()["detail"]

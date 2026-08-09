@@ -55,3 +55,21 @@ def test_parse_client_ip():
     assert ratelimit.parse_client_ip(None, "9.9.9.9") == "9.9.9.9"
     assert ratelimit.parse_client_ip("", "") == "unknown"
     assert ratelimit.parse_client_ip(None, None) == "unknown"
+
+
+def test_flooding_new_keys_does_not_reset_an_existing_counter():
+    # The table used to clear() wholesale when it filled, so flooding fresh keys
+    # handed any caller a way to zero everyone else's budget.
+    assert ratelimit.check("victim", 1, 60, now=10.0).allowed
+    assert not ratelimit.check("victim", 1, 60, now=10.0).allowed
+    for i in range(ratelimit._MAX_KEYS + 100):
+        ratelimit.check(f"flood-{i}", 1, 60, now=10.0)
+    assert not ratelimit.check("victim", 1, 60, now=10.0).allowed
+
+
+def test_stale_windows_are_pruned_so_the_table_stays_bounded():
+    for i in range(ratelimit._MAX_KEYS):
+        ratelimit.check(f"old-{i}", 1, 60, now=10.0)
+    # A later window: the stale entries make room rather than accumulating.
+    ratelimit.check("fresh", 1, 60, now=1000.0)
+    assert len(ratelimit._counters) == 1
