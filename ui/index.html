@@ -162,7 +162,6 @@
         ✨ What’s new
       </button>
 
-      <h2>Sessions</h2>
       <button id="new-session" class="primary-action" type="button">New session</button>
       <div id="home-error" class="error" hidden></div>
 
@@ -176,7 +175,23 @@
         </div>
       </div>
 
+      <!-- The joinable nights, above the history. The next one leads as a big
+           card (on a club night the screen's one job is getting you into
+           tonight's session), any further prepped nights queue beneath it.
+           Heading and card hidden when nothing is upcoming — then "New
+           session" above is the hero instead. Populated by
+           renderNextSession() / renderSessionList(). -->
+      <h2 id="upcoming-heading" hidden>Coming up</h2>
+      <div id="next-session" hidden></div>
+      <ul id="upcoming-list" class="session-list"></ul>
+
+      <!-- The club's history: a different job (looking back, not joining), so
+           it sits below under its own quiet heading. Only the most recent few
+           show; the rest collapse behind #past-older so a year of Tuesdays
+           doesn't bury the page. -->
+      <h2 id="past-heading" hidden>Past sessions</h2>
       <ul id="session-list" class="session-list"></ul>
+      <div id="past-older" class="row-group" hidden></div>
       <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
       <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
 

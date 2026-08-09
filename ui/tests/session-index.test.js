@@ -10,6 +10,7 @@ import {
   fromDateInputValue,
   indexEntryData,
   pageTitle,
+  partitionSessions,
   sessionDateLabel,
   sessionTimeLabel,
   toDateInputValue,
@@ -50,11 +51,21 @@ describe("sessionDateLabel", () => {
     expect(sessionDateLabel(started, at(2026, 7, 5, 10, 0))).toBe("Yesterday");
   });
 
-  it("uses a bare weekday inside the last week", () => {
-    // Only one Tuesday can fall in a 7-day window, so no "Last " prefix is
-    // needed — and none of the ambiguity one would bring.
-    expect(sessionDateLabel(at(2026, 6, 30), NOW)).toBe("Thursday");
-    expect(sessionDateLabel(at(2026, 6, 29), NOW)).toBe("Wednesday");
+  it("stamps a night beyond yesterday with its date, weekday kept off-Tuesday", () => {
+    // A bare "Thursday" said when, a bare "Tuesday" said nothing to a club
+    // that meets every Tuesday — so beyond the neighbouring nights it's the
+    // date, with the weekday only where it's the interesting part.
+    expect(sessionDateLabel(at(2026, 6, 30), NOW)).toMatch(/^Thursday /);
+    expect(sessionDateLabel(at(2026, 6, 29), NOW)).toMatch(/^Wednesday /);
+  });
+
+  it("gives a past club Tuesday inside the week the bare date", () => {
+    // Viewed on a Sunday evening, the previous Tuesday is 5 nights back:
+    // "Tuesday" alone wouldn't say which one, the date does.
+    const sunday = new Date(2026, 7, 9, 21, 0);
+    expect(sessionDateLabel(at(2026, 7, 4, 20, 14), sunday)).toBe(
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 4))
+    );
   });
 
   it("drops to a date once a week has passed", () => {
@@ -80,14 +91,16 @@ describe("sessionDateLabel", () => {
     expect(sessionDateLabel(at(2026, 7, 5, 20), NOW)).toBe("Tomorrow");
   });
 
-  it("prefixes Next inside the coming week, where a bare weekday would read as last week", () => {
-    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toBe("Next Friday"); // Fri 7 Aug
-    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toBe("Next Monday"); // Mon 10 Aug
+  it("stamps a night beyond tomorrow with its date, never a Next prefix", () => {
+    // "Next Friday" above a past "Tuesday" put two relative weekdays on one
+    // screen; ahead of tomorrow the concrete date is the label, weekday kept
+    // for any night that isn't the club's Tuesday.
+    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toMatch(/^Friday /); // Fri 7 Aug
+    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toMatch(/^Monday /); // Mon 10 Aug
   });
 
-  it("gives next club Tuesday the bare date — exactly 7 nights out, past the Next window", () => {
-    // 11 Aug 2026 is the next Tuesday: a full week away, so the weekday alone
-    // would be ambiguous and "Next Tuesday" never renders.
+  it("gives next club Tuesday the bare date", () => {
+    // 11 Aug 2026 is the next Tuesday — the club's normal night, so no weekday.
     expect(sessionDateLabel(at(2026, 7, 11), NOW)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11))
     );
@@ -184,6 +197,59 @@ describe("disambiguate", () => {
       (e) => e.label
     );
     expect(labels).toEqual(["", ""]);
+  });
+});
+
+// The home screen's upcoming/past split. Same night semantics as the labels
+// above: a night belongs to the evening it started, and "tonight" is upcoming
+// until the 04:00 boundary.
+describe("partitionSessions", () => {
+  it("files tonight under upcoming and yesterday under past", () => {
+    const tonight = { createdAt: at(2026, 7, 4, 20) };
+    const yesterday = { createdAt: at(2026, 7, 3) };
+    const { upcoming, past } = partitionSessions([tonight, yesterday], NOW);
+    expect(upcoming).toEqual([tonight]);
+    expect(past).toEqual([yesterday]);
+  });
+
+  it("counts a daytime session today as upcoming — its night hasn't happened yet", () => {
+    const { upcoming } = partitionSessions([{ createdAt: at(2026, 7, 4, 11, 0) }], NOW);
+    expect(upcoming).toHaveLength(1);
+  });
+
+  it("counts a prepped future night as upcoming", () => {
+    const { upcoming, past } = partitionSessions([{ createdAt: at(2026, 7, 11) }], NOW);
+    expect(upcoming).toHaveLength(1);
+    expect(past).toHaveLength(0);
+  });
+
+  it("returns upcoming soonest-first from a newest-first input", () => {
+    const nextTuesday = { createdAt: at(2026, 7, 11) };
+    const tomorrow = { createdAt: at(2026, 7, 5) };
+    const tonight = { createdAt: at(2026, 7, 4, 20) };
+    const yesterday = { createdAt: at(2026, 7, 3) };
+    const { upcoming, past } = partitionSessions(
+      [nextTuesday, tomorrow, tonight, yesterday],
+      NOW
+    );
+    expect(upcoming).toEqual([tonight, tomorrow, nextTuesday]);
+    expect(past).toEqual([yesterday]);
+  });
+
+  it("files a session with no resolved date under past — it can't claim a future night", () => {
+    const { upcoming, past } = partitionSessions([{ createdAt: null }], NOW);
+    expect(upcoming).toHaveLength(0);
+    expect(past).toHaveLength(1);
+  });
+
+  it("keeps a night that runs past midnight upcoming until the 04:00 boundary", () => {
+    const running = { createdAt: at(2026, 7, 4, 21, 0) };
+    expect(partitionSessions([running], new Date(2026, 7, 5, 0, 30)).upcoming).toEqual([running]);
+    expect(partitionSessions([running], new Date(2026, 7, 5, 4, 0)).past).toEqual([running]);
+  });
+
+  it("handles an empty list", () => {
+    expect(partitionSessions([], NOW)).toEqual({ upcoming: [], past: [] });
   });
 });
 

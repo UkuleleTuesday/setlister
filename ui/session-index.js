@@ -98,15 +98,12 @@ export function sessionDateLabel(date, now = new Date()) {
   if (days === 0) return isEvening(date) ? "Tonight" : "Today";
   if (days === 1) return "Yesterday";
   if (days === -1) return "Tomorrow";
-  // Inside a week only one Tuesday can exist, so the bare weekday is
-  // unambiguous — and it dodges the "last Tuesday means which Tuesday?"
-  // argument that a "Last " prefix would start.
-  if (days > 1 && days < 7) return WEEKDAY_FORMAT.format(date);
-  // Ahead, the bare weekday would read as LAST week, so it needs the prefix.
-  // Note next club Tuesday is exactly 7 nights from a Tuesday, so it falls
-  // through to the date stamp below — "Next Tuesday" never actually renders
-  // on a Tuesday, but the other weekdays need it.
-  if (days > -7 && days < -1) return `Next ${WEEKDAY_FORMAT.format(date)}`;
+  // Beyond the neighbouring nights, the concrete date. Relative labels used
+  // to stretch a week each way ("Tuesday" for 5 nights back, "Next Tuesday"
+  // ahead), which told a club that meets every Tuesday almost nothing — and
+  // put two near-identical Tuesdays meaning different nights on one screen.
+  // The Coming up / Past sessions headings carry the tense now; the date is
+  // the part worth reading.
 
   const sameYear = date.getFullYear() === now.getFullYear();
   const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
@@ -163,6 +160,22 @@ export function disambiguate(entries, now = new Date()) {
       ? { ...entry, label: `${entry.label} · ${sessionTimeLabel(entry.createdAt)}` }
       : entry
   );
+}
+
+// Splits the date-ordered list into joinable nights and history. Tonight
+// counts as upcoming until NIGHT_BOUNDARY_HOUR: the night you are standing in
+// is the one you want on top. Input arrives newest-first (listSessions), so
+// upcoming is reversed to soonest-first and `upcoming[0]` is THE next session.
+// A null createdAt can't claim a future night, so it files under past.
+export function partitionSessions(entries, now = new Date()) {
+  const upcoming = [];
+  const past = [];
+  for (const entry of entries) {
+    if (entry.createdAt && nightsBetween(entry.createdAt, now) <= 0) upcoming.push(entry);
+    else past.push(entry);
+  }
+  upcoming.reverse();
+  return { upcoming, past };
 }
 
 // The document shape, in one place, so sync.js can write an entry inside its
