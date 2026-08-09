@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-DaYVJh4r.js"></script>
+  <script type="module" crossorigin src="./assets/index-D02-hJpR.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-CdbFxcPL.css">
 </head>
 <body>
@@ -163,12 +163,6 @@
         ✨ What’s new
       </button>
 
-      <!-- The next joinable night, dressed to be tapped: on a club night the
-           screen's one job is getting you into tonight's session. Hidden when
-           nothing is upcoming — then "New session" below is the hero instead.
-           Populated by renderNextSession(). -->
-      <div id="next-session" hidden></div>
-
       <button id="new-session" class="primary-action" type="button">New session</button>
       <div id="home-error" class="error" hidden></div>
 
@@ -182,10 +176,14 @@
         </div>
       </div>
 
-      <!-- Further prepped nights beyond the hero: joinable, so they read as
-           active, above the history. Heading hidden unless there are 2+
-           upcoming sessions. -->
+      <!-- The joinable nights, above the history. The next one leads as a big
+           card (on a club night the screen's one job is getting you into
+           tonight's session), any further prepped nights queue beneath it.
+           Heading and card hidden when nothing is upcoming — then "New
+           session" above is the hero instead. Populated by
+           renderNextSession() / renderSessionList(). -->
       <h2 id="upcoming-heading" hidden>Coming up</h2>
+      <div id="next-session" hidden></div>
       <ul id="upcoming-list" class="session-list"></ul>
 
       <!-- The club's history: a different job (looking back, not joining), so
