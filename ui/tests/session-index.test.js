@@ -10,6 +10,7 @@ import {
   fromDateInputValue,
   indexEntryData,
   pageTitle,
+  partitionSessions,
   sessionDateLabel,
   sessionTimeLabel,
   toDateInputValue,
@@ -184,6 +185,59 @@ describe("disambiguate", () => {
       (e) => e.label
     );
     expect(labels).toEqual(["", ""]);
+  });
+});
+
+// The home screen's upcoming/past split. Same night semantics as the labels
+// above: a night belongs to the evening it started, and "tonight" is upcoming
+// until the 04:00 boundary.
+describe("partitionSessions", () => {
+  it("files tonight under upcoming and yesterday under past", () => {
+    const tonight = { createdAt: at(2026, 7, 4, 20) };
+    const yesterday = { createdAt: at(2026, 7, 3) };
+    const { upcoming, past } = partitionSessions([tonight, yesterday], NOW);
+    expect(upcoming).toEqual([tonight]);
+    expect(past).toEqual([yesterday]);
+  });
+
+  it("counts a daytime session today as upcoming — its night hasn't happened yet", () => {
+    const { upcoming } = partitionSessions([{ createdAt: at(2026, 7, 4, 11, 0) }], NOW);
+    expect(upcoming).toHaveLength(1);
+  });
+
+  it("counts a prepped future night as upcoming", () => {
+    const { upcoming, past } = partitionSessions([{ createdAt: at(2026, 7, 11) }], NOW);
+    expect(upcoming).toHaveLength(1);
+    expect(past).toHaveLength(0);
+  });
+
+  it("returns upcoming soonest-first from a newest-first input", () => {
+    const nextTuesday = { createdAt: at(2026, 7, 11) };
+    const tomorrow = { createdAt: at(2026, 7, 5) };
+    const tonight = { createdAt: at(2026, 7, 4, 20) };
+    const yesterday = { createdAt: at(2026, 7, 3) };
+    const { upcoming, past } = partitionSessions(
+      [nextTuesday, tomorrow, tonight, yesterday],
+      NOW
+    );
+    expect(upcoming).toEqual([tonight, tomorrow, nextTuesday]);
+    expect(past).toEqual([yesterday]);
+  });
+
+  it("files a session with no resolved date under past — it can't claim a future night", () => {
+    const { upcoming, past } = partitionSessions([{ createdAt: null }], NOW);
+    expect(upcoming).toHaveLength(0);
+    expect(past).toHaveLength(1);
+  });
+
+  it("keeps a night that runs past midnight upcoming until the 04:00 boundary", () => {
+    const running = { createdAt: at(2026, 7, 4, 21, 0) };
+    expect(partitionSessions([running], new Date(2026, 7, 5, 0, 30)).upcoming).toEqual([running]);
+    expect(partitionSessions([running], new Date(2026, 7, 5, 4, 0)).past).toEqual([running]);
+  });
+
+  it("handles an empty list", () => {
+    expect(partitionSessions([], NOW)).toEqual({ upcoming: [], past: [] });
   });
 });
 

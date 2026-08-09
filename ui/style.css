@@ -397,6 +397,42 @@ h2 .count { color: #999; font-weight: 600; letter-spacing: 0.04em; }
   display: block; margin-top: 0.15rem;
   color: #6b6b6b; font-size: 0.82rem;
 }
+/* The next night wears the same "next" dress as the highlighted card inside a
+   session (accent edge + the deeper shadow), one size up from a history row:
+   on a club night this card is the whole reason the screen exists. */
+.next-session-card {
+  display: block; width: 100%; min-height: 56px;
+  margin: 0.4rem 0 0.8rem; padding: 1rem 0.9rem; text-align: left;
+  background: var(--card); border: 2px solid var(--accent);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-next);
+  font: inherit; color: inherit; cursor: pointer;
+}
+.next-session-card:active { opacity: 0.85; }
+.next-session-kicker {
+  display: block; color: var(--accent);
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.next-session-name {
+  display: block; margin-top: 0.15rem;
+  font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere;
+}
+.next-session-meta { display: block; margin-top: 0.2rem; color: #6b6b6b; font-size: 0.85rem; }
+.next-session-cta { display: block; margin-top: 0.5rem; color: var(--accent); font-size: 0.85rem; font-weight: 600; }
+/* Further prepped nights read as joinable — accented like the hero, a notch
+   quieter — where a past night keeps the plain card. */
+.session-item.upcoming { border-color: var(--accent); box-shadow: var(--shadow-next); }
+/* With a next session on show, starting ANOTHER one is a secondary act. */
+.primary-action.secondary-new {
+  background: var(--accent-soft); color: var(--accent);
+  box-shadow: none; font-size: 0.95rem; padding: 0.75rem;
+}
+/* Headings separate the jobs (join vs look back); the first heading after the
+   action block needs its own breathing room. */
+h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
+/* The collapsed remainder of the history, below the visible rows. */
+#past-older { margin-top: 0.5rem; }
+#past-older .group-rows { margin-top: 0.5rem; }
 /* Carry-over card: quiet and dashed like the empty states, not a warning. */
 .carryover {
   margin-top: 1rem; padding: 0.8rem;

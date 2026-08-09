@@ -6,6 +6,7 @@ import {
   fromDateInputValue,
   listSessions,
   pageTitle,
+  partitionSessions,
   sessionDateLabel,
   toDateInputValue,
 } from "./session-index.js";
@@ -97,7 +98,12 @@ const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const newSessionButton = document.getElementById("new-session");
 const homeError = document.getElementById("home-error");
+const nextSessionEl = document.getElementById("next-session");
+const upcomingHeading = document.getElementById("upcoming-heading");
+const upcomingListEl = document.getElementById("upcoming-list");
+const pastHeading = document.getElementById("past-heading");
 const sessionListEl = document.getElementById("session-list");
+const pastOlderEl = document.getElementById("past-older");
 const sessionListStatus = document.getElementById("session-list-status");
 const sessionListRetry = document.getElementById("session-list-retry");
 const carryoverBox = document.getElementById("carryover");
@@ -910,31 +916,127 @@ sync.onStatusChange((status) => {
 // missed, the staleness window + TTL retire the doc anyway.
 window.addEventListener("pagehide", presence.removeOnUnload);
 
-// --- Home view: the club's session history ---------------------------------
+// --- Home view: next sessions on top, the club's history below -------------
+
+// How many past nights show before the rest collapse. Enough to cover "the
+// last month or so" at one Tuesday a week without the history burying the page.
+const PAST_VISIBLE = 5;
+// Survives refreshSessionList so a background refresh doesn't slam the
+// history shut under someone's thumb.
+let pastOlderOpen = false;
+
+function startedByText(entry) {
+  return entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+}
+
+function sessionListItem(entry, extraClass) {
+  const li = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = extraClass ? `session-item ${extraClass}` : "session-item";
+  button.dataset.id = entry.id;
+
+  // `label` is the session's date rendered in this viewer's locale — see
+  // disambiguate()/sessionDateLabel(). A just-created doc can still be waiting
+  // on its server timestamp, which labels as "": name the state rather than
+  // render a blank card.
+  const name = document.createElement("span");
+  name.className = "session-item-name";
+  name.textContent = entry.label || "Date pending";
+
+  const meta = document.createElement("span");
+  meta.className = "session-item-meta";
+  meta.textContent = startedByText(entry);
+
+  button.append(name, meta);
+  li.appendChild(button);
+  return li;
+}
+
+// The soonest joinable night, dressed to be tapped. While one exists, starting
+// ANOTHER session is a secondary act, so the New session button steps back to
+// a quiet style; with nothing upcoming it stays the hero it is today.
+function renderNextSession(entry) {
+  nextSessionEl.hidden = !entry;
+  newSessionButton.classList.toggle("secondary-new", Boolean(entry));
+  if (!entry) {
+    nextSessionEl.replaceChildren();
+    return;
+  }
+
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "next-session-card";
+  card.dataset.id = entry.id;
+
+  const kicker = document.createElement("span");
+  kicker.className = "next-session-kicker";
+  kicker.textContent = "Next session";
+
+  const name = document.createElement("span");
+  name.className = "next-session-name";
+  name.textContent = entry.label || "Date pending";
+
+  const meta = document.createElement("span");
+  meta.className = "next-session-meta";
+  meta.textContent = startedByText(entry);
+
+  const cta = document.createElement("span");
+  cta.className = "next-session-cta";
+  cta.textContent = "Open it to see the set and request a song";
+
+  card.append(kicker, name, meta, cta);
+  nextSessionEl.replaceChildren(card);
+}
+
+// Same collapsed-disclosure idea as the session view's played/bin groups, but
+// over session items rather than song rows, so it gets its own small builder.
+function renderPastOlder(entries) {
+  pastOlderEl.replaceChildren();
+  pastOlderEl.hidden = entries.length === 0;
+  if (pastOlderEl.hidden) return;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "group-toggle";
+  toggle.setAttribute("aria-expanded", String(pastOlderOpen));
+  toggle.setAttribute("aria-controls", "past-older-rows");
+  const label = document.createElement("span");
+  label.className = "group-label";
+  label.textContent = `${entries.length} older ${entries.length === 1 ? "session" : "sessions"}`;
+  toggle.append(label, icon("chevron", "group-chevron"));
+  toggle.onclick = () => {
+    pastOlderOpen = !pastOlderOpen;
+    renderPastOlder(entries);
+  };
+  pastOlderEl.appendChild(toggle);
+
+  if (pastOlderOpen) {
+    const list = document.createElement("ul");
+    list.id = "past-older-rows";
+    list.className = "session-list group-rows";
+    list.append(...entries.map((e) => sessionListItem(e)));
+    pastOlderEl.appendChild(list);
+  }
+}
+
 function renderSessionList(entries) {
-  sessionListEl.replaceChildren(
-    ...disambiguate(entries).map((entry) => {
-      const li = document.createElement("li");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "session-item";
-      button.dataset.id = entry.id;
+  // Label the WHOLE list before splitting, so two sessions the same night get
+  // their disambiguating time suffixes even when one of them is the hero.
+  const now = new Date();
+  const { upcoming, past } = partitionSessions(disambiguate(entries, now), now);
 
-      // `label` is the session's date rendered in this viewer's locale — see
-      // disambiguate()/sessionDateLabel().
-      const name = document.createElement("span");
-      name.className = "session-item-name";
-      name.textContent = entry.label;
+  renderNextSession(upcoming[0]);
+  upcomingListEl.replaceChildren(...upcoming.slice(1).map((e) => sessionListItem(e, "upcoming")));
+  upcomingHeading.hidden = upcoming.length < 2;
 
-      const meta = document.createElement("span");
-      meta.className = "session-item-meta";
-      meta.textContent = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
-
-      button.append(name, meta);
-      li.appendChild(button);
-      return li;
-    })
-  );
+  // Never hide a single item behind a tap: at the threshold, one more row
+  // costs less than a one-row disclosure.
+  const collapse = past.length > PAST_VISIBLE + 1;
+  const visible = collapse ? past.slice(0, PAST_VISIBLE) : past;
+  sessionListEl.replaceChildren(...visible.map((e) => sessionListItem(e)));
+  renderPastOlder(collapse ? past.slice(PAST_VISIBLE) : []);
+  pastHeading.hidden = past.length === 0;
 }
 
 // The list and "New session" are independent paths: a failed query must never
@@ -951,17 +1053,24 @@ async function refreshSessionList() {
       ? ""
       : "No sessions yet. Start one above.";
   } catch {
-    sessionListEl.replaceChildren();
+    // A failed query clears the whole layout, hero included: a stale "Next
+    // session" card over a "Couldn't load" error would be a lie.
+    renderSessionList([]);
     sessionListStatus.hidden = false;
     sessionListStatus.textContent = "Couldn’t load sessions.";
     sessionListRetry.hidden = false;
   }
 }
 
-sessionListEl.addEventListener("click", (event) => {
-  const button = event.target.closest(".session-item");
+// One delegated handler over every container that holds a session card: the
+// hero, the coming-up list, the visible history and the collapsed remainder.
+function handleSessionPick(event) {
+  const button = event.target.closest("[data-id]");
   if (button) navigateTo(button.dataset.id, { cameFromHome: true });
-});
+}
+for (const el of [nextSessionEl, upcomingListEl, sessionListEl, pastOlderEl]) {
+  el.addEventListener("click", handleSessionPick);
+}
 sessionListRetry.addEventListener("click", refreshSessionList);
 
 // --- What's new: release notes ----------------------------------------------

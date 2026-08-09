@@ -165,6 +165,22 @@ export function disambiguate(entries, now = new Date()) {
   );
 }
 
+// Splits the date-ordered list into joinable nights and history. Tonight
+// counts as upcoming until NIGHT_BOUNDARY_HOUR: the night you are standing in
+// is the one you want on top. Input arrives newest-first (listSessions), so
+// upcoming is reversed to soonest-first and `upcoming[0]` is THE next session.
+// A null createdAt can't claim a future night, so it files under past.
+export function partitionSessions(entries, now = new Date()) {
+  const upcoming = [];
+  const past = [];
+  for (const entry of entries) {
+    if (entry.createdAt && nightsBetween(entry.createdAt, now) <= 0) upcoming.push(entry);
+    else past.push(entry);
+  }
+  upcoming.reverse();
+  return { upcoming, past };
+}
+
 // The document shape, in one place, so sync.js can write an entry inside its
 // id-claiming transaction without owning the schema. `createdAt` is passed in
 // when the creator picked a day other than today, or when re-listing/backfilling
