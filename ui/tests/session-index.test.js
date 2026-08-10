@@ -11,6 +11,7 @@ import {
   indexEntryData,
   pageTitle,
   partitionSessions,
+  plannedSessionMessage,
   sessionDateLabel,
   sessionTimeLabel,
   toDateInputValue,
@@ -250,6 +251,44 @@ describe("partitionSessions", () => {
 
   it("handles an empty list", () => {
     expect(partitionSessions([], NOW)).toEqual({ upcoming: [], past: [] });
+  });
+});
+
+// The refusal users read when Start is blocked because a night is already
+// planned. The date label does the heavy lifting; these pin that the message
+// names the right night and always offers the Unlisted way out.
+describe("plannedSessionMessage", () => {
+  it("names tonight's session", () => {
+    const msg = plannedSessionMessage({ createdAt: at(2026, 7, 4, 20) }, NOW);
+    expect(msg).toContain("already planned for Tonight");
+  });
+
+  it("names a prepped future club Tuesday by its bare date", () => {
+    const msg = plannedSessionMessage({ createdAt: at(2026, 7, 11) }, NOW);
+    expect(msg).toContain(
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11))
+    );
+  });
+
+  it("keeps the weekday for a future night off the club's Tuesday", () => {
+    // 13 August 2026 is a Thursday.
+    expect(plannedSessionMessage({ createdAt: at(2026, 7, 13) }, NOW)).toMatch(/Thursday/);
+  });
+
+  it("falls back to a generic night when the date is unresolved", () => {
+    // Defensive: a null createdAt files under past and can't normally reach
+    // here, but a blank in the message would read as a bug.
+    expect(plannedSessionMessage({ createdAt: null }, NOW)).toContain(
+      "already planned for an upcoming night"
+    );
+  });
+
+  it("always offers the Unlisted escape hatch", () => {
+    for (const createdAt of [at(2026, 7, 4, 20), at(2026, 7, 11), null]) {
+      expect(plannedSessionMessage({ createdAt }, NOW)).toMatch(
+        /set Visibility to Unlisted to start a private session\.$/
+      );
+    }
   });
 });
 
