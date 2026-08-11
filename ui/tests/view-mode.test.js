@@ -1,4 +1,4 @@
-// Room mode (#86): the pure decision logic behind the requests-only view.
+// Room mode (#86): the pure decision logic behind the room view.
 // The decisions under test: `?mode=request` puts a device in room mode and
 // makes it sticky; the ONLY way out is an explicit `?mode=full`; a plain or
 // mangled link follows whatever the flag says; and shareable URLs carry the

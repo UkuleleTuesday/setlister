@@ -481,7 +481,7 @@ function sessionUrl(id) {
   return buildSessionUrl(location.href, id);
 }
 
-// The requests-only variant (#86): same session, `?mode=request` set.
+// The room-view variant (#86): same session, `?mode=request` set.
 function roomSessionUrl(id) {
   return buildSessionUrl(location.href, id, { room: true });
 }
@@ -505,7 +505,7 @@ function currentRouteId() {
   return new URLSearchParams(location.search).get("session");
 }
 
-// Which view of a session this device gets: the full app or the requests-only
+// Which view of a session this device gets: the full app or the read-mostly
 // room view (#86). Resolved from the URL plus the sticky flag on every route
 // change, so `?mode=request` / `?mode=full` links work whenever they arrive
 // and a room device stays a room device across plain-link reloads. The
@@ -542,8 +542,8 @@ function applyRequestsOpen() {
   // can't. The second sentence is for the organiser reading this row: it
   // governs the link, and nothing else, so the board is still the board.
   shareRequestNote.textContent = open
-    ? "The request link is a requests-only view: people can add tunes, not change the set."
-    : "View only: people can open tonight's pool and watch it, but can't add to it. The whiteboard carries on as usual.";
+    ? "The request link is a view for the room: people can add tunes and follow the set, not change it."
+    : "View only: people can open tonight's pool and set and watch them, but can't add to them. The whiteboard carries on as usual.";
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
@@ -817,7 +817,7 @@ async function shareSessionLink() {
   );
 }
 
-// The requests-only link (#86): what goes to the room's WhatsApp group.
+// The room-view link (#86): what goes to the room's WhatsApp group.
 async function shareRoomLink() {
   const id = sync.getSessionId();
   if (!id) return;
@@ -2023,12 +2023,23 @@ function renderUpNext() {
   // empty note keys off the rows still *visible* in the running order.
   const visible = app.upNext.filter((e) => !e.binned && !e.played);
   upnextEmpty.hidden = visible.length > 0;
+  // The full app's note points at promote, a control room mode doesn't have.
+  upnextEmpty.textContent =
+    viewMode === "room"
+      ? "Nothing queued yet."
+      : "Nothing queued yet. Promote a request from below.";
   renderCount(upnextCount, visible.length);
+  // Room mode watches the set but can't touch it: the "room-upnext" context
+  // matches none of renderRow's control branches, so no drag handle, no
+  // demote/played buttons, no swipe — same read-only trick as the pool's
+  // "room" context (which keeps the vote button; the running order is past
+  // voting, so this one keeps nothing).
+  const rowContext = viewMode === "room" ? "room-upnext" : "upnext";
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
   upnextRows.replaceChildren(
     ...app.upNext
-      .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, "upnext")))
+      .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, rowContext)))
       .filter(Boolean)
   );
   // The set plays from the top, so the first visible card IS the next tune —
@@ -2047,7 +2058,9 @@ function renderUpNext() {
   // The set plays from the top, so played songs collapse into a one-line count
   // *above* the list and Up next always starts at the next tune. Expanding
   // shows the night's history (array order = play order) and the un-play
-  // control that rescues a stray swipe-right.
+  // control that rescues a stray swipe-right. Room mode gets the same
+  // disclosure (expanding is view state, not an edit) but a read-only context,
+  // so no un-play button on a room phone.
   renderGroup(playedGroup, {
     iconName: "played",
     noun: "played",
@@ -2057,7 +2070,7 @@ function renderUpNext() {
       app.playedOpen = !app.playedOpen;
       renderUpNext();
     },
-    context: "played",
+    context: viewMode === "room" ? "room-played" : "played",
   });
 }
 
