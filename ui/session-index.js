@@ -178,6 +178,17 @@ export function partitionSessions(entries, now = new Date()) {
   return { upcoming, past };
 }
 
+// Why Start is refused while another night is already planned. The copy lives
+// here (DOM-free) so the wording is pinned by tests; the escape hatch is named
+// because Unlisted is the one way past the block.
+export function plannedSessionMessage(entry, now = new Date()) {
+  const label = sessionDateLabel(entry.createdAt, now) || "an upcoming night";
+  return (
+    `A session is already planned for ${label}. Open it from the home screen, ` +
+    `or set Visibility to Unlisted to start a private session.`
+  );
+}
+
 // The document shape, in one place, so sync.js can write an entry inside its
 // id-claiming transaction without owning the schema. `createdAt` is passed in
 // when the creator picked a day other than today, or when re-listing/backfilling
