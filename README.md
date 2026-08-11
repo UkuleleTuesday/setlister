@@ -69,9 +69,10 @@ its id.
 ## Requests from the room
 
 A session has two links. The **share link** opens the full app. The **request
-link** opens a requests-only view meant for the room's own phones: they add
-tunes by name, with their name on them, and can't touch the running order. A
-phone that arrived through it stays in that view across reloads. Each request is
+link** opens a view meant for the room's own phones: they add tunes by name,
+with their name on them, and follow the running order — Up next and the played
+count — without being able to touch it. A phone that arrived through it stays
+in that view across reloads. Each request is
 confirmed before it lands, and one phone waits a minute between requests, so a
 single keen person can't fill the night.
 

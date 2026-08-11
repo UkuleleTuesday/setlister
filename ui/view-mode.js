@@ -1,5 +1,6 @@
-// Room mode (#86, phase 1): a requests-only view of a session, opened from a
-// shared `?mode=request` link. It is a view, not a permission — firestore.rules
+// Room mode (#86, phase 1): the room's view of a session — add and watch
+// requests, follow the set read-only — opened from a shared `?mode=request`
+// link. It is a view, not a permission — firestore.rules
 // grants any client with the session id full write access either way — so the
 // job here is only to decide which view a device gets, and to keep that
 // decision sticky: a phone that arrived through the room link must stay in the

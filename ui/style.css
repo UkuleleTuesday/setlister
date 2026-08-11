@@ -578,10 +578,11 @@ h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
   content: ""; flex: 1; height: 1px; background: #ddd;
 }
 
-/* --- Room mode: the requests-only view (#86) -------------------------------
-   A device that arrived through a `?mode=request` link gets just the name
-   field, the add-by-name combobox and the (read-only) Requests pool — no
-   running order, no camera, no reorder, no header chrome. Like `fresh`, the
+/* --- Room mode: the requests view (#86) ------------------------------------
+   A device that arrived through a `?mode=request` link gets the add-by-name
+   combobox, the (read-only) Requests pool, and a read-only look at the set:
+   Up next plus the collapsed played group, so the room can follow the night —
+   no camera, no reorder, no export, no header chrome. Like `fresh`, the
    classes (`#session-view.room`, `body.room-mode`) are kept current by
    applyViewMode() in app.js and visibility is class-driven only — the
    [hidden] attribute would fight these rules. This hides a VIEW, not a
@@ -592,7 +593,7 @@ body.room-mode .settings-toggle,
 body.room-mode #edition-note { display: none; }
 #session-view.room .session-bar,
 #session-view.room .fresh-intro,
-#session-view.room #upnext,
+#session-view.room .setlist-actions,
 #session-view.room #add,
 #session-view.room #review,
 #session-view.room #bin-group { display: none; }
