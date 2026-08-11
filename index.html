@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-Tz3jtNP_.js"></script>
+  <script type="module" crossorigin src="./assets/index-YMuXgMwA.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-C3ovEEjI.css">
 </head>
 <body>
@@ -381,6 +381,10 @@
         </select>
       </label>
       <p class="note">Anyone with the link can open it either way.</p>
+      <!-- One planned night at a time: while a session is coming up, Start is
+           disabled for Shared and this note says why. Text and visibility are
+           driven by updateSheetGate() in app.js. -->
+      <div id="new-session-notice" class="note planned-notice" hidden></div>
       <div id="new-session-error" class="error" hidden></div>
       <div class="actions">
         <button id="new-session-start">Start</button>
