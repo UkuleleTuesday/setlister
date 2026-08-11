@@ -7,6 +7,7 @@ import {
   listSessions,
   pageTitle,
   partitionSessions,
+  plannedSessionMessage,
   sessionDateLabel,
   toDateInputValue,
 } from "./session-index.js";
@@ -118,6 +119,7 @@ const BRAND_TITLE = headerTitle.textContent;
 const sheet = document.getElementById("new-session-sheet");
 const sheetDate = document.getElementById("new-session-date");
 const sheetVisibility = document.getElementById("new-session-visibility");
+const sheetNotice = document.getElementById("new-session-notice");
 const sheetError = document.getElementById("new-session-error");
 const sheetStart = document.getElementById("new-session-start");
 const sheetCancel = document.getElementById("new-session-cancel");
@@ -1026,6 +1028,11 @@ function renderSessionList(entries) {
   const now = new Date();
   const { upcoming, past } = partitionSessions(disambiguate(entries, now), now);
 
+  // Remembered for the new-session sheet's gate. A failed load renders []
+  // through here, clearing this to null — the sheet then shows no notice and
+  // the Start-time check fails closed instead of trusting stale state.
+  plannedUpcoming = upcoming[0] || null;
+
   renderNextSession(upcoming[0]);
   upcomingListEl.replaceChildren(...upcoming.slice(1).map((e) => sessionListItem(e, "upcoming")));
   upcomingHeading.hidden = upcoming.length === 0;
@@ -1164,6 +1171,19 @@ document.addEventListener("keydown", (event) => {
 // leftovers).
 let sheetSeedsCarryover = false;
 
+// The soonest upcoming session from the last list render, or null. One planned
+// night at a time: while this is set, starting another SHARED session is
+// blocked — Unlisted remains the escape hatch. Advisory only (it can be stale
+// or empty after a failed load); onSheetStart re-checks against Firestore.
+let plannedUpcoming = null;
+
+function updateSheetGate() {
+  const blocked = Boolean(plannedUpcoming) && sheetVisibility.value === "shared";
+  sheetNotice.hidden = !blocked;
+  if (blocked) sheetNotice.textContent = plannedSessionMessage(plannedUpcoming);
+  sheetStart.disabled = blocked;
+}
+
 // What the date picker showed when the sheet OPENED. Start compares against
 // this, not a recomputed "today": an untouched picker means "now" (server
 // stamp), and comparing against a fresh today would silently turn a sheet left
@@ -1179,6 +1199,7 @@ function openSheet({ seedCarryover = false } = {}) {
   // earlier so a bad pick fails here, not as a rules error after Start.
   sheetDate.max = toDateInputValue(new Date(Date.now() + 59 * 86_400_000));
   sheetVisibility.value = "shared";
+  updateSheetGate();
   sheet.hidden = false;
   homeError.hidden = true;
   // Don't autofocus: opening a date picker nobody needs to touch would put the
@@ -1205,6 +1226,26 @@ async function onSheetStart() {
   sheetStart.disabled = true;
   sheetStart.replaceChildren(icon("loader", "spin"));
   try {
+    // One planned night at a time. The sheet's gate is only advisory (its
+    // cache can be stale, or empty because the list never loaded), so a
+    // shared create re-asks Firestore here. Fail closed: an unanswered
+    // question is not a "no" — unlisted stays available either way.
+    if (listed) {
+      let planned;
+      try {
+        planned = partitionSessions(await listSessions()).upcoming[0];
+      } catch {
+        throw new Error(
+          "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted"
+        );
+      }
+      if (planned) {
+        plannedUpcoming = planned;
+        throw new Error(
+          `a session is already planned for ${sessionDateLabel(planned.createdAt)}`
+        );
+      }
+    }
     // Creating loads the Firestore chunk lazily, so the first tap can take a
     // beat — hence the spinner above.
     const id = await sync.createSession(
@@ -1232,11 +1273,15 @@ async function onSheetStart() {
     sheetError.hidden = false;
     sheetStart.disabled = false;
     sheetStart.replaceChildren(document.createTextNode("Start"));
+    // After the generic re-enable above, so a "planned session found" refusal
+    // ends with Start disabled and the notice explaining why.
+    updateSheetGate();
   }
 }
 
 newSessionButton.addEventListener("click", () => openSheet());
 sheetStart.addEventListener("click", onSheetStart);
+sheetVisibility.addEventListener("change", updateSheetGate);
 sheetCancel.addEventListener("click", closeSheet);
 // Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
 // bonus, never the only way out.
@@ -1250,7 +1295,9 @@ document.addEventListener("keydown", (event) => {
 sheetDate.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    onSheetStart();
+    // Enter would sail past a disabled Start button, so it honours the same
+    // planned-session gate.
+    if (!sheetStart.disabled) onSheetStart();
   }
 });
 
