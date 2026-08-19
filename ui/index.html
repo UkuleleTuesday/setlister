@@ -62,10 +62,28 @@
       <label class="field">
         <span>Request link</span>
         <select id="share-requests">
+          <option value="auto" selected>Auto (follows the schedule)</option>
           <option value="open">Taking requests</option>
           <option value="closed">View only</option>
         </select>
       </label>
+      <!-- The request window (#NEW): when Auto's own schedule opens/closes the
+           link, editable here once the session exists (the New Session sheet
+           only previews the smart default — see request-window.js). Hidden
+           whenever a forced Open/Closed override makes the schedule inert
+           (renderRequestWindowFields), and datetime-local rather than a bare
+           time picker so there's no day-of-week to infer for a close time
+           past midnight. -->
+      <label class="field" id="share-requests-open-time-field">
+        <span>Requests open</span>
+        <input type="datetime-local" id="share-requests-open-time">
+      </label>
+      <button type="button" id="share-requests-open-reset" class="link-button" hidden>Use default</button>
+      <label class="field" id="share-requests-close-time-field">
+        <span>Requests close</span>
+        <input type="datetime-local" id="share-requests-close-time">
+      </label>
+      <button type="button" id="share-requests-close-reset" class="link-button" hidden>Use default</button>
       <!-- "Who's here": the live roster of people connected to this session.
            Populated by renderPresence(); "you" is marked, and unnamed peers
            show their generated default name. -->
@@ -283,6 +301,11 @@
       <p id="requests-closed-note" class="requests-closed-note note">
         Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
       </p>
+      <!-- 30 minutes before the (effective) window opens, room devices see
+           this instead of the closed note above — same mode-CSS-driven swap,
+           one extra state (#NEW). Text populated live by applyRequestsOpen()
+           and its periodic tick. -->
+      <p id="requests-opening-soon-note" class="requests-opening-soon-note note"></p>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving
            focus. Populated by flashNote(). -->
@@ -372,6 +395,12 @@
         <span>Date</span>
         <input type="date" id="new-session-date">
       </label>
+      <!-- Read-only preview of the smart default request window (#NEW) —
+           nothing is stored yet (see ui/sync.js's createSession, and
+           AGENTS.md's create-path rule); recomputed live by
+           updateSheetWindowPreview() as the date moves. Editable overrides
+           live in the share panel, once the session exists. -->
+      <p class="note" id="new-session-window-note"></p>
       <label class="field">
         <span>Visibility</span>
         <select id="new-session-visibility">

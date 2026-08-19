@@ -9,6 +9,7 @@ import {
   partitionSessions,
   plannedSessionMessage,
   sessionDateLabel,
+  sessionTimeLabel,
   toDateInputValue,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
@@ -29,6 +30,15 @@ import {
   writeLastRoomAdd,
 } from "./room-limits.js";
 import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "./votes.js";
+import {
+  defaultWindowLabel,
+  effectiveRequestsOpen,
+  fromDateTimeInputValue,
+  minutesUntilOpen,
+  openingSoonLabel,
+  resolveWindow,
+  toDateTimeInputValue,
+} from "./request-window.js";
 
 const editionSelect = document.getElementById("edition");
 const photoInput = document.getElementById("photo-input");
@@ -68,7 +78,14 @@ const shareLinkButton = document.getElementById("share-link");
 const shareRoomLinkButton = document.getElementById("share-room-link");
 const shareVisibility = document.getElementById("share-visibility");
 const shareRequests = document.getElementById("share-requests");
+const shareRequestsOpenTimeField = document.getElementById("share-requests-open-time-field");
+const shareRequestsOpenTime = document.getElementById("share-requests-open-time");
+const shareRequestsOpenReset = document.getElementById("share-requests-open-reset");
+const shareRequestsCloseTimeField = document.getElementById("share-requests-close-time-field");
+const shareRequestsCloseTime = document.getElementById("share-requests-close-time");
+const shareRequestsCloseReset = document.getElementById("share-requests-close-reset");
 const shareRequestNote = document.getElementById("share-request-note");
+const requestsOpeningSoonNote = document.getElementById("requests-opening-soon-note");
 const shareCountBadge = document.getElementById("share-count-badge");
 const sharePresence = document.getElementById("share-presence");
 const sharePresenceCount = document.getElementById("share-presence-count");
@@ -118,6 +135,7 @@ const headerTitle = document.querySelector("header h1");
 const BRAND_TITLE = headerTitle.textContent;
 const sheet = document.getElementById("new-session-sheet");
 const sheetDate = document.getElementById("new-session-date");
+const sheetWindowNote = document.getElementById("new-session-window-note");
 const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetNotice = document.getElementById("new-session-notice");
 const sheetError = document.getElementById("new-session-error");
@@ -267,9 +285,10 @@ function onRequestSheetConfirm() {
   const entry = requestSheetEntry;
   closeRequestSheet();
   renderRoomIdentity();
-  // The door can shut while this sheet is open. applyRequestsOpen() dismisses
-  // it when that snapshot arrives, but a tap racing the snapshot gets here.
-  if (entry && !sync.getMeta().requestsOpen) {
+  // The door can shut (or the window can lapse) while this sheet is open.
+  // applyRequestsOpen() dismisses it when that happens, but a tap racing the
+  // change gets here.
+  if (entry && !requestsState().open) {
     flashNote(addFeedback, "Requests just closed. Try the whiteboard of wishes!");
     return;
   }
@@ -528,24 +547,59 @@ function applyViewMode() {
   if (room) renderRoomIdentity();
 }
 
-// Whether this session still takes requests from the room (#86). The class is
-// what the room-mode CSS keys off; it's set in both views because the switch is
-// flipped from the full app and read by the room one, and only the room rules
-// act on it.
-//
-// Called from applyViewMode (arrival) and renderSessionMeta (a peer's flip
-// landing live), so there is no path where a room phone keeps the add field
-// after the door shuts.
+// The composed answer to "is the room's request link taking tunes right now"
+// (#86, #NEW): a forced override always wins, otherwise the window decides.
+// One funnel so every gating call site — the confirm sheet, the combobox
+// pick, the empty-state copy, voting — answers against the SAME instant;
+// nobody recomputes `now()` separately, so a slow tap can't straddle two
+// different answers.
+function requestsState(now = new Date()) {
+  const meta = sync.getMeta();
+  const reqWindow = resolveWindow({
+    sessionCreatedAt: sync.getCreatedAt(),
+    opensAtOverride: meta.requestsOpensAt,
+    closesAtOverride: meta.requestsClosesAt,
+  });
+  const open = effectiveRequestsOpen({ mode: meta.requestsOpen, window: reqWindow, now });
+  // Only auto mode has a meaningful "opening soon" — a forced-closed room
+  // isn't about to open no matter what the clock says.
+  const soonMinutes = !open && meta.requestsOpen === null ? minutesUntilOpen(reqWindow, now) : null;
+  return { open, soonMinutes, window: reqWindow };
+}
+
+const OPEN_NOTE =
+  "The request link is a view for the room: people can add tunes and follow the set, not change it.";
+const CLOSED_NOTE =
+  "View only: people can open tonight's pool and set and watch them, but can't add to them. The whiteboard carries on as usual.";
+
+// The note next to the share buttons describes the link's CURRENT state, so
+// the panel can't promise people can add tunes while the switch says they
+// can't. Forced open/closed keep the fixed copy above; auto names the
+// resolved boundary so the organiser can see the schedule without opening
+// the time fields below.
+function requestNoteText(meta, open, reqWindow) {
+  if (meta.requestsOpen === true) return OPEN_NOTE;
+  if (meta.requestsOpen === false) return CLOSED_NOTE;
+  if (!reqWindow) return open ? OPEN_NOTE : CLOSED_NOTE;
+  return open
+    ? `Auto: taking requests until ${sessionTimeLabel(reqWindow.closesAt)}. People can add tunes and follow the set, not change it.`
+    : `Auto: not open yet, opens at ${sessionTimeLabel(reqWindow.opensAt)}. View only until then.`;
+}
+
+// Called from applyViewMode (arrival), renderSessionMeta (a peer's flip
+// landing live), and the request-window timer (a schedule boundary passing
+// with no snapshot at all) — so there is no path where a room phone keeps the
+// add field after the door shuts, or misses it opening.
 function applyRequestsOpen() {
-  const open = sync.getMeta().requestsOpen;
-  sessionView.classList.toggle("requests-closed", !open);
-  // The note next to the share buttons describes the link's CURRENT state, so
-  // the panel can't promise people can add tunes while the switch says they
-  // can't. The second sentence is for the organiser reading this row: it
-  // governs the link, and nothing else, so the board is still the board.
-  shareRequestNote.textContent = open
-    ? "The request link is a view for the room: people can add tunes and follow the set, not change it."
-    : "View only: people can open tonight's pool and set and watch them, but can't add to them. The whiteboard carries on as usual.";
+  const meta = sync.getMeta();
+  const { open, soonMinutes, window: reqWindow } = requestsState();
+  sessionView.classList.toggle("requests-closed", !open && soonMinutes == null);
+  sessionView.classList.toggle("requests-opening-soon", soonMinutes != null);
+  if (soonMinutes != null) {
+    requestsOpeningSoonNote.textContent =
+      `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
+  }
+  shareRequestNote.textContent = requestNoteText(meta, open, reqWindow);
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
@@ -711,7 +765,9 @@ function renderSessionMeta(meta) {
   if (!sessionView.hidden) headerTitle.textContent = currentSessionLabel();
   shareSessionNameEl.textContent = currentSessionLabel();
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
-  shareRequests.value = meta.requestsOpen ? "open" : "closed";
+  shareRequests.value = meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
+  shareRequests.dataset.previous = shareRequests.value;
+  renderRequestWindowFields(meta);
   applyRequestsOpen();
   // The room's empty note changes with the switch, and a room device may be
   // sitting on this session right now.
@@ -719,6 +775,30 @@ function renderSessionMeta(meta) {
   updateDocumentTitle();
 }
 sync.onMetaChange(renderSessionMeta);
+
+// Populates the two override time fields with the CURRENTLY RESOLVED window
+// (an explicit override if one's set, else the smart default) so they never
+// look empty, and shows "Use default" only on the side that actually has an
+// override to clear. Hidden entirely outside auto mode: a forced open/closed
+// override makes the window inert, and showing live-looking fields for a
+// schedule that isn't in effect would be the same lie the empty-state copy
+// already avoids for room mode.
+function renderRequestWindowFields(meta) {
+  const auto = meta.requestsOpen === null;
+  shareRequestsOpenTimeField.hidden = !auto;
+  shareRequestsCloseTimeField.hidden = !auto;
+  shareRequestsOpenReset.hidden = !auto || meta.requestsOpensAt === null;
+  shareRequestsCloseReset.hidden = !auto || meta.requestsClosesAt === null;
+  if (!auto) return;
+  const createdAt = sync.getCreatedAt();
+  const reqWindow = resolveWindow({
+    sessionCreatedAt: createdAt,
+    opensAtOverride: meta.requestsOpensAt,
+    closesAtOverride: meta.requestsClosesAt,
+  });
+  shareRequestsOpenTime.value = reqWindow ? toDateTimeInputValue(reqWindow.opensAt) : "";
+  shareRequestsCloseTime.value = reqWindow ? toDateTimeInputValue(reqWindow.closesAt) : "";
+}
 
 // Render the "who's here" roster into the share panel and the count badge on
 // the share button. Wired to presence.onRoster, so it re-renders whenever a
@@ -855,25 +935,66 @@ async function onVisibilityChange() {
   }
 }
 
-// Taking requests / View only. Dropping to view-only takes the add field off
-// every room phone on the session (live, through onMetaChange) and points them
-// at the whiteboard; the full app carries on regardless. Same
-// optimistic-then-revert shape as visibility, since both are one tap that has
-// to survive a flaky pub wifi.
+// Auto / Taking requests / View only (#86, #NEW). Dropping to view-only takes
+// the add field off every room phone on the session (live, through
+// onMetaChange) and points them at the whiteboard; forcing it open does the
+// opposite regardless of the schedule; auto hands control back to the window.
+// Same optimistic-then-revert shape as visibility, since all three are one
+// tap that has to survive a flaky pub wifi. The previous value is stashed on
+// the element (rather than derived from the new one) because a 3-way revert
+// can't be inferred from "not this" the way the old binary toggle could.
 async function onRequestsChange() {
-  const open = shareRequests.value === "open";
+  const mode = shareRequests.value;
+  const previous = shareRequests.dataset.previous || "auto";
   errorBox.hidden = true;
   shareRequests.disabled = true;
   try {
-    await sync.setRequestsOpen(open);
+    await sync.setRequestsMode(mode);
+    shareRequests.dataset.previous = mode;
+    renderRequestWindowFields(sync.getMeta());
     applyRequestsOpen();
     renderRequests();
   } catch (err) {
-    shareRequests.value = open ? "closed" : "open"; // the write didn't land
+    shareRequests.value = previous; // the write didn't land
     showSessionError(`Couldn’t change the request link: ${err.message}`);
   } finally {
     shareRequests.disabled = false;
   }
+}
+
+// The two override time fields (#NEW). Each writes independently: touching
+// Opens never disturbs whatever Closes currently resolves to, and vice versa
+// — setRequestsWindow always sends both current values so one save can't
+// silently clear the other side.
+async function onRequestsWindowChange(side) {
+  const meta = sync.getMeta();
+  const opensAt =
+    side === "open"
+      ? fromDateTimeInputValue(shareRequestsOpenTime.value)
+      : meta.requestsOpensAt;
+  const closesAt =
+    side === "close"
+      ? fromDateTimeInputValue(shareRequestsCloseTime.value)
+      : meta.requestsClosesAt;
+  errorBox.hidden = true;
+  try {
+    await sync.setRequestsWindow({ opensAt, closesAt });
+    renderRequestWindowFields(sync.getMeta());
+    applyRequestsOpen();
+  } catch (err) {
+    renderRequestWindowFields(sync.getMeta()); // revert the input to what's actually stored
+    showSessionError(`Couldn’t change the request window: ${err.message}`);
+  }
+}
+
+function onRequestsOpenReset() {
+  shareRequestsOpenTime.value = "";
+  onRequestsWindowChange("open");
+}
+
+function onRequestsCloseReset() {
+  shareRequestsCloseTime.value = "";
+  onRequestsWindowChange("close");
 }
 
 shareToggle.addEventListener("click", onShareTap);
@@ -881,6 +1002,10 @@ shareLinkButton.addEventListener("click", shareSessionLink);
 shareRoomLinkButton.addEventListener("click", shareRoomLink);
 shareVisibility.addEventListener("change", onVisibilityChange);
 shareRequests.addEventListener("change", onRequestsChange);
+shareRequestsOpenTime.addEventListener("change", () => onRequestsWindowChange("open"));
+shareRequestsCloseTime.addEventListener("change", () => onRequestsWindowChange("close"));
+shareRequestsOpenReset.addEventListener("click", onRequestsOpenReset);
+shareRequestsCloseReset.addEventListener("click", onRequestsCloseReset);
 
 // Same forgiving dismissal as the settings popover: tap outside or Escape.
 document.addEventListener("click", (event) => {
@@ -896,6 +1021,29 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") setSharePanelOpen(false);
 });
 
+// The request window's open/opening-soon/closed state (#NEW) can flip with no
+// Firestore snapshot arriving at all — an unattended auto session crossing
+// its own open or close instant. A 1-minute tick is enough resolution for a
+// whole-minutes message and does no network I/O, just re-runs
+// applyRequestsOpen() against a fresh clock. Same setInterval/clearInterval-
+// in-a-stop-function shape as presence.js's heartbeat, started/stopped at the
+// exact same call sites as presence itself so it never outlives the session.
+// Runs for both view modes: applyRequestsOpen()'s own effects are already
+// scoped to room mode (the .room CSS prefix, votingEnabled()'s viewMode
+// check), so a second timer lifecycle keyed to view-mode switching would only
+// add complexity for no behaviour difference.
+let requestWindowTimer = null;
+function startRequestWindowTimer() {
+  stopRequestWindowTimer();
+  requestWindowTimer = setInterval(applyRequestsOpen, 60_000);
+}
+function stopRequestWindowTimer() {
+  if (requestWindowTimer) {
+    clearInterval(requestWindowTimer);
+    requestWindowTimer = null;
+  }
+}
+
 // Keep the UI in sync when the engine changes state on its own — most
 // importantly when the remote doc goes away underneath us. Presence is bound to
 // the same lifecycle: start heartbeating on connect, stop (and retract our doc)
@@ -903,12 +1051,15 @@ document.addEventListener("keydown", (event) => {
 sync.onStatusChange((status) => {
   if (status.status === "connected") {
     presence.startPresence(status.id, () => app.name);
+    startRequestWindowTimer();
   } else if (status.status === "expired") {
     presence.stopPresence();
+    stopRequestWindowTimer();
     showHomeError("That session is no longer there. It looks like it was deleted.");
     navigateTo(null, { replace: true });
   } else if (status.status === "left") {
     presence.stopPresence();
+    stopRequestWindowTimer();
   }
   updateShareUi();
 });
@@ -1200,10 +1351,24 @@ function openSheet({ seedCarryover = false } = {}) {
   sheetDate.max = toDateInputValue(new Date(Date.now() + 59 * 86_400_000));
   sheetVisibility.value = "shared";
   updateSheetGate();
+  updateSheetWindowPreview();
   sheet.hidden = false;
   homeError.hidden = true;
   // Don't autofocus: opening a date picker nobody needs to touch would put the
   // extra tap back. Today is usually the answer — tap Start and go.
+}
+
+// Read-only preview of the smart default request window (#NEW) — nothing is
+// stored yet (see sync.js's createSession), so this is purely informational,
+// recomputed live as the date picker moves. Mirrors onSheetStart's own
+// "untouched picker means now" rule so the preview never disagrees with what
+// Start is about to send.
+function updateSheetWindowPreview() {
+  const createdAt =
+    sheetDate.value && sheetDate.value !== sheetDateDefault
+      ? fromDateInputValue(sheetDate.value)
+      : new Date();
+  sheetWindowNote.textContent = defaultWindowLabel(createdAt);
 }
 
 function closeSheet() {
@@ -1282,6 +1447,7 @@ async function onSheetStart() {
 newSessionButton.addEventListener("click", () => openSheet());
 sheetStart.addEventListener("click", onSheetStart);
 sheetVisibility.addEventListener("change", updateSheetGate);
+sheetDate.addEventListener("input", updateSheetWindowPreview);
 sheetCancel.addEventListener("click", closeSheet);
 // Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
 // bonus, never the only way out.
@@ -1629,8 +1795,9 @@ function onManualPick(entry) {
     return;
   }
   // Belt and braces: the combobox is already gone when requests are closed
-  // (#86), so this only catches the flip landing between paint and tap.
-  if (!sync.getMeta().requestsOpen) {
+  // (#86), so this only catches the flip (or window boundary) landing between
+  // paint and tap.
+  if (!requestsState().open) {
     flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
     return;
   }
@@ -2131,7 +2298,7 @@ function renderRequests() {
   // there is no door at all, so pointing at one above would be a lie.
   requestsEmpty.textContent =
     viewMode === "room"
-      ? sync.getMeta().requestsOpen
+      ? requestsState().open
         ? "No requests yet. Add one above."
         : "No requests yet."
       : "No requests yet. Snap the board, or add one above.";
@@ -2203,7 +2370,7 @@ function renderGroup(container, { iconName, noun, rows, open, onToggle, context 
 // control would make that copy a lie. The full app always votes — closing the
 // link is about the link.
 function votingEnabled() {
-  return viewMode !== "room" || sync.getMeta().requestsOpen;
+  return viewMode !== "room" || requestsState().open;
 }
 
 // The want button: a thumb plus the count, pressed while this device is one of

@@ -76,7 +76,7 @@ function isValidSession(id) {
   let d = request.resource.data;
   // Session ids are `adjective-noun`, lowercase, one dash (e.g. misty-banjo).
   return id.matches('^[a-z]+-[a-z]+$')
-    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'requestsOpen', 'votes', 'createdAt', 'updatedAt', 'expiresAt'])
+    && d.keys().hasOnly(['v', 'rows', 'upNextOrder', 'requestsOrder', 'edition', 'name', 'createdBy', 'listed', 'requestsOpen', 'requestsOpensAt', 'requestsClosesAt', 'votes', 'createdAt', 'updatedAt', 'expiresAt'])
     && d.v == 1
     && d.rows is map
     && d.upNextOrder is list
@@ -93,13 +93,29 @@ function isValidSession(id) {
     && (!('name' in d) || (d.name is string && d.name.size() <= 80))
     && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
     && (!('listed' in d) || d.listed is bool)
-    // Whether the room's request link still accepts tunes (#86). Like room mode
-    // itself this is a VIEW, not a permission: `rows` below is an unvalidated
-    // map and anyone with the id can write, so closing requests stops the
-    // ordinary case (a link still circulating in the WhatsApp group), not a
-    // determined one. Absent means open, so no session predating the field
-    // silently shuts.
+    // Whether the room's request link still accepts tunes (#86, #NEW). Like
+    // room mode itself this is a VIEW, not a permission: `rows` below is an
+    // unvalidated map and anyone with the id can write, so closing requests
+    // stops the ordinary case (a link still circulating in the WhatsApp
+    // group), not a determined one. Tri-state now: true/false force the link
+    // open/closed regardless of the window below; absent means AUTO — follow
+    // requestsOpensAt/requestsClosesAt (or their smart defaults, derived
+    // client-side from createdAt when neither is set). The rules check is
+    // unchanged from #86: only the client's reading of "absent" changed, so
+    // no schema migration is needed here.
     && (!('requestsOpen' in d) || d.requestsOpen is bool)
+    // Overrides for the request window (#NEW): when the link opens/closes on
+    // its own, beyond the smart default above. Both optional and independent
+    // — moving the close time never pins the open time to anything. Written
+    // only from the share panel once a session exists, never on create (see
+    // createSession() in ui/sync.js) so a UI bundle running ahead of these
+    // rules can't turn "start a session" into a hasOnly rejection. No bound
+    // beyond `is timestamp`: unlike sessionIndex's createdAt, a bogus value
+    // here can't pollute a shared list — it only breaks this one session's
+    // own window for whoever opens it, the same trust level `rows` already
+    // carries.
+    && (!('requestsOpensAt' in d) || d.requestsOpensAt is timestamp)
+    && (!('requestsClosesAt' in d) || d.requestsClosesAt is timestamp)
     // Upvotes on requests (#83): { rowUid: { clientId: true } }. Its own
     // top-level map rather than a field on the row, because `rows.<uid>` writes
     // replace the whole row (see diff() in ui/sync.js) — votes living there
