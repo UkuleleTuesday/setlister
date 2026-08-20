@@ -88,7 +88,9 @@ describe("readMeta", () => {
     expect(readMeta(null)).toEqual({
       createdBy: "",
       listed: false,
-      requestsOpen: true,
+      requestsOpen: null,
+      requestsOpensAt: null,
+      requestsClosesAt: null,
       legacy: true,
     });
   });
@@ -98,26 +100,41 @@ describe("readMeta", () => {
     expect(meta).toEqual({
       createdBy: "",
       listed: false,
-      requestsOpen: true,
+      requestsOpen: null,
+      requestsOpensAt: null,
+      requestsClosesAt: null,
       legacy: false,
     });
   });
 
-  // requestsOpen defaults the OTHER way to listed: every session that exists
-  // predates the switch and has been taking requests all along, so absent has
-  // to mean open. Getting this backwards would shut the door on the club's
-  // whole history the moment the change deployed.
-  it("treats a missing requestsOpen as open", () => {
-    expect(readMeta({ createdBy: "" }).requestsOpen).toBe(true);
-    expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBe(true);
+  // requestsOpen is tri-state: true/false are a deliberate override, absent is
+  // AUTO — follow the request window (see request-window.js), not "always
+  // open". Every session that predates this field reads as auto now rather
+  // than permanently open; the window's own default covers a whole ordinary
+  // night, so that's invisible for anything actually happening tonight.
+  it("treats a missing requestsOpen as auto, not forced either way", () => {
+    expect(readMeta({ createdBy: "" }).requestsOpen).toBeNull();
+    expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBeNull();
   });
 
-  it("closes only on an explicit false", () => {
+  it("reads an explicit true or false as a forced override", () => {
     expect(readMeta({ requestsOpen: false }).requestsOpen).toBe(false);
     expect(readMeta({ requestsOpen: true }).requestsOpen).toBe(true);
-    // A wrong-typed value is not a close: falling open beats a session nobody
-    // can request from because a stray write put a string in the field.
-    expect(readMeta({ requestsOpen: "no" }).requestsOpen).toBe(true);
+    // A wrong-typed value is not a forced close: falling back to auto beats a
+    // session nobody can request from because a stray write put a string in
+    // the field.
+    expect(readMeta({ requestsOpen: "no" }).requestsOpen).toBeNull();
+  });
+
+  it("reads the request window overrides, or null when absent/malformed", () => {
+    const toDate = (d) => ({ toDate: () => d });
+    const opensAt = new Date(2026, 7, 4, 19, 30);
+    const closesAt = new Date(2026, 7, 5, 4, 0);
+    const meta = readMeta({ requestsOpensAt: toDate(opensAt), requestsClosesAt: toDate(closesAt) });
+    expect(meta.requestsOpensAt).toEqual(opensAt);
+    expect(meta.requestsClosesAt).toEqual(closesAt);
+    expect(readMeta({}).requestsOpensAt).toBeNull();
+    expect(readMeta({ requestsOpensAt: "nope" }).requestsOpensAt).toBeNull();
   });
 });
 

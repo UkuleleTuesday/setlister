@@ -60,8 +60,9 @@ const EVENING_HOUR = 17;
 // A night belongs to the evening it started, not to the calendar. Without this
 // a session that kicks off at 21:00 and is still running at 00:30 — an entirely
 // normal pub night — would relabel itself "Yesterday" while people are still
-// adding songs to it.
-const NIGHT_BOUNDARY_HOUR = 4;
+// adding songs to it. Exported so request-window.js can default the request
+// window's close time to the same boundary, instead of re-deriving it.
+export const NIGHT_BOUNDARY_HOUR = 4;
 // A session created for a day other than today (backfilling a missed night, or
 // prepping a future one) is stamped at this hour: late enough to count as that
 // day's EVENING (>= EVENING_HOUR, so it renders "Tonight" on its night) and
@@ -69,8 +70,10 @@ const NIGHT_BOUNDARY_HOUR = 4;
 const PICKED_SESSION_HOUR = 20;
 
 // The start of the *night* `date` falls in, which is the previous calendar day
-// for anything before 04:00.
-function startOfNight(date) {
+// for anything before 04:00. Exported for request-window.js: the request
+// window's default close time is "the end of the night", so it needs the same
+// night bucket this module already uses for labelling and partitioning.
+export function startOfNight(date) {
   const d = new Date(date);
   d.setHours(d.getHours() - NIGHT_BOUNDARY_HOUR);
   d.setHours(0, 0, 0, 0);

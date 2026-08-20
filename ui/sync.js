@@ -9,11 +9,12 @@
 // field here means editing the rules' hasOnly list in the same change:
 //   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
 //     edition, votes: {uid: {clientId: true}}, createdBy, listed, requestsOpen,
-//     createdAt, updatedAt }
+//     requestsOpensAt, requestsClosesAt, createdAt, updatedAt }
 //
-// `createdBy` / `listed` / `requestsOpen` are session METADATA (#77, #86), not
-// list state: they're deliberately outside serialize()/syncFields()/diff() so
-// the debounced row push never touches them, and they're written by their own
+// `createdBy` / `listed` / `requestsOpen` / `requestsOpensAt` /
+// `requestsClosesAt` are session METADATA (#77, #86, #NEW), not list state:
+// they're deliberately outside serialize()/syncFields()/diff() so the
+// debounced row push never touches them, and they're written by their own
 // small helpers instead. A listed session also has a `sessionIndex/{id}` row
 // (see session-index.js) written in the same transaction that mints the session.
 // Sessions have no names: their identity is `createdAt`, rendered live (legacy
@@ -72,7 +73,16 @@ let metaCallback = null;
 // The session's display metadata as last seen on the server. Kept so the UI can
 // ask without a re-read, and so setSessionListed() knows what to copy into a
 // freshly created index row.
-let meta = { createdBy: "", listed: false, requestsOpen: true, legacy: false };
+let meta = {
+  createdBy: "",
+  listed: false,
+  // Tri-state (#NEW): true = forced open, false = forced closed, null = auto
+  // (follow requestsOpensAt/requestsClosesAt below, see request-window.js).
+  requestsOpen: null,
+  requestsOpensAt: null,
+  requestsClosesAt: null,
+  legacy: false,
+};
 
 // When the session was created, per the server. The history list is dated from
 // this, so it must survive a session being listed/un-listed/re-listed — writing
@@ -120,12 +130,18 @@ export function readMeta(data) {
   return {
     createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
     listed: data?.listed === true,
-    // Note the inverted default: absent means OPEN, where absent `listed` means
-    // unlisted. Every session that exists today has been taking requests all
-    // along, and a deploy that quietly shut the door on all of them would be a
-    // behaviour change nobody asked for. `legacy` below stays about `listed`
-    // alone — there is nothing to backfill here.
-    requestsOpen: data?.requestsOpen !== false,
+    // Tri-state (#NEW): true/false are a deliberate override (forced open or
+    // closed, regardless of the window); absent is AUTO, not "always open"
+    // any more — see request-window.js for how auto resolves against
+    // requestsOpensAt/requestsClosesAt (or their smart defaults). This is a
+    // real behaviour change for every session that predates this field: they
+    // move from permanently open to auto-per-window. The default window
+    // covers a whole ordinary night, so a session happening right now is
+    // unaffected; an old, already-finished session will now correctly read
+    // as closed instead of perpetually open.
+    requestsOpen: data?.requestsOpen === true ? true : data?.requestsOpen === false ? false : null,
+    requestsOpensAt: data?.requestsOpensAt?.toDate ? data.requestsOpensAt.toDate() : null,
+    requestsClosesAt: data?.requestsClosesAt?.toDate ? data.requestsClosesAt.toDate() : null,
     // A session created before visibility existed has NO `listed` field, which
     // is emphatically not the same as an explicit `false`. Collapsing the two is
     // how opening an *unlisted* session's own share link came to re-advertise it
@@ -140,7 +156,9 @@ function emitMeta(data) {
   const changed =
     next.createdBy !== meta.createdBy ||
     next.listed !== meta.listed ||
-    next.requestsOpen !== meta.requestsOpen;
+    next.requestsOpen !== meta.requestsOpen ||
+    next.requestsOpensAt?.getTime() !== meta.requestsOpensAt?.getTime() ||
+    next.requestsClosesAt?.getTime() !== meta.requestsClosesAt?.getTime();
   meta = next;
   if (changed && metaCallback) metaCallback({ ...meta });
 }
@@ -253,11 +271,14 @@ function deepCopy(obj) {
 // serialized state and return the id. `applyStateFn` powers the live listener.
 //
 // `sessionMeta` is { createdBy, listed, createdAt }. The new-session sheet
-// offers no requests-open choice, and the doc gets no `requestsOpen` field at
-// all, so readMeta's default applies and every night starts open (see the
-// write below). `createdAt` is a Date only when the creator picked a day other
-// than today (backfilling a missed night, or prepping a future one); absent,
-// the server stamps the moment of creation.
+// offers no requests-open choice, and the doc gets no `requestsOpen`,
+// `requestsOpensAt` or `requestsClosesAt` field at all, so readMeta's
+// defaults apply and every night starts in auto mode, taking requests on the
+// smart default window derived from its own createdAt (see request-window.js
+// — the sheet only PREVIEWS that default, it never stores it). `createdAt` is
+// a Date only when the creator picked a day other than today (backfilling a
+// missed night, or prepping a future one); absent, the server stamps the
+// moment of creation.
 // When listed, the history row is written in the SAME transaction, so there can
 // never be a session without its listing or a listing without its session.
 export async function createSession(getState, applyStateFn, sessionMeta) {
@@ -281,15 +302,19 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
           edition: serialized.edition,
           createdBy: next.createdBy,
           listed: next.listed,
-          // No `requestsOpen` here, deliberately. Absent already reads as open
-          // (see readMeta), so writing it would buy nothing but a hard
-          // dependency on the new rules being live: firestore.rules deploys
-          // from main while the UI also ships to PR previews, and the two
-          // deploy jobs don't order themselves. A client that writes an
-          // unrecognised key gets the WHOLE set rejected by hasOnly, which
-          // would turn "start a session" — the app's primary action — into a
-          // permission error for as long as the bundle ran ahead of the rules.
-          // The switch mints the field on first use instead.
+          // No `requestsOpen`, `requestsOpensAt` or `requestsClosesAt` here,
+          // deliberately. Absent already reads as auto-per-window (see
+          // readMeta), and the window's own default needs no stored state at
+          // all — it's derived from createdAt below. Writing any of the three
+          // here would buy nothing but a hard dependency on the new rules
+          // being live: firestore.rules deploys from main while the UI also
+          // ships to PR previews, and the two deploy jobs don't order
+          // themselves. A client that writes an unrecognised key gets the
+          // WHOLE set rejected by hasOnly, which would turn "start a
+          // session" — the app's primary action — into a permission error
+          // for as long as the bundle ran ahead of the rules. Each field
+          // mints itself on first explicit write instead (setRequestsMode /
+          // setRequestsWindow), never on create.
           createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
@@ -377,22 +402,46 @@ export async function setSessionListed(listed) {
   meta = { ...meta, listed };
 }
 
-// Open / close the room's request link (#86). Unlike `listed` there is no
-// sessionIndex row to keep in step, so a plain update does — but like `listed`
-// it rides outside the debounced row push, and the snapshot listener is what
-// carries the flip to every room phone already on the session.
+// Force open / force closed / back to auto for the room's request link (#86,
+// #NEW). Unlike `listed` there is no sessionIndex row to keep in step, so a
+// plain update does — but like `listed` it rides outside the debounced row
+// push, and the snapshot listener is what carries the flip to every room
+// phone already on the session.
 //
 // Honour-system, deliberately: firestore.rules can't tell a room device from an
 // organiser's, so this closes the door on the link, not on the session.
-export async function setRequestsOpen(open) {
+//
+// "auto" clears the field entirely (deleteField) rather than writing some
+// third sentinel value, so a session nobody has ever overridden keeps costing
+// nothing extra to read — exactly the absent-means-X convention `listed` and
+// the window overrides below already follow.
+export async function setRequestsMode(mode) {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  const value = mode === "open" ? true : mode === "closed" ? false : fx.deleteField();
+  await fx.updateDoc(fx.doc(db, "sessions", id), {
+    requestsOpen: value,
+    updatedAt: fx.serverTimestamp(),
+  });
+  meta = { ...meta, requestsOpen: mode === "open" ? true : mode === "closed" ? false : null };
+}
+
+// Overrides the request window's smart default (#NEW, see request-window.js).
+// Either boundary may be omitted/null to clear it back to its derived
+// default — the two resolve independently, so clearing one never disturbs
+// the other. Called only from the share panel, once a session already
+// exists: never from createSession (see its header for why).
+export async function setRequestsWindow({ opensAt, closesAt } = {}) {
   if (!sessionId) return;
   const id = sessionId;
   const { db, fx } = await getFirestore();
   await fx.updateDoc(fx.doc(db, "sessions", id), {
-    requestsOpen: open,
+    requestsOpensAt: opensAt ? fx.Timestamp.fromDate(opensAt) : fx.deleteField(),
+    requestsClosesAt: closesAt ? fx.Timestamp.fromDate(closesAt) : fx.deleteField(),
     updatedAt: fx.serverTimestamp(),
   });
-  meta = { ...meta, requestsOpen: open };
+  meta = { ...meta, requestsOpensAt: opensAt ?? null, requestsClosesAt: closesAt ?? null };
 }
 
 // Stop listening and forget everything. Kept idempotent so the snapshot
@@ -411,7 +460,14 @@ function teardown() {
   applyState = null;
   pendingState = null;
   deferredSnapshot = null;
-  meta = { createdBy: "", listed: false, requestsOpen: true, legacy: false };
+  meta = {
+    createdBy: "",
+    listed: false,
+    requestsOpen: null,
+    requestsOpensAt: null,
+    requestsClosesAt: null,
+    legacy: false,
+  };
   sessionCreatedAt = null;
 }
 

@@ -622,6 +622,18 @@ body.room-mode #edition-note { display: none; }
   margin: 0 0 0.8rem;
 }
 
+/* The "opening soon" state (#NEW): 30 minutes out from an auto window's open
+   time, room devices get this note in place of the closed one above — same
+   swap, one more state. */
+.requests-opening-soon-note { display: none; }
+#session-view.room.requests-opening-soon #manual-add,
+#session-view.room.requests-opening-soon #add-feedback,
+#session-view.room.requests-opening-soon .room-identity { display: none; }
+#session-view.room.requests-opening-soon .requests-opening-soon-note {
+  display: block;
+  margin: 0 0 0.8rem;
+}
+
 /* The song named in the request sheet is what's being confirmed, so it reads
    as the sheet's subject rather than as a caption. Long titles wrap instead of
    widening the sheet. */

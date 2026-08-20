@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-19",
+    "items": [
+      "The request link now opens and closes itself around the night, half an hour before start until 4am by default. The share panel switch still overrides it: force it open, close it early, or set your own times instead."
+    ]
+  },
+  {
     "date": "2026-08-11",
     "items": [
       "The request link now shows the whole night: Up next and the played count appear above the pool, so a phone on the room view can follow the set as it happens. Looking only, of course. The running order still belongs to the stage."

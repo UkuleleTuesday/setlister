@@ -108,12 +108,14 @@ describe("sessions/{id}", () => {
     );
   });
 
-  it("accepts a legacy doc with no name/createdBy/listed/requestsOpen at all", async () => {
+  it("accepts a legacy doc with no name/createdBy/listed/requestsOpen/window fields at all", async () => {
     const legacy = session();
     delete legacy.name;
     delete legacy.createdBy;
     delete legacy.listed;
     delete legacy.requestsOpen;
+    delete legacy.requestsOpensAt;
+    delete legacy.requestsClosesAt;
     await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), legacy));
   });
 
@@ -152,6 +154,26 @@ describe("sessions/{id}", () => {
   it("rejects a non-boolean requestsOpen", async () => {
     await assertFails(
       setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen: "closed" }))
+    );
+  });
+
+  it("accepts requestsOpensAt/requestsClosesAt as timestamps, and a doc with neither", async () => {
+    const ref = doc(db, "sessions", "misty-banjo");
+    await assertSucceeds(
+      setDoc(ref, session({ requestsOpensAt: NOW, requestsClosesAt: NOW }))
+    );
+    const noWindow = session();
+    delete noWindow.requestsOpensAt;
+    delete noWindow.requestsClosesAt;
+    await assertSucceeds(setDoc(ref, noWindow));
+  });
+
+  it("rejects a non-timestamp requestsOpensAt or requestsClosesAt", async () => {
+    await assertFails(
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpensAt: "soon" }))
+    );
+    await assertFails(
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsClosesAt: "late" }))
     );
   });
 
