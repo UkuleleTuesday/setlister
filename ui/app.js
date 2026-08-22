@@ -39,8 +39,16 @@ import {
   resolveWindow,
   toDateTimeInputValue,
 } from "./request-window.js";
+import {
+  CATALOGUES_CACHE_KEY,
+  LEGACY_CATALOGUE_CACHE_KEY,
+  getCachedCatalogue,
+  migrateLegacyCatalogue,
+  putCachedCatalogue,
+} from "./catalogue-cache.js";
 
 const editionSelect = document.getElementById("edition");
+const editionSetting = document.getElementById("edition-setting");
 const photoInput = document.getElementById("photo-input");
 const preview = document.getElementById("preview");
 const previewWrap = document.getElementById("preview-wrap");
@@ -136,6 +144,7 @@ const BRAND_TITLE = headerTitle.textContent;
 const sheet = document.getElementById("new-session-sheet");
 const sheetDate = document.getElementById("new-session-date");
 const sheetWindowNote = document.getElementById("new-session-window-note");
+const sheetEdition = document.getElementById("new-session-edition");
 const sheetVisibility = document.getElementById("new-session-visibility");
 const sheetNotice = document.getElementById("new-session-notice");
 const sheetError = document.getElementById("new-session-error");
@@ -164,10 +173,10 @@ copyButton.replaceChildren(icon("copy"));
 downloadButton.replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
-// The catalogue is cached separately from the lists: it's ~20KB of derived
-// data that lets manual search work instantly on revisit (and ride out a slow
-// Cloud Function cold start) while a fresh copy loads in the background.
-const CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
+// The catalogues are cached separately from the lists: ~20KB of derived data
+// per edition that lets manual search work instantly on revisit (and ride out
+// a slow Cloud Function cold start) while a fresh copy loads in the
+// background. Keyed by edition id — see catalogue-cache.js.
 // The ISO date of the last "What's new" entry this device has seen. Its own
 // key, outside setlister.v1, so persist()/restore()'s schema stays untouched.
 const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
@@ -434,30 +443,59 @@ function restore() {
 
 // --- Catalogue cache ---------------------------------------------------------
 // Search should work the moment the app opens: hydrate from the last-seen
-// catalogue, then let the network fetch replace it.
-function restoreCatalogueCache() {
+// catalogue for the edition in play, then let the network fetch replace it.
+// The map logic lives in catalogue-cache.js; only the localStorage I/O is here.
+function readCatalogueStore() {
+  let store = {};
   try {
-    const saved = JSON.parse(localStorage.getItem(CATALOGUE_CACHE_KEY) || "null");
-    if (!saved || !Array.isArray(saved.catalogue) || !saved.catalogue.length) return;
-    app.catalogue = saved.catalogue;
-    if (!app.edition) app.edition = saved.edition;
-    app.catalogueGeneratedAt = saved.generatedAt || "";
-    catalogueStatus = "ready";
+    store = JSON.parse(localStorage.getItem(CATALOGUES_CACHE_KEY) || "null") || {};
   } catch {
     /* corrupt cache — the network load will repopulate it */
   }
+  try {
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_CATALOGUE_CACHE_KEY) || "null");
+    if (legacy) {
+      store = migrateLegacyCatalogue(store, legacy, Date.now());
+      localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
+      localStorage.removeItem(LEGACY_CATALOGUE_CACHE_KEY);
+    }
+  } catch {
+    /* unreadable legacy slot — nothing worth keeping */
+  }
+  return store;
+}
+
+// Hydrate app state from the cached copy of ONE edition's catalogue. Returns
+// whether it hit, so callers know if search is live or still waiting on the
+// network.
+function restoreCatalogueCache(editionId) {
+  const entry = getCachedCatalogue(readCatalogueStore(), editionId);
+  if (!entry) return false;
+  app.catalogue = entry.catalogue;
+  // Adopt the cached edition info when switching books (or starting blank),
+  // but don't clobber a same-id edition that arrived with the session doc —
+  // its title can be fresher than the cache's.
+  if (!app.edition || app.edition.id !== editionId) app.edition = entry.edition;
+  app.catalogueGeneratedAt = entry.generatedAt || "";
+  loadedCatalogueEditionId = editionId;
+  catalogueStatus = "ready";
+  return true;
 }
 
 function saveCatalogueCache() {
+  if (!app.edition?.id) return;
   try {
-    localStorage.setItem(
-      CATALOGUE_CACHE_KEY,
-      JSON.stringify({
+    const store = putCachedCatalogue(
+      readCatalogueStore(),
+      app.edition.id,
+      {
         edition: app.edition,
         catalogue: app.catalogue,
         generatedAt: app.catalogueGeneratedAt,
-      })
+      },
+      Date.now()
     );
+    localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
   } catch {
     /* storage full or blocked — cache is best-effort */
   }
@@ -482,6 +520,22 @@ function sessionState() {
   };
 }
 
+// Point the song picker at ONE edition's catalogue: cache first for instant
+// search, network refresh behind it. On a cache miss the picker says
+// "Loading the songbook…" — better honest than quietly serving matches from
+// the WRONG book while the fetch runs.
+function scopeCatalogueToEdition(editionId) {
+  if (editionId !== loadedCatalogueEditionId) {
+    if (!restoreCatalogueCache(editionId)) {
+      app.catalogue = [];
+      catalogueStatus = "loading";
+    }
+    refreshPickers();
+    loadCatalogue(editionId);
+  }
+  syncEditionSelect(editionId);
+}
+
 // Called by sync when a remote change arrives: swap in the fresh lists and
 // re-render. persist() writes them back to localStorage (and is a no-op push
 // since sync just set lastRemote to this same state).
@@ -489,7 +543,16 @@ function applyRemoteState(state) {
   app.upNext = state.upNext;
   app.requests = state.requests;
   app.votes = state.votes || {};
-  if (state.edition) app.edition = state.edition;
+  // The doc is authoritative even when it says null (a session predating
+  // per-session books): keeping this device's old edition would push it into
+  // the shared doc on the persist() below, hijacking the session's book.
+  app.edition = state.edition ?? null;
+  // The session's songbook is the one everyone searches: when the doc names a
+  // different edition than the loaded catalogue (joining a themed night, or a
+  // peer switching books mid-session), re-scope the picker to it. Sessions
+  // from before editions were guaranteed carry null — those read as the
+  // default book.
+  scopeCatalogueToEdition(state.edition?.id || "current");
   renderUpNext();
   renderRequests();
   persist();
@@ -619,6 +682,9 @@ function setView(view) {
   // Sharing and the edition footnote are both about a session you're in.
   shareToggle.hidden = home;
   editionNote.hidden = home;
+  // So is the songbook select now: it edits the session's book, for everyone.
+  // On home the choice belongs to the new-session sheet instead.
+  editionSetting.hidden = home;
   if (home) {
     setSharePanelOpen(false);
     shareCountBadge.hidden = true;
@@ -1349,6 +1415,9 @@ function openSheet({ seedCarryover = false } = {}) {
   // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
   // earlier so a bad pick fails here, not as a rules error after Start.
   sheetDate.max = toDateInputValue(new Date(Date.now() + 59 * 86_400_000));
+  // Always the default book, never the device's last-loaded one: a themed
+  // night shouldn't quietly become next Tuesday's songbook too.
+  sheetEdition.value = "current";
   sheetVisibility.value = "shared";
   updateSheetGate();
   updateSheetWindowPreview();
@@ -1411,13 +1480,28 @@ async function onSheetStart() {
         );
       }
     }
+    // The session's songbook, picked on the sheet. Resolved through the
+    // editions listing so the doc carries a real {id, title}; when the listing
+    // never loaded the id alone is enough (loadCatalogue enriches it). Never
+    // null — every session now names its book explicitly.
+    const chosenId = sheetEdition.value || "current";
+    const chosenEdition = editionsList.find((e) => e.id === chosenId) || {
+      id: chosenId,
+      title: "",
+      description: "",
+    };
     // Creating loads the Firestore chunk lazily, so the first tap can take a
     // beat — hence the spinner above.
     const id = await sync.createSession(
-      () => (seed ? sessionState() : { upNext: [], requests: [], edition: app.edition }),
+      () =>
+        seed
+          ? { ...sessionState(), edition: chosenEdition }
+          : { upNext: [], requests: [], edition: chosenEdition },
       applyRemoteState,
       { createdBy: presence.displayName(app.name), listed, createdAt }
     );
+    app.edition = chosenEdition;
+    scopeCatalogueToEdition(chosenId);
     if (!seed) {
       app.upNext = [];
       app.requests = [];
@@ -1497,6 +1581,12 @@ carryoverDiscard.addEventListener("click", () => {
 // nothing to search — so an empty dropdown never masquerades as "no matches".
 let catalogueStatus = "loading";
 
+// Which edition the LOADED catalogue belongs to. Distinct from app.edition:
+// on joining a session, app.edition names the session's book the instant the
+// doc arrives, while the catalogue in memory is still whatever this device
+// last searched — this is how applyRemoteState notices the gap.
+let loadedCatalogueEditionId = null;
+
 // The editions listing only knows ids (real titles live in each edition's
 // manifest), so prettify the slug for display: "wexford-2026" -> "Wexford 2026".
 // A real title is preferred whenever the API sends one.
@@ -1508,53 +1598,102 @@ function editionLabel(e) {
     .join(" ");
 }
 
+// The fetched editions listing, kept for the new-session sheet and for
+// resolving a picked id back to its {id, title} on create. Empty until (and
+// unless) /api/editions answers — both selects ship a hardcoded "current"
+// option so the default path never depends on this request.
+let editionsList = [];
+
+function populateEditionSelect(select, selectedId) {
+  // A session can name an edition the listing doesn't know (an unlisted book,
+  // or the listing simply failed) — give it an option anyway so the select
+  // shows the truth instead of silently snapping to something else.
+  const known = editionsList.length ? editionsList : [{ id: "current" }];
+  const editions = known.some((e) => e.id === selectedId)
+    ? known
+    : [...known, { id: selectedId }];
+  select.replaceChildren(
+    ...editions.map((e) => {
+      const option = document.createElement("option");
+      option.value = e.id;
+      option.textContent = editionLabel(e);
+      option.selected = e.id === selectedId;
+      return option;
+    })
+  );
+}
+
+// Point the settings select at the session's book, growing an option for an
+// id it doesn't have yet (editions may still be loading when the doc arrives).
+function syncEditionSelect(editionId) {
+  if (editionSelect.value === editionId) return;
+  if (![...editionSelect.options].some((o) => o.value === editionId)) {
+    populateEditionSelect(editionSelect, editionId);
+  }
+  editionSelect.value = editionId;
+}
+
 async function loadEditions() {
   try {
     const res = await fetch(`${API_BASE}/api/editions`);
     const data = await res.json();
-    editionSelect.replaceChildren(
-      ...data.editions.map((e) => {
-        const option = document.createElement("option");
-        option.value = e.id;
-        option.textContent = editionLabel(e);
-        option.selected = e.id === (app.edition?.id || "current");
-        return option;
-      })
-    );
+    if (!Array.isArray(data.editions) || !data.editions.length) return;
+    editionsList = data.editions;
   } catch {
-    /* keep the hardcoded "current" option */
+    /* keep the hardcoded "current" options */
+    return;
   }
+  populateEditionSelect(editionSelect, app.edition?.id || "current");
+  populateEditionSelect(sheetEdition, sheetEdition.value || "current");
 }
 
 // Load the catalogue for an edition independently of any photo, so manual add
-// works before (or without) a scan. Never wipes the setlist.
+// works before (or without) a scan. Never wipes the setlist. Requests are
+// sequenced: hopping between sessions with different books can leave two
+// fetches in flight, and the slower (stale) one must not win.
+let catalogueLoadSeq = 0;
 async function loadCatalogue(edition) {
+  const seq = ++catalogueLoadSeq;
   try {
     const res = await fetch(
       `${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`
     );
+    if (seq !== catalogueLoadSeq) return;
     if (!res.ok) {
       if (!app.catalogue.length) catalogueStatus = "error";
       refreshPickers();
       return;
     }
     const data = await res.json();
+    if (seq !== catalogueLoadSeq) return;
     app.edition = data.edition;
     app.catalogue = data.catalogue;
     app.catalogueGeneratedAt = data.catalogue_generated_at;
+    loadedCatalogueEditionId = data.edition?.id || edition;
     catalogueStatus = "ready";
     saveCatalogueCache();
+    // The edition is session state: pushing here is what makes a mid-session
+    // book switch reach every peer at once, instead of riding along on the
+    // next unrelated list edit. A no-op write when nothing changed.
+    persist();
     renderUpNext();
     renderRequests();
     refreshPickers();
   } catch {
     /* leave any previously loaded catalogue in place */
+    if (seq !== catalogueLoadSeq) return;
     if (!app.catalogue.length) catalogueStatus = "error";
     refreshPickers();
   }
 }
 
-editionSelect.addEventListener("change", () => loadCatalogue(editionSelect.value));
+// Switching the book mid-session: cache-first swap like any other re-scope,
+// and an immediate persist() so a cached switch reaches the session peers even
+// if the background refresh never lands (the pub wifi case).
+editionSelect.addEventListener("change", () => {
+  scopeCatalogueToEdition(editionSelect.value);
+  persist();
+});
 
 // normalizeText lives in dupes.js now (shared with duplicate detection); it
 // mirrors the accent-insensitive matching the backend does in matcher.py, so
@@ -1957,7 +2096,9 @@ photoInput.addEventListener("change", async () => {
 
     const form = new FormData();
     form.append("image", upload);
-    form.append("edition", editionSelect.value);
+    // The session's book, not the raw select: app.edition is the source of
+    // truth and the two only diverge for the beat before the select syncs.
+    form.append("edition", app.edition?.id || editionSelect.value);
     // Tuning knobs from the settings panel — the API clamps/ignores anything out
     // of range and falls back to its configured defaults.
     if (modelSelect.value) form.append("model", modelSelect.value);
@@ -2222,7 +2363,7 @@ function renderCount(el, count) {
 function renderEditionNote() {
   if (app.edition) {
     editionNote.textContent =
-      `Matched against “${app.edition.title}” ` +
+      `Matched against “${editionLabel(app.edition)}” ` +
       `(generated ${app.catalogueGeneratedAt?.slice(0, 10) || "unknown"})`;
   } else {
     editionNote.textContent = "";
@@ -3042,7 +3183,9 @@ downloadButton.addEventListener("click", () => {
   applyViewMode();
   // Hydrate search from the cached catalogue immediately; the network fetch
   // below replaces it (a Cloud Function cold start can take several seconds).
-  restoreCatalogueCache();
+  // Keyed by the edition restore() brought back — joining a session with a
+  // different book re-scopes via applyRemoteState.
+  restoreCatalogueCache(app.edition?.id || editionSelect.value);
   playerName.value = app.name;
   renderRoomIdentity();
   mountManualAdd();

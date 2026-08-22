@@ -2,6 +2,7 @@
   {
     "date": "2026-08-22",
     "items": [
+      "Every session now has its own songbook: pick it when planning the night (the usual book is preselected), and everyone who joins searches that book. Need to switch mid-session? The songbook setting now changes it for the whole session at once.",
       "Thumbs up now works on Up next as well as the pool, so the room can still say it wants a tune after it's been queued. The running order doesn't budge: the count is a nudge for whoever's picking, not a re-sort."
     ]
   },
