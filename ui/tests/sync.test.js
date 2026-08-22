@@ -209,11 +209,9 @@ describe("diff", () => {
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
 
-    // Votes are keyed on the row uid, and promote()/demote() move the row
-    // object between the lists keeping that uid — which is the whole reason a
-    // vote cast in the pool still counts once the tune is queued, now that Up
-    // next carries the want button too. A promote must push as two order
-    // arrays and nothing else.
+    // Votes are keyed on the row uid, which promote()/demote() carry across —
+    // that is why a vote cast in the pool still counts once the tune is queued.
+    // A promote must push as two order arrays and nothing else.
     it("carries a voted row between the lists without disturbing its votes", () => {
       const pooled = {
         ...structuredClone(base),

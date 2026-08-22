@@ -2384,11 +2384,10 @@ function renderUpNext() {
       ? "Nothing queued yet."
       : "Nothing queued yet. Promote a request from below.";
   renderCount(upnextCount, visible.length);
-  // Room mode watches the set and can want a tune, nothing more: the
+  // Room mode watches the set and can want a tune, nothing else: the
   // "room-upnext" context matches none of renderRow's control branches, so no
-  // drag handle, no demote/played buttons, no swipe — the same
-  // read-only-but-for-the-thumb trick as the pool's "room" context. A queued
-  // song is still unplayed, so the room still has something to say about it.
+  // drag handle, no demote/played buttons, no swipe — the same read-only trick
+  // as the pool's "room" context, thumb included.
   const rowContext = viewMode === "room" ? "room-upnext" : "upnext";
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
@@ -2548,9 +2547,8 @@ function buildVoteButton(row) {
 // `votes.<uid>.<clientId>` leaf write, so two people voting at once both land.
 function toggleRowVote(uid) {
   app.votes = toggleVote(app.votes, uid, presence.getClientId());
-  // Both lists: the voted row lives in either one now. Not rerender() — an
-  // in-flight review sheet has nothing to do with a vote and shouldn't be
-  // rebuilt (and its pickers reset) under one.
+  // Both lists now: the voted row can be in either. Not rerender() — a vote has
+  // no business rebuilding an open review sheet under the person using it.
   renderUpNext();
   renderRequests();
   persist();
@@ -2697,22 +2695,15 @@ function renderRow(row, index, context) {
   const tools = document.createElement("div");
   tools.className = "row-tools";
 
-  // "I want this one" (#83), on every list a song can still be played from —
-  // both pool contexts and both Up next ones. This is the ONE control a room
-  // device gets on either list — everything else there is read-only — because
-  // the room saying what it wants is the entire point of the feature, and
-  // promoting a tune shouldn't be what silences it. It sits first in the tools
-  // row so each list's own actions (promote/bin, demote/played) keep the
-  // positions muscle memory expects.
+  // "I want this one" (#83), on every list a song can still be played from:
+  // both pool contexts and both Up next ones, since promoting a tune shouldn't
+  // be what silences the room about it. First in the tools row so each list's
+  // own actions (promote/bin, demote/played) keep the positions muscle memory
+  // expects, and still the ONE control a room device gets on either list.
   //
   // Up next is NOT re-sorted by the count, unlike the pool: the set plays from
-  // the top and the NEXT badge names the top card, so a vote sort would move
-  // the next tune out from under whoever just read it out, and fight the drag
-  // order the stage built. The count informs the person picking rather than
-  // picking for them.
-  //
-  // Played and binned rows get nothing: there is no wanting a song the night is
-  // done with. Neither does the review sheet, where a row isn't in the pool yet.
+  // the top, so a vote sort would move the next tune out from under whoever
+  // just read it out.
   //
   // No confirm sheet and no cool-down, unlike a room request: a vote is
   // reversible with a second tap, so the reasoning in room-limits.js (a request
