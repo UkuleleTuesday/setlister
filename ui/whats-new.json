@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-22",
+    "items": [
+      "Thumbs up now works on Up next as well as the pool, so the room can still say it wants a tune after it's been queued. The running order doesn't budge: the count is a nudge for whoever's picking, not a re-sort."
+    ]
+  },
+  {
     "date": "2026-08-19",
     "items": [
       "The request link now opens and closes itself around the night, half an hour before start until 4am by default. The share panel switch still overrides it: force it open, close it early, or set your own times instead."
