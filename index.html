@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-QgzMPvvb.js"></script>
+  <script type="module" crossorigin src="./assets/index-CETUeH96.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-D1_Spe8P.css">
 </head>
 <body>
@@ -120,9 +120,13 @@
            "Here now" roster, and "Started by" on the home list — say so, since
            the field predates all three. -->
       <p class="note">Shown on songs you add, in “Here now”, and on sessions you start.</p>
-      <label class="field">
+      <!-- Session control, not a device setting: it changes THIS session's
+           songbook for everyone in it, so app.js hides it on the home screen
+           (the new-session sheet owns the choice there). -->
+      <label class="field" id="edition-setting">
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
+        <span class="note">Changes this session's songbook for everyone in it.</span>
       </label>
       <label class="field toggle">
         <input type="checkbox" id="show-suggestions">
@@ -402,6 +406,15 @@
            updateSheetWindowPreview() as the date moves. Editable overrides
            live in the share panel, once the session exists. -->
       <p class="note" id="new-session-window-note"></p>
+      <!-- The night's songbook: one book per session is how the club plays.
+           Options are replaced by loadEditions(); openSheet() resets the pick
+           to the default book every time, whatever this device loaded last. -->
+      <label class="field">
+        <span>Songbook</span>
+        <select id="new-session-edition">
+          <option value="current" selected>Current</option>
+        </select>
+      </label>
       <label class="field">
         <span>Visibility</span>
         <select id="new-session-visibility">
