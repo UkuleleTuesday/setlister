@@ -209,9 +209,8 @@ describe("diff", () => {
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
 
-    // Votes are keyed on the row uid, which promote()/demote() carry across —
-    // that is why a vote cast in the pool still counts once the tune is queued.
-    // A promote must push as two order arrays and nothing else.
+    // Votes are keyed on the row uid, which promote()/demote() carry across:
+    // a promote must push as two order arrays and touch no vote leaf.
     it("carries a voted row between the lists without disturbing its votes", () => {
       const pooled = {
         ...structuredClone(base),
