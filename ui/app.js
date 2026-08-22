@@ -2384,11 +2384,9 @@ function renderUpNext() {
       ? "Nothing queued yet."
       : "Nothing queued yet. Promote a request from below.";
   renderCount(upnextCount, visible.length);
-  // Room mode watches the set but can't touch it: the "room-upnext" context
-  // matches none of renderRow's control branches, so no drag handle, no
-  // demote/played buttons, no swipe — same read-only trick as the pool's
-  // "room" context (which keeps the vote button; the running order is past
-  // voting, so this one keeps nothing).
+  // Room mode watches the set and can want a tune, nothing else: "room-upnext"
+  // matches none of renderRow's control branches, so no handle, no buttons, no
+  // swipe — the pool's "room" trick, thumb included.
   const rowContext = viewMode === "room" ? "room-upnext" : "upnext";
   // Map over the full list (skipping lifted-out rows) so the index handed to
   // renderRow still points at app.upNext — the reorder controls rely on it.
@@ -2548,6 +2546,9 @@ function buildVoteButton(row) {
 // `votes.<uid>.<clientId>` leaf write, so two people voting at once both land.
 function toggleRowVote(uid) {
   app.votes = toggleVote(app.votes, uid, presence.getClientId());
+  // Both lists: the voted row can be in either. Not rerender() — a vote has no
+  // business rebuilding an open review sheet.
+  renderUpNext();
   renderRequests();
   persist();
 }
@@ -2693,6 +2694,21 @@ function renderRow(row, index, context) {
   const tools = document.createElement("div");
   tools.className = "row-tools";
 
+  // "I want this one" (#83), on every list a song can still be played from, and
+  // first in the row so the buttons after it stay where the thumb expects. Up
+  // next is deliberately NOT re-sorted by the count like the pool is: the set
+  // plays from the top, so that would move the next tune out from under the MC.
+  // No confirm sheet or cool-down, unlike a room request (room-limits.js): a
+  // second tap takes a vote back.
+  const votable =
+    context === "requests" ||
+    context === "room" ||
+    context === "upnext" ||
+    context === "room-upnext";
+  if (votable && votingEnabled()) {
+    tools.append(buildVoteButton(row));
+  }
+
   // Reorder controls only make sense on Up next (the running order), not in the
   // Requests pool or the review sheet where rows are still being validated.
   if (context === "upnext") {
@@ -2723,19 +2739,6 @@ function renderRow(row, index, context) {
     demoteButton.onclick = () => demote(row.uid);
 
     tools.append(demoteButton);
-  }
-
-  // "I want this one" (#83), on both pool contexts. This is the ONE control a
-  // room device gets — everything else there is read-only — because the room
-  // saying what it wants is the entire point of the feature. It sits first in
-  // the tools row so the two lists' shared actions (promote, bin) keep the
-  // positions muscle memory expects.
-  //
-  // No confirm sheet and no cool-down, unlike a room request: a vote is
-  // reversible with a second tap, so the reasoning in room-limits.js (a request
-  // can't be taken back once it's in the pool) simply doesn't apply.
-  if ((context === "requests" || context === "room") && votingEnabled()) {
-    tools.append(buildVoteButton(row));
   }
 
   // A request is promoted into the running order; no reorder in the pool.

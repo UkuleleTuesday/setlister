@@ -208,5 +208,19 @@ describe("diff", () => {
       const votes = { a: { alex: true } };
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
+
+    // Votes are keyed on the row uid, which promote()/demote() carry across:
+    // a promote must push as two order arrays and touch no vote leaf.
+    it("carries a voted row between the lists without disturbing its votes", () => {
+      const pooled = {
+        ...structuredClone(base),
+        upNextOrder: [],
+        requestsOrder: ["a"],
+        votes: { a: { alex: true, sam: true } },
+      };
+      const promoted = { ...structuredClone(pooled), upNextOrder: ["a"], requestsOrder: [] };
+      const updates = diff(pooled, promoted, fx);
+      expect(updates).toEqual({ upNextOrder: ["a"], requestsOrder: [] });
+    });
   });
 });

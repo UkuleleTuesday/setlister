@@ -71,10 +71,11 @@ its id.
 A session has two links. The **share link** opens the full app. The **request
 link** opens a view meant for the room's own phones: they add tunes by name,
 with their name on them, and follow the running order — Up next and the played
-count — without being able to touch it. A phone that arrived through it stays
-in that view across reloads. Each request is
-confirmed before it lands, and one phone waits a minute between requests, so a
-single keen person can't fill the night.
+count. The only mark a room phone leaves on the set is a thumbs up: anything
+still to be played can be wanted, on either list, but nothing is reordered,
+ticked off or binned from there. A phone that arrived through it stays in that
+view across reloads. Each request is confirmed before it lands, and one phone
+waits a minute between requests, so a single keen person can't fill the night.
 
 The share panel switches that link between **Taking requests** and **View
 only**. On view only the pool is still there to watch, it just stops accepting
