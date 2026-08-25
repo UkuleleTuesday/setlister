@@ -478,6 +478,29 @@
     </div>
   </div>
 
+  <!-- One-time name amnesty: shows once per device, on the first full-app open
+       after a reset round ships (see name-reset.js — the saved name has already
+       been cleared by the time this opens). Same centred-sheet idiom as
+       starting a night; every way out is a "later", since the settings gear
+       still holds the name field. The message is injected from name-reset.js
+       so the tests pin its wording. -->
+  <div id="name-reset-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="name-reset-title">
+    <div class="sheet">
+      <h2 id="name-reset-title">Names, please</h2>
+      <p id="name-reset-message" class="note"></p>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" id="name-reset-name" autocomplete="name" placeholder="e.g. Alex">
+      </label>
+      <div class="actions">
+        <button id="name-reset-save">Save</button>
+        <button id="name-reset-later" class="secondary">Later</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
   <!-- What's new: release notes from ui/whats-new.json, in the same centred
        sheet idiom as starting a night. Two ways in, two amounts of news: the
        home banner opens it on the latest entry alone (an announcement), the

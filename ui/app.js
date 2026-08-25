@@ -24,6 +24,12 @@ import {
   writeStoredMode,
 } from "./view-mode.js";
 import {
+  NAME_RESET_MESSAGE,
+  readNameResetDone,
+  resolveNameReset,
+  writeNameResetDone,
+} from "./name-reset.js";
+import {
   cooldownLabel,
   cooldownRemaining,
   readLastRoomAdd,
@@ -158,6 +164,11 @@ const whatsNewOpen = document.getElementById("whats-new-open");
 const whatsNewSheet = document.getElementById("whats-new-sheet");
 const whatsNewEntries = document.getElementById("whats-new-entries");
 const whatsNewClose = document.getElementById("whats-new-close");
+const nameResetSheet = document.getElementById("name-reset-sheet");
+const nameResetMessage = document.getElementById("name-reset-message");
+const nameResetName = document.getElementById("name-reset-name");
+const nameResetSave = document.getElementById("name-reset-save");
+const nameResetLater = document.getElementById("name-reset-later");
 
 // Swap the static buttons' emoji placeholders for the SVG icon set as soon as
 // the module runs (index.html ships text-only fallbacks).
@@ -1391,6 +1402,57 @@ whatsNewSheet.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !whatsNewSheet.hidden) whatsNewSheet.hidden = true;
+});
+
+// --- One-time name reset ----------------------------------------------------
+// The names saved in the full app drifted into jokes, so this build runs a
+// name amnesty: once per device, the typed name is cleared and this sheet
+// asks for a real one. The decision logic and copy live in name-reset.js —
+// including why room devices are exempt and why a first-ever visitor never
+// sees it. Runs at boot, before presence can broadcast the old name anywhere.
+function maybeResetName() {
+  let hasSavedState = false;
+  try {
+    hasSavedState = localStorage.getItem(STORAGE_KEY) !== null;
+  } catch {
+    /* storage blocked — nothing saved means nothing to reset */
+  }
+  const plan = resolveNameReset({
+    mode: viewMode,
+    done: readNameResetDone(),
+    hasSavedState,
+  });
+  if (plan.clearName && app.name) setPlayerName("");
+  if (plan.markDone) writeNameResetDone();
+  if (plan.showSheet) {
+    nameResetMessage.textContent = NAME_RESET_MESSAGE;
+    nameResetName.value = "";
+    nameResetSheet.hidden = false;
+  }
+}
+
+// Every way out is a "later", not a refusal to comply: the flag is already
+// set, so the sheet never returns, and the settings gear still holds the name
+// field. Save with an empty field is just a dismiss — no error to read in a
+// dark pub. Not focused on open: the sheet appears at boot, unprompted, and a
+// keyboard shooting up over it would bury the message it exists to deliver.
+function closeNameResetSheet() {
+  nameResetSheet.hidden = true;
+}
+nameResetSave.addEventListener("click", () => {
+  const name = nameResetName.value.trim();
+  if (name) setPlayerName(name);
+  closeNameResetSheet();
+});
+nameResetName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") nameResetSave.click();
+});
+nameResetLater.addEventListener("click", closeNameResetSheet);
+nameResetSheet.addEventListener("click", (event) => {
+  if (event.target === nameResetSheet) closeNameResetSheet();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !nameResetSheet.hidden) closeNameResetSheet();
 });
 
 // --- New session sheet ------------------------------------------------------
@@ -3219,6 +3281,9 @@ downloadButton.addEventListener("click", () => {
   // Resolve the view mode before the first render: renderRequests keys row
   // interactivity off it, so a sticky room device must know before painting.
   applyViewMode();
+  // After restore() (there must be a name to clear) and applyViewMode() (the
+  // amnesty is full-view only), before the first render or any presence write.
+  maybeResetName();
   // Hydrate search from the cached catalogue immediately; the network fetch
   // below replaces it (a Cloud Function cold start can take several seconds).
   // Keyed by the edition restore() brought back — joining a session with a
