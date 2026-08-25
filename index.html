@@ -8,7 +8,7 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-Dl02IHbO.js"></script>
+  <script type="module" crossorigin src="./assets/index-Bt3bdLKw.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-Dmp-DuKr.css">
 </head>
 <body>
@@ -474,6 +474,29 @@
       <div class="actions">
         <button id="room-request-confirm">Add request</button>
         <button id="room-request-cancel" class="secondary">Cancel</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- One-time name amnesty: shows once per device, on the first full-app open
+       after a reset round ships (see name-reset.js — the saved name has already
+       been cleared by the time this opens). Same centred-sheet idiom as
+       starting a night; every way out is a "later", since the settings gear
+       still holds the name field. The message is injected from name-reset.js
+       so the tests pin its wording. -->
+  <div id="name-reset-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="name-reset-title">
+    <div class="sheet">
+      <h2 id="name-reset-title">Names, please</h2>
+      <p id="name-reset-message" class="note"></p>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" id="name-reset-name" autocomplete="name" placeholder="e.g. Alex">
+      </label>
+      <div class="actions">
+        <button id="name-reset-save">Save</button>
+        <button id="name-reset-later" class="secondary">Later</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
     </div>
