@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-CXTNqcqK.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-D1_Spe8P.css">
+  <script type="module" crossorigin src="./assets/index-Dl02IHbO.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Dmp-DuKr.css">
 </head>
 <body>
   <header>
@@ -459,6 +459,16 @@
           <input type="text" id="room-request-name" autocomplete="name" placeholder="e.g. Alex">
         </label>
         <p class="note">It goes on your request, so the room knows whose tune it is.</p>
+      </div>
+      <!-- Optional note that rides on the request ("it's Sam's birthday").
+           Only while a request is being confirmed; the rename-only sheet
+           has nothing to pin it to. -->
+      <div id="room-request-comment-field" hidden>
+        <label class="field">
+          <span>Comment (optional)</span>
+          <input type="text" id="room-request-comment" maxlength="120"
+                 autocomplete="off" placeholder="e.g. birthday request!">
+        </label>
       </div>
       <div id="room-request-error" class="error" hidden></div>
       <div class="actions">
