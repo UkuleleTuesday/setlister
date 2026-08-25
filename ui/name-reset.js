@@ -23,7 +23,7 @@ export const NAME_RESET_ROUND = "1";
 
 export const NAME_RESET_MESSAGE =
   "Everyone's saved name has been reset. Put your real name here so the club " +
-  "knows who queued what. Pick another joke name and you will be found.";
+  "knows who queued what. Every time someone puts in a fake name, a puppy dies.";
 
 // What this device should do at boot. `done` is whether the flag already
 // records this round; `hasSavedState` gates the sheet to devices that have

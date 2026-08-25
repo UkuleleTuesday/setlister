@@ -48,10 +48,10 @@ describe("resolveNameReset", () => {
 });
 
 describe("the amnesty copy", () => {
-  it("asks for a real name and warns joke names will be found", () => {
+  it("asks for a real name and warns what a fake one costs", () => {
     expect(NAME_RESET_MESSAGE).toContain("has been reset");
     expect(NAME_RESET_MESSAGE).toContain("real name");
-    expect(NAME_RESET_MESSAGE).toContain("you will be found");
+    expect(NAME_RESET_MESSAGE).toContain("a puppy dies");
   });
 
   it("uses no em dashes (AGENTS.md)", () => {
