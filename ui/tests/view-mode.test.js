@@ -1,8 +1,9 @@
 // Room mode (#86): the pure decision logic behind the room view.
 // The decisions under test: `?mode=request` puts a device in room mode and
 // makes it sticky; the ONLY way out is an explicit `?mode=full`; a plain or
-// mangled link follows whatever the flag says; and shareable URLs carry the
-// `mode` param only deliberately.
+// mangled link follows whatever the flag says; and shareable URLs always set
+// `mode` deliberately — `full` on the full-app link (so it overrides a
+// clicker's sticky room flag), `request` on the room link.
 import { describe, expect, it } from "vitest";
 
 import { buildSessionUrl, resolveMode, sourceLabel } from "../view-mode.js";
@@ -49,12 +50,12 @@ describe("resolveMode", () => {
 });
 
 describe("buildSessionUrl", () => {
-  it("strips the mode param from the normal share link", () => {
+  it("sets mode=full on the full-app link, overriding the sharer's own mode", () => {
     const url = buildSessionUrl(
       "https://club.example/setlister/?session=old-id&mode=request",
       "jolly-walrus"
     );
-    expect(url).toBe("https://club.example/setlister/?session=jolly-walrus");
+    expect(url).toBe("https://club.example/setlister/?session=jolly-walrus&mode=full");
   });
 
   it("sets mode=request on the room link", () => {
@@ -63,6 +64,11 @@ describe("buildSessionUrl", () => {
     );
     expect(url.searchParams.get("session")).toBe("jolly-walrus");
     expect(url.searchParams.get("mode")).toBe("request");
+  });
+
+  it("full-app link pulls a sticky room phone into the full app", () => {
+    const url = new URL(buildSessionUrl("https://club.example/setlister/", "jolly-walrus"));
+    expect(resolveMode(url.searchParams, "room")).toEqual({ mode: "full", store: null });
   });
 
   it("preserves the page's subpath and unrelated params", () => {
