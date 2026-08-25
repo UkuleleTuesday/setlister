@@ -29,14 +29,16 @@ export function resolveMode(searchParams, storedMode) {
 }
 
 // Every shareable session URL funnels through here so the `mode` param is
-// always deliberate: the normal link strips it (built from location.href, it
-// would otherwise carry a sharer's own room mode along), the room link sets it.
+// always deliberate: the room link sets `request`, the full-app link sets
+// `full` — being handed the full-app link IS the deliberate way out, so it
+// must override a clicker's sticky room flag rather than fall through to it
+// (and a room-mode sharer can't propagate their own mode by accident either,
+// since location.href's param is always overwritten).
 // Built on the given href so the GitHub Pages subpath survives.
 export function buildSessionUrl(href, id, { room = false } = {}) {
   const url = new URL(href);
   url.searchParams.set("session", id);
-  if (room) url.searchParams.set("mode", "request");
-  else url.searchParams.delete("mode");
+  url.searchParams.set("mode", room ? "request" : "full");
   return url.toString();
 }
 

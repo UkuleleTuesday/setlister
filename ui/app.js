@@ -568,9 +568,10 @@ function applyRemoteState(state) {
   persist();
 }
 
-// The full app URL carrying `?session=<id>` — this is what gets shared.
-// buildSessionUrl strips any `mode` param, so sharing from a room-mode device
-// never propagates room mode by accident.
+// The full app URL carrying `?session=<id>&mode=full` — this is what gets
+// shared. The explicit `mode=full` is what lets this link pull a sticky
+// room-mode phone into the full app (a plain link would fall through to the
+// flag and keep it in the room view).
 function sessionUrl(id) {
   return buildSessionUrl(location.href, id);
 }
