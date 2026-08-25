@@ -459,6 +459,16 @@
         </label>
         <p class="note">It goes on your request, so the room knows whose tune it is.</p>
       </div>
+      <!-- Optional note that rides on the request ("it's Sam's birthday").
+           Only while a request is being confirmed; the rename-only sheet
+           has nothing to pin it to. -->
+      <div id="room-request-comment-field" hidden>
+        <label class="field">
+          <span>Comment (optional)</span>
+          <input type="text" id="room-request-comment" maxlength="120"
+                 autocomplete="off" placeholder="e.g. birthday request!">
+        </label>
+      </div>
       <div id="room-request-error" class="error" hidden></div>
       <div class="actions">
         <button id="room-request-confirm">Add request</button>

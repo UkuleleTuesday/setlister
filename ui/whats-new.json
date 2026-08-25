@@ -2,6 +2,7 @@
   {
     "date": "2026-08-25",
     "items": [
+      "Requests can now carry a comment: tap \"Add a comment\" next to the quick-add field, or fill in the optional box when confirming a request from the room, and the note shows under the tune (\"it's Sam's birthday!\").",
       "The full-app link now always opens the full app, even on a phone that's been living in the requests view. The request link keeps that phone in the room view as before."
     ]
   },

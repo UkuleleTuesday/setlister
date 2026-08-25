@@ -104,6 +104,8 @@ const requestSheetTitle = document.getElementById("room-request-title");
 const requestSheetSong = document.getElementById("room-request-song");
 const requestSheetNameField = document.getElementById("room-request-name-field");
 const requestSheetName = document.getElementById("room-request-name");
+const requestSheetCommentField = document.getElementById("room-request-comment-field");
+const requestSheetComment = document.getElementById("room-request-comment");
 const requestSheetError = document.getElementById("room-request-error");
 const requestSheetConfirm = document.getElementById("room-request-confirm");
 const requestSheetCancel = document.getElementById("room-request-cancel");
@@ -260,6 +262,10 @@ function openRequestSheet(entry) {
   requestSheetSong.textContent = entry ? entry.display : "";
   requestSheetSong.hidden = !entry;
   requestSheetNameField.hidden = !askName;
+  // The comment belongs to a request, so the rename-only sheet drops it.
+  // Always starts empty: it's about this tune, not a sticky preference.
+  requestSheetCommentField.hidden = !entry;
+  requestSheetComment.value = "";
   requestSheetError.hidden = true;
   requestSheetName.value = app.name;
   // The button says what will actually happen: a request is waiting on this
@@ -292,6 +298,7 @@ function onRequestSheetConfirm() {
   }
   if (askedName) setPlayerName(requestSheetName.value);
   const entry = requestSheetEntry;
+  const comment = requestSheetComment.value;
   closeRequestSheet();
   renderRoomIdentity();
   // The door can shut (or the window can lapse) while this sheet is open.
@@ -305,7 +312,7 @@ function onRequestSheetConfirm() {
   // the sheet was open) and flashes its own note if it refuses. On success say
   // so — the sheet just covered the pool where the row landed — and set the
   // expectation for the cool-down before it bites.
-  if (entry && addManualEntry(entry)) {
+  if (entry && addManualEntry(entry, comment)) {
     flashNote(addFeedback, `Added “${entry.title}”. Next one in a minute.`);
   }
 }
@@ -313,6 +320,9 @@ function onRequestSheetConfirm() {
 requestSheetConfirm.addEventListener("click", onRequestSheetConfirm);
 requestSheetCancel.addEventListener("click", closeRequestSheet);
 requestSheetName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") onRequestSheetConfirm();
+});
+requestSheetComment.addEventListener("keydown", (event) => {
   if (event.key === "Enter") onRequestSheetConfirm();
 });
 roomIdentityChange.addEventListener("click", () => openRequestSheet(null));
@@ -1917,11 +1927,51 @@ function buildPickerToggle(row) {
 }
 
 // The standalone add field lives outside any row and creates a new confirmed
-// request instead of correcting an existing one.
+// request instead of correcting an existing one. The optional comment rides
+// along in the full app only — the room enters one in the confirm sheet
+// instead, so the mode CSS hides this affordance there.
 function mountManualAdd() {
+  const comment = buildManualComment();
   manualAddHost.replaceChildren(
-    makeCombobox({ placeholder: "Add a tune by name…", onPick: onManualPick })
+    makeCombobox({
+      placeholder: "Add a tune by name…",
+      onPick: (entry) => onManualPick(entry, comment),
+    }),
+    comment.el
   );
+}
+
+// The full app adds on the spot (no sheet), so a comment has to be typed
+// BEFORE the pick. Collapsed to a link so bulk board transcription keeps a
+// single control and an empty field never parks on screen reading as
+// mandatory. Cleared after each add — a comment is about one tune, never a
+// sticky setting.
+function buildManualComment() {
+  const wrap = document.createElement("div");
+  wrap.className = "manual-add-comment";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = 120;
+  input.placeholder = "Comment for the next tune you add…";
+  input.setAttribute("aria-label", "Comment for the next tune you add (optional)");
+  input.hidden = true;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "link-button";
+  toggle.textContent = "Add a comment";
+  toggle.onclick = () => {
+    toggle.hidden = true;
+    input.hidden = false;
+    input.focus();
+  };
+  wrap.append(toggle, input);
+  return {
+    el: wrap,
+    read: () => input.value,
+    clear: () => {
+      input.value = "";
+    },
+  };
 }
 
 // Where the two modes part company (#88). The full app adds on the spot: an
@@ -1929,9 +1979,11 @@ function mountManualAdd() {
 // one tap in the bin. A request from the room goes through the brakes first —
 // it can't be taken back once it lands, and one keen phone shouldn't be able
 // to fill the pool in a minute.
-function onManualPick(entry) {
+function onManualPick(entry, comment) {
   if (viewMode !== "room") {
-    addManualEntry(entry);
+    // Cleared only once the row actually lands: a duplicate refusal keeps the
+    // typed comment for the retry on the right tune.
+    if (addManualEntry(entry, comment.read())) comment.clear();
     return;
   }
   // Belt and braces: the combobox is already gone when requests are closed
@@ -1960,8 +2012,10 @@ function onManualPick(entry) {
 }
 
 // Returns whether a row was actually added, so the request sheet can tell a
-// completed pick from a refusal.
-function addManualEntry(entry) {
+// completed pick from a refusal. `comment` reuses the row's `notes` slot — the
+// same field a scanned board annotation ("please NO!!!") lands in, so it
+// syncs and renders with no new schema.
+function addManualEntry(entry, comment) {
   // Same song already on the night's lists (#52)? Say where it is instead of
   // quietly doubling it. Binned copies don't block — see dupes.js.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
@@ -1976,7 +2030,7 @@ function addManualEntry(entry) {
     addedBy: presence.displayName(app.name),
     raw_title: entry.display,
     raw_page: entry.page,
-    notes: null,
+    notes: (comment || "").trim().slice(0, 120) || null,
     crossed_out: false,
     status: "confirmed",
     method: "none",
