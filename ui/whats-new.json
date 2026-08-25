@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-25",
+    "items": [
+      "The full-app link now always opens the full app, even on a phone that's been living in the requests view. The request link keeps that phone in the room view as before."
+    ]
+  },
+  {
     "date": "2026-08-22",
     "items": [
       "Every session now has its own songbook: pick it when planning the night (the usual book is preselected), and everyone who joins searches that book. Need to switch mid-session? The songbook setting now changes it for the whole session at once.",
