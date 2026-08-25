@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-25",
+    "items": [
+      "Requests can now carry a comment: tap \"Add a comment\" next to the quick-add field, or fill in the optional box when confirming a request from the room, and the note shows under the tune (\"it's Sam's birthday!\")."
+    ]
+  },
+  {
     "date": "2026-08-22",
     "items": [
       "Every session now has its own songbook: pick it when planning the night (the usual book is preselected), and everyone who joins searches that book. Need to switch mid-session? The songbook setting now changes it for the whole session at once.",

@@ -546,6 +546,18 @@ h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
 #add-feedback { margin: 0 0 0.7rem; }
 /* Quick add sits between the Requests heading and the pool. */
 .manual-add { margin: 0 0 0.7rem; }
+/* The optional comment under quick add, full app only: a quiet link until
+   it's wanted, so bulk transcription keeps a single control. Room devices
+   enter theirs in the confirm sheet instead (#room-request-sheet). */
+.manual-add-comment { margin: 0.3rem 0 0; }
+.manual-add-comment input {
+  /* Same floor as .song-picker-input: 16px stops iOS zooming on focus,
+     min-height keeps the 44px touch spec. */
+  width: 100%; min-height: 44px; padding: 0.5rem 0.7rem; font-size: 1rem;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card);
+}
+#session-view.room .manual-add-comment { display: none; }
 
 /* --- Fresh session: one job on screen -------------------------------------
    While both lists are empty (and no scan is in review) the session view
