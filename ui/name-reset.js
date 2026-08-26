@@ -22,8 +22,9 @@ export const NAME_RESET_KEY = "setlister.nameReset.v1";
 export const NAME_RESET_ROUND = "1";
 
 export const NAME_RESET_MESSAGE =
-  "Everyone's saved name has been reset. Put your real name here so the club " +
-  "knows who queued what. Every time someone puts in a fake name, a puppy dies.";
+  "Everyone's saved name has been reset. Put in a name the club will recognise, " +
+  "so we know who queued what. First name or nickname is perfect, e.g. Alex or " +
+  "Alex B. Every time someone puts in a fake name, a puppy dies.";
 
 // What this device should do at boot. `done` is whether the flag already
 // records this round; `hasSavedState` gates the sheet to devices that have
