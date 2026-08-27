@@ -9,6 +9,7 @@ import {
   disambiguate,
   fromDateInputValue,
   indexEntryData,
+  isPastNight,
   pageTitle,
   partitionSessions,
   plannedSessionMessage,
@@ -198,6 +199,34 @@ describe("disambiguate", () => {
       (e) => e.label
     );
     expect(labels).toEqual(["", ""]);
+  });
+});
+
+// The session view's tense (app.js keys the looking-back UI off this). Same
+// night semantics as the labels: past exactly when the label would stop being
+// "Tonight".
+describe("isPastNight", () => {
+  it("keeps tonight in the present", () => {
+    expect(isPastNight(at(2026, 7, 4, 20), NOW)).toBe(false);
+  });
+
+  it("keeps a night running past midnight in the present", () => {
+    // 00:30 on the club night: people are still playing; the view must not
+    // flip to looking-back under them.
+    expect(isPastNight(at(2026, 7, 4, 21), at(2026, 7, 5, 0, 30))).toBe(false);
+    // By morning it's history.
+    expect(isPastNight(at(2026, 7, 4, 21), at(2026, 7, 5, 10, 0))).toBe(true);
+  });
+
+  it("calls yesterday past and a prepped future night not", () => {
+    expect(isPastNight(at(2026, 7, 3), NOW)).toBe(true);
+    expect(isPastNight(at(2026, 7, 11), NOW)).toBe(false);
+  });
+
+  it("treats a missing date as not past", () => {
+    // A just-created doc can still be waiting on its server stamp; a
+    // brand-new session must never flash the looking-back view.
+    expect(isPastNight(null, NOW)).toBe(false);
   });
 });
 

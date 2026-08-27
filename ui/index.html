@@ -243,12 +243,21 @@
       <button id="back-home" class="link-button" type="button">All sessions</button>
     </div>
 
+    <!-- Looking back: the one line that says this night is already over, so
+         the lists below read as history rather than a night about to start.
+         Class-driven (see "Past session" in style.css, kept current by
+         applySessionTense in app.js) — hidden in the fresh state, where the
+         intro line below carries the tense instead. -->
+    <p class="past-note">This night is over. You’re looking back at how it went.</p>
+
     <!-- A brand-new session has exactly one job — get songs in — so while both
          lists are empty the view collapses to this line plus the two add
          affordances (see #session-view.fresh in style.css; the class is kept
          current by updateSessionMode()). Shown/hidden purely via that class,
          never the hidden attribute, which would override the mode CSS. -->
-    <p class="fresh-intro">A fresh night, an empty stage. Snap the board, or add tunes by name.</p>
+    <!-- Copy is swapped by updateSessionMode(): an empty PAST session is the
+         backfill flow, where "a fresh night" would be a lie. -->
+    <p id="fresh-intro" class="fresh-intro">A fresh night, an empty stage. Snap the board, or add tunes by name.</p>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
