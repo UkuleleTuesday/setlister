@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-08-27",
+    "items": [
+      "Opening a past session now reads as a look back: the songs played that night start expanded at full strength, nothing claims to be up next, and a quiet line says the night is over. Everything is still editable, so backfilling a missed night works as before."
+    ]
+  },
+  {
     "date": "2026-08-25",
     "items": [
       "Name amnesty: everyone's saved name has been reset, so set your real one when the app asks (it also lives in settings). Every time someone puts in a fake name, a puppy dies.",

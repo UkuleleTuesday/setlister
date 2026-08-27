@@ -646,6 +646,33 @@ body.room-mode #edition-note { display: none; }
   margin: 0 0 0.8rem;
 }
 
+/* --- Past session: looking back ---------------------------------------------
+   A finished night (createdAt on a night before tonight) is read, not run:
+   nothing is "next" any more, the played rows are the story rather than faded
+   leftovers, and one quiet line names the tense. Editing stays live — the
+   backfill flow for a missed night IS this view — so nothing here hides a
+   control; it only stops the screen claiming the night is still to come. The
+   `past` class is kept current by applySessionTense() in app.js; like `fresh`
+   and `room`, visibility is class-driven only. */
+.past-note { display: none; }
+#session-view.past:not(.fresh) .past-note {
+  display: block; margin: 0.2rem 0 1rem;
+  text-align: center; color: var(--muted); font-size: 0.9rem;
+}
+/* No next tune on a night that's over: the badge goes and the first card
+   drops back to an ordinary one. */
+#session-view.past .next-tag { display: none; }
+#session-view.past .row-card.next-up { box-shadow: var(--shadow-card); }
+#session-view.past .row-card.next-up .row-body { border-left: none; }
+/* Mid-set the fade files played rows away as "done"; looking back they're the
+   content, so the expanded played group shows them at full strength. */
+#session-view.past .group-rows .row-card.played { opacity: 1; }
+/* A room phone on a finished night: "closed for tonight, use the whiteboard"
+   is the wrong tense and a pointless errand — the looking-back note above
+   already says why there's no way in. Same specificity as the room rule that
+   shows the note, so source order (this section is later) decides. */
+#session-view.room.past .requests-closed-note { display: none; }
+
 /* The song named in the request sheet is what's being confirmed, so it reads
    as the sheet's subject rather than as a caption. Long titles wrap instead of
    widening the sheet. */

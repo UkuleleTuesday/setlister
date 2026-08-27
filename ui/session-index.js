@@ -165,6 +165,16 @@ export function disambiguate(entries, now = new Date()) {
   );
 }
 
+// Whether a session's night is over: its date falls on a night before the one
+// `now` is in — the same night-bucket arithmetic the labels use, so a session
+// still running at 00:30 stays present-tense exactly as long as it stays
+// "Tonight". app.js keys the session view's looking-back tense off this. Null
+// (a just-created doc still waiting on the server stamp) is not past: a
+// brand-new session must never flash the looking-back UI.
+export function isPastNight(date, now = new Date()) {
+  return !!date && nightsBetween(date, now) > 0;
+}
+
 // Splits the date-ordered list into joinable nights and history. Tonight
 // counts as upcoming until NIGHT_BOUNDARY_HOUR: the night you are standing in
 // is the one you want on top. Input arrives newest-first (listSessions), so

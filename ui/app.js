@@ -4,6 +4,7 @@ import { isValidSessionId } from "./session-id.js";
 import {
   disambiguate,
   fromDateInputValue,
+  isPastNight,
   listSessions,
   pageTitle,
   partitionSessions,
@@ -61,6 +62,7 @@ const previewWrap = document.getElementById("preview-wrap");
 const scanOverlay = document.getElementById("scan-overlay");
 const errorBox = document.getElementById("error");
 const addSection = document.getElementById("add");
+const freshIntro = document.getElementById("fresh-intro");
 const manualAddHost = document.getElementById("manual-add");
 const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
@@ -696,6 +698,7 @@ function setView(view) {
   homeSection.hidden = !home;
   sessionView.hidden = home;
   applyViewMode();
+  applySessionTense();
   // In a session the night's date IS the working title, so it takes over the
   // h1 and the brand retreats to home — one title bar instead of a brand row
   // stacked on a session row. CSS keys the sizing off this class.
@@ -775,6 +778,10 @@ async function applyRoute(id) {
 
   try {
     await sync.joinSession(id, applyRemoteState);
+    // Opening a finished night is about reading it, and the played rows ARE
+    // the night — so the played group starts expanded there, where a live
+    // session keeps it collapsed as before.
+    app.playedOpen = sessionIsPast();
     persist();
     setView("session");
     updateShareUi();
@@ -840,6 +847,29 @@ function currentSessionLabel() {
   return sessionDateLabel(sync.getCreatedAt()) || sync.getSessionId() || "";
 }
 
+// Whether the session on screen is a finished night. Reads sync's createdAt
+// live so every caller answers against the same clock-and-snapshot state.
+function sessionIsPast() {
+  return isPastNight(sync.getCreatedAt());
+}
+
+// The session view's tense: a finished night is read, not run, so it drops the
+// live-night dressing (see "Past session" in style.css). The class covers the
+// CSS side; the re-render on a flip swaps the copy JS owns (the empty notes,
+// the fresh intro). Kept current by setView (arrival), renderSessionMeta
+// (createdAt lands or changes after the first paint) and the minute tick —
+// the tick is what turns "Tonight" into a past night at the 04:00 boundary on
+// a phone left open with no snapshot arriving at all.
+let shownAsPast = false;
+function applySessionTense() {
+  const past = !sessionView.hidden && sessionIsPast();
+  sessionView.classList.toggle("past", past);
+  if (past === shownAsPast) return;
+  shownAsPast = past;
+  renderUpNext();
+  renderRequests();
+}
+
 // One funnel for the tab title so route changes and metadata updates can't
 // disagree.
 function updateDocumentTitle() {
@@ -857,6 +887,8 @@ function renderSessionMeta(meta) {
   shareRequests.dataset.previous = shareRequests.value;
   renderRequestWindowFields(meta);
   applyRequestsOpen();
+  // createdAt rides on the same snapshot, so the tense can change here too.
+  applySessionTense();
   // The room's empty note changes with the switch, and a room device may be
   // sitting on this session right now.
   renderRequests();
@@ -1123,7 +1155,12 @@ document.addEventListener("keydown", (event) => {
 let requestWindowTimer = null;
 function startRequestWindowTimer() {
   stopRequestWindowTimer();
-  requestWindowTimer = setInterval(applyRequestsOpen, 60_000);
+  requestWindowTimer = setInterval(() => {
+    applyRequestsOpen();
+    // Tonight becomes a past night at the 04:00 boundary with no snapshot
+    // arriving — the same silent flip this tick already exists for.
+    applySessionTense();
+  }, 60_000);
 }
 function stopRequestWindowTimer() {
   if (requestWindowTimer) {
@@ -2460,6 +2497,12 @@ function updateSessionMode() {
     !app.review &&
     viewMode !== "room";
   sessionView.classList.toggle("fresh", fresh);
+  // An empty PAST session is the backfill flow (the date picker allows one):
+  // same two jobs, but "a fresh night" would be a lie about a night that
+  // already happened.
+  freshIntro.textContent = sessionIsPast()
+    ? "A night that already happened, nothing written down. Snap the board, or add the tunes that were played."
+    : "A fresh night, an empty stage. Snap the board, or add tunes by name.";
 }
 
 // The export pair covers both lists; with nothing to export, copying an empty
@@ -2495,11 +2538,14 @@ function renderUpNext() {
   // empty note keys off the rows still *visible* in the running order.
   const visible = app.upNext.filter((e) => !e.binned && !e.played);
   upnextEmpty.hidden = visible.length > 0;
-  // The full app's note points at promote, a control room mode doesn't have.
+  // The full app's note points at promote, a control room mode doesn't have —
+  // and on a finished night "yet" is over, so the note reads as history.
   upnextEmpty.textContent =
     viewMode === "room"
       ? "Nothing queued yet."
-      : "Nothing queued yet. Promote a request from below.";
+      : sessionIsPast()
+        ? "Nothing was left queued."
+        : "Nothing queued yet. Promote a request from below.";
   renderCount(upnextCount, visible.length);
   // Room mode watches the set and can want a tune, nothing else: "room-upnext"
   // matches none of renderRow's control branches, so no handle, no buttons, no
@@ -2557,7 +2603,9 @@ function renderRequests() {
       ? requestsState().open
         ? "No requests yet. Add one above."
         : "No requests yet."
-      : "No requests yet. Snap the board, or add one above.";
+      : sessionIsPast()
+        ? "No requests left over."
+        : "No requests yet. Snap the board, or add one above.";
   renderCount(requestsCount, visible.length);
   // Most-wanted first (#83). Display only: `requestsOrder` stays arrival order,
   // because reordering the real array would rewrite that whole-array
