@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-DtDUM2zd.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-B0qYLEj4.css">
+  <script type="module" crossorigin src="./assets/index-BenI6Ami.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Dmp-DuKr.css">
 </head>
 <body>
   <header>
@@ -63,10 +63,28 @@
       <label class="field">
         <span>Request link</span>
         <select id="share-requests">
+          <option value="auto" selected>Auto (follows the schedule)</option>
           <option value="open">Taking requests</option>
           <option value="closed">View only</option>
         </select>
       </label>
+      <!-- The request window (#NEW): when Auto's own schedule opens/closes the
+           link, editable here once the session exists (the New Session sheet
+           only previews the smart default — see request-window.js). Hidden
+           whenever a forced Open/Closed override makes the schedule inert
+           (renderRequestWindowFields), and datetime-local rather than a bare
+           time picker so there's no day-of-week to infer for a close time
+           past midnight. -->
+      <label class="field" id="share-requests-open-time-field">
+        <span>Requests open</span>
+        <input type="datetime-local" id="share-requests-open-time">
+      </label>
+      <button type="button" id="share-requests-open-reset" class="link-button" hidden>Use default</button>
+      <label class="field" id="share-requests-close-time-field">
+        <span>Requests close</span>
+        <input type="datetime-local" id="share-requests-close-time">
+      </label>
+      <button type="button" id="share-requests-close-reset" class="link-button" hidden>Use default</button>
       <!-- "Who's here": the live roster of people connected to this session.
            Populated by renderPresence(); "you" is marked, and unnamed peers
            show their generated default name. -->
@@ -74,9 +92,9 @@
         <p class="share-presence-head">Here now · <span id="share-presence-count">1</span></p>
         <ul id="share-presence-list"></ul>
       </div>
-      <!-- The room link (#86) opens the requests-only view — it's what goes to
-           the club's WhatsApp group, distinct from the full link above. The
-           note names the difference; without it two share buttons read as one
+      <!-- The room link (#86) opens the room view — it's what goes to the
+           club's WhatsApp group, distinct from the full link above. The note
+           names the difference; without it two share buttons read as one
            mistake. -->
       <!-- Says what the link does RIGHT NOW, rewritten by applyRequestsOpen()
            whenever the row above changes. A fixed sentence promising people
@@ -84,7 +102,7 @@
            is also where the organiser gets told the whiteboard is unaffected.
            The markup carries the open wording so the panel reads correctly
            before the first render. -->
-      <p class="note" id="share-request-note">The request link is a requests-only view: people can add tunes, not change the set.</p>
+      <p class="note" id="share-request-note">The request link is a view for the room: people can add tunes and follow the set, not change it.</p>
       <div class="actions">
         <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
              ships text-only fallbacks. -->
@@ -102,9 +120,13 @@
            "Here now" roster, and "Started by" on the home list — say so, since
            the field predates all three. -->
       <p class="note">Shown on songs you add, in “Here now”, and on sessions you start.</p>
-      <label class="field">
+      <!-- Session control, not a device setting: it changes THIS session's
+           songbook for everyone in it, so app.js hides it on the home screen
+           (the new-session sheet owns the choice there). -->
+      <label class="field" id="edition-setting">
         <span>Songbook edition</span>
         <select id="edition"><option value="current" selected>current</option></select>
+        <span class="note">Changes this session's songbook for everyone in it.</span>
       </label>
       <label class="field toggle">
         <input type="checkbox" id="show-suggestions">
@@ -163,7 +185,6 @@
         ✨ What’s new
       </button>
 
-      <h2>Sessions</h2>
       <button id="new-session" class="primary-action" type="button">New session</button>
       <div id="home-error" class="error" hidden></div>
 
@@ -177,7 +198,23 @@
         </div>
       </div>
 
+      <!-- The joinable nights, above the history. The next one leads as a big
+           card (on a club night the screen's one job is getting you into
+           tonight's session), any further prepped nights queue beneath it.
+           Heading and card hidden when nothing is upcoming — then "New
+           session" above is the hero instead. Populated by
+           renderNextSession() / renderSessionList(). -->
+      <h2 id="upcoming-heading" hidden>Coming up</h2>
+      <div id="next-session" hidden></div>
+      <ul id="upcoming-list" class="session-list"></ul>
+
+      <!-- The club's history: a different job (looking back, not joining), so
+           it sits below under its own quiet heading. Only the most recent few
+           show; the rest collapse behind #past-older so a year of Tuesdays
+           doesn't bury the page. -->
+      <h2 id="past-heading" hidden>Past sessions</h2>
       <ul id="session-list" class="session-list"></ul>
+      <div id="past-older" class="row-group" hidden></div>
       <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
       <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
 
@@ -269,6 +306,11 @@
       <p id="requests-closed-note" class="requests-closed-note note">
         Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
       </p>
+      <!-- 30 minutes before the (effective) window opens, room devices see
+           this instead of the closed note above — same mode-CSS-driven swap,
+           one extra state (#NEW). Text populated live by applyRequestsOpen()
+           and its periodic tick. -->
+      <p id="requests-opening-soon-note" class="requests-opening-soon-note note"></p>
       <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
            Transient, aria-live so it reaches screen readers without moving
            focus. Populated by flashNote(). -->
@@ -358,6 +400,21 @@
         <span>Date</span>
         <input type="date" id="new-session-date">
       </label>
+      <!-- Read-only preview of the smart default request window (#NEW) —
+           nothing is stored yet (see ui/sync.js's createSession, and
+           AGENTS.md's create-path rule); recomputed live by
+           updateSheetWindowPreview() as the date moves. Editable overrides
+           live in the share panel, once the session exists. -->
+      <p class="note" id="new-session-window-note"></p>
+      <!-- The night's songbook: one book per session is how the club plays.
+           Options are replaced by loadEditions(); openSheet() resets the pick
+           to the default book every time, whatever this device loaded last. -->
+      <label class="field">
+        <span>Songbook</span>
+        <select id="new-session-edition">
+          <option value="current" selected>Current</option>
+        </select>
+      </label>
       <label class="field">
         <span>Visibility</span>
         <select id="new-session-visibility">
@@ -366,6 +423,10 @@
         </select>
       </label>
       <p class="note">Anyone with the link can open it either way.</p>
+      <!-- One planned night at a time: while a session is coming up, Start is
+           disabled for Shared and this note says why. Text and visibility are
+           driven by updateSheetGate() in app.js. -->
+      <div id="new-session-notice" class="note planned-notice" hidden></div>
       <div id="new-session-error" class="error" hidden></div>
       <div class="actions">
         <button id="new-session-start">Start</button>
@@ -399,10 +460,43 @@
         </label>
         <p class="note">It goes on your request, so the room knows whose tune it is.</p>
       </div>
+      <!-- Optional note that rides on the request ("it's Sam's birthday").
+           Only while a request is being confirmed; the rename-only sheet
+           has nothing to pin it to. -->
+      <div id="room-request-comment-field" hidden>
+        <label class="field">
+          <span>Comment (optional)</span>
+          <input type="text" id="room-request-comment" maxlength="120"
+                 autocomplete="off" placeholder="e.g. birthday request!">
+        </label>
+      </div>
       <div id="room-request-error" class="error" hidden></div>
       <div class="actions">
         <button id="room-request-confirm">Add request</button>
         <button id="room-request-cancel" class="secondary">Cancel</button>
+      </div>
+      <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- One-time name amnesty: shows once per device, on the first full-app open
+       after a reset round ships (see name-reset.js — the saved name has already
+       been cleared by the time this opens). Same centred-sheet idiom as
+       starting a night; every way out is a "later", since the settings gear
+       still holds the name field. The message is injected from name-reset.js
+       so the tests pin its wording. -->
+  <div id="name-reset-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="name-reset-title">
+    <div class="sheet">
+      <h2 id="name-reset-title">Names, please</h2>
+      <p id="name-reset-message" class="note"></p>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" id="name-reset-name" autocomplete="name" placeholder="e.g. Alex">
+      </label>
+      <div class="actions">
+        <button id="name-reset-save">Save</button>
+        <button id="name-reset-later" class="secondary">Later</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
     </div>
