@@ -787,10 +787,12 @@ async function applyRoute(id) {
     // nothing can escape.
     const wasInSession = sync.getSessionId() !== null;
     sync.leaveSession(); // also clears the session's createdAt
-    if (wasInSession) {
-      // Only a session's lists are ours to drop. On a cold open there was never
-      // a session, and whatever is in localStorage is carry-over the user still
-      // has to decide about.
+    if (wasInSession || !hasCarryover) {
+      // Only carry-over is the user's to decide about; any other lists in
+      // memory are a session's copy (the session keeps them). That includes a
+      // cold open of home: restore() still loads the last session's lists,
+      // and left in memory the next persist() on home saved them with no
+      // session id, minting a fake carry-over card on every reload after.
       app.upNext = [];
       app.requests = [];
       closeReview();
