@@ -478,6 +478,37 @@
     </div>
   </div>
 
+  <!-- Room mode's way in: the whole songbook, browsable. At the club people
+       rarely know an exact title ("that Beatles one", "p.42"), so a blank
+       type-ahead asks for recall they don't have; a list lets them recognise
+       the tune instead, in the printed book's page order. Every row carries
+       tonight's state, so "already asked for" becomes a thumbs up rather than
+       a refusal after the tap. Opened by the trigger mountManualAdd() puts in
+       #manual-add. Same pinned-chrome layout as What's new: it runs several
+       screens long, so Close stays under the thumb. -->
+  <div id="songbook-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="songbook-title">
+    <div class="sheet">
+      <h2 id="songbook-title">The songbook</h2>
+      <input type="search" id="songbook-search" class="song-picker-input"
+             placeholder="Title, artist or page" autocomplete="off"
+             enterkeyhint="search" aria-label="Search the songbook">
+      <!-- Shown while this phone's one-a-minute wait runs (renderSongbookWait):
+           new requests pause, browsing and thumbs up don't. -->
+      <p id="songbook-wait" class="note songbook-wait" hidden>
+        Your next request opens up shortly. Thumbs up work any time.
+      </p>
+      <!-- Why a tap didn't add. aria-live so it reaches screen readers
+           without moving focus. -->
+      <p id="songbook-status" class="songbook-status" aria-live="polite" hidden></p>
+      <ul id="songbook-list" class="songbook-list"></ul>
+      <p id="songbook-empty" class="note songbook-empty" hidden></p>
+      <div class="actions">
+        <button id="songbook-close" class="secondary" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- One-time name amnesty: shows once per device, on the first full-app open
        after a reset round ships (see name-reset.js — the saved name has already
        been cleared by the time this opens). Same centred-sheet idiom as

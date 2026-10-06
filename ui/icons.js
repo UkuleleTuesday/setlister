@@ -20,6 +20,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Search,
   Settings,
   Sparkles,
   ThumbsUp,
@@ -61,6 +62,8 @@ const ICONS = {
   edit: Pencil,
   // "I want this one" on a request (#83).
   want: ThumbsUp,
+  // The room's "find a tune in the songbook" trigger.
+  search: Search,
 };
 
 // Build a fresh <svg> element for `name`. Icons inherit the button's text

@@ -964,7 +964,83 @@ body.room-mode #edition-note { display: none; }
 .song-picker-status {
   padding: 0.5rem; color: #6b6b6b; font-size: 0.85rem; cursor: default;
 }
-.song-picker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-picker-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* "played" / "up next" / "requested" next to a song in the dropdown and the
+   songbook sheet: tonight's state, seen before the tap. Quiet ink, not the
+   accent, so the page badge stays the row's anchor. */
+.tonight-tag {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.15rem;
+  color: var(--muted); font-size: 0.8rem; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tonight-tag svg.icon { width: 1em; height: 1em; }
+.tonight-tag.voted { color: var(--accent); font-weight: 600; }
+
+/* --- The room's songbook (#songbook-sheet) ---------------------------------
+   The trigger stands in for the type-ahead on room devices: same size and
+   frame as .song-picker-input, so it reads as "the place to find a tune". */
+.songbook-trigger { display: none; }
+#session-view.room .manual-add .song-picker { display: none; }
+#session-view.room .songbook-trigger {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; min-height: 44px; padding: 0.5rem 0.7rem;
+  font: inherit; font-size: 1rem; color: var(--muted); text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); cursor: pointer;
+}
+.songbook-trigger svg.icon { color: var(--accent); }
+.songbook-trigger:active { background: var(--accent-soft); }
+
+/* Taller than the other sheets (the list is the content) but still short of
+   both edges: the backdrop strip left above and below is the easy way out,
+   alongside Close. Chrome pinned, list scrolled, like What's new. A fixed
+   height, not a max: a centred sheet that shrank as results narrowed would
+   slide the search field out from under the typing thumb. */
+#songbook-sheet .sheet {
+  display: flex; flex-direction: column;
+  width: min(26rem, 100%);
+  height: min(46rem, calc(100dvh - 5rem)); max-height: none; overflow: hidden;
+}
+#songbook-sheet .sheet > :not(.songbook-list) { flex: none; }
+#songbook-sheet .song-picker-input { margin: 0 0 0.5rem; -webkit-appearance: none; appearance: none; }
+#songbook-sheet .songbook-wait { margin: 0 0 0.5rem; }
+.songbook-status {
+  margin: 0 0 0.5rem; padding: 0.5rem 0.7rem;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: var(--radius); font-size: 0.9rem;
+}
+.songbook-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  /* Scrolling the book must not drag the page behind the sheet. */
+  overscroll-behavior: contain;
+  list-style: none; margin: 0 -0.4rem; padding: 0;
+}
+#songbook-sheet .songbook-empty { margin: 0.6rem 0; text-align: center; }
+/* Whole-row target: title over artist on the left, tags on the right. */
+.songbook-song {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  width: 100%; min-height: 52px; padding: 0.45rem 0.4rem;
+  border: none; border-bottom: 1px solid #f0ebe3; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+/* Our own pressed state replaces the browser's blue tap flash. */
+.songbook-song { -webkit-tap-highlight-color: transparent; }
+.songbook-song:active { background: var(--accent-soft); }
+/* One width for every badge so the column lines up from p.4 to p.126. */
+.songbook-side .page-badge { min-width: 3.3em; text-align: center; }
+.songbook-text { display: flex; flex-direction: column; min-width: 0; }
+.songbook-title { font-weight: 600; overflow-wrap: anywhere; }
+.songbook-artist { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+.songbook-side { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+/* Played tonight: still listed (it's in the book), faded so the eye skips it. */
+.songbook-song.played .songbook-text,
+.songbook-song.played .page-badge { opacity: 0.5; }
+#songbook-sheet .sheet > .actions {
+  margin: 0; padding-top: 0.7rem; border-top: 1px solid #eee;
+}
 
 .actions { display: flex; gap: 0.6rem; margin: 1rem 0 2rem; }
 .actions button {

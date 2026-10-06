@@ -9,9 +9,9 @@ against the active UT songbook, so a row carries the page to turn to.
 
 Songs get in two ways:
 
-- **By name** — type-ahead search over the songbook. The field sits at the top
-  of the pool, because mid-night someone shouts a request and it has to land
-  without scrolling past twenty cards.
+- **By name** — type-ahead search over the songbook (title, artist or page
+  number). The field sits at the top of the pool, because mid-night someone
+  shouts a request and it has to land without scrolling past twenty cards.
 - **By photo of the whiteboard** — the club writes its requests on the physical
   "whiteboard of wishes", and one snap turns the whole board into matched
   entries. The board keeps circulating during the night, so it gets snapped
@@ -69,11 +69,14 @@ its id.
 ## Requests from the room
 
 A session has two links. The **share link** opens the full app. The **request
-link** opens a view meant for the room's own phones: they add tunes by name,
-with their name on them, and follow the running order — Up next and the played
-count. The only mark a room phone leaves on the set is a thumbs up: anything
-still to be played can be wanted, on either list, but nothing is reordered,
-ticked off or binned from there. A phone that arrived through it stays in that
+link** opens a view meant for the room's own phones: they find tunes in the
+songbook, add them with their name on them, and follow the running order — Up
+next and the played count. The songbook opens as the whole book in page order
+(search by title, artist or page), each tune tagged if it's played, queued or
+requested tonight; tapping one already asked for gives it a thumbs up instead.
+That thumbs up is the only mark a room phone leaves on the set: anything still
+to be played can be wanted, on either list, but nothing is reordered, ticked off
+or binned from there. A phone that arrived through it stays in that
 view across reloads. Each request is confirmed before it lands, and one phone
 waits a minute between requests, so a single keen person can't fill the night.
 

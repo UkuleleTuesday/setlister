@@ -4,7 +4,14 @@
 // re-add, binned copies don't.
 import { describe, expect, it } from "vitest";
 
-import { duplicateLabel, findDuplicate, matchKey, normalizeText, rowKey } from "../dupes.js";
+import {
+  duplicateLabel,
+  findDuplicate,
+  indexTonight,
+  matchKey,
+  normalizeText,
+  rowKey,
+} from "../dupes.js";
 
 const entry = (over = {}) => ({
   id: "sweet-caroline-neil-diamond",
@@ -77,6 +84,35 @@ describe("findDuplicate", () => {
   it("returns null for a new song or an empty key", () => {
     expect(findDuplicate([row()], [], "some-other-song")).toBeNull();
     expect(findDuplicate([row()], [], "")).toBeNull();
+  });
+});
+
+describe("indexTonight", () => {
+  const jolene = entry({ id: "jolene-dolly-parton", display: "Jolene - Dolly Parton" });
+  const africa = entry({ id: "africa-toto", display: "Africa - Toto" });
+  const upNext = [
+    row({ uid: "a", played: true }),
+    row({ uid: "b", match: jolene }),
+  ];
+  const requests = [
+    row({ uid: "c", match: africa, binned: true }),
+    row({ uid: "d", match: jolene }),
+    row({ uid: "e", match: null, raw_title: "Free Bird" }),
+  ];
+
+  it("agrees with findDuplicate for every key on the night", () => {
+    const index = indexTonight(upNext, requests);
+    for (const key of [matchKey(entry()), matchKey(jolene), matchKey(africa), "free bird"]) {
+      expect(index.get(key) ?? null).toEqual(findDuplicate(upNext, requests, key));
+    }
+  });
+
+  it("tags played, Up next and Requests copies, and skips binned ones", () => {
+    const index = indexTonight(upNext, requests);
+    expect(index.get(matchKey(entry())).where).toBe("played");
+    expect(index.get(matchKey(jolene))).toMatchObject({ where: "upnext", row: { uid: "b" } });
+    expect(index.has(matchKey(africa))).toBe(false);
+    expect(index.get("free bird").where).toBe("requests");
   });
 });
 
