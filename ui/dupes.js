@@ -58,6 +58,26 @@ export function findDuplicate(upNext, requests, key) {
   return null;
 }
 
+/**
+ * Every song already on the night, keyed by identity: the same { where, row }
+ * findDuplicate(key) would return, built in one pass so a list showing the
+ * whole songbook can tag each tune without scanning the lists per entry.
+ */
+export function indexTonight(upNext, requests) {
+  const index = new Map();
+  for (const [list, where] of [
+    [upNext, "upnext"],
+    [requests, "requests"],
+  ]) {
+    for (const row of list) {
+      const key = rowKey(row);
+      if (row.binned || !key || index.has(key)) continue;
+      index.set(key, { where: row.played ? "played" : where, row });
+    }
+  }
+  return index;
+}
+
 /** The user-facing wording for each kind of existing copy. */
 export function duplicateLabel(where) {
   return {

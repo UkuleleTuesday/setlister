@@ -13,7 +13,8 @@ import {
   toDateInputValue,
 } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
-import { duplicateLabel, findDuplicate, matchKey, normalizeText, rowKey } from "./dupes.js";
+import { duplicateLabel, findDuplicate, indexTonight, matchKey, rowKey } from "./dupes.js";
+import { searchSongs } from "./search.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
 import {
@@ -115,6 +116,13 @@ const requestSheetComment = document.getElementById("room-request-comment");
 const requestSheetError = document.getElementById("room-request-error");
 const requestSheetConfirm = document.getElementById("room-request-confirm");
 const requestSheetCancel = document.getElementById("room-request-cancel");
+const songbookSheet = document.getElementById("songbook-sheet");
+const songbookWait = document.getElementById("songbook-wait");
+const songbookSearch = document.getElementById("songbook-search");
+const songbookStatus = document.getElementById("songbook-status");
+const songbookList = document.getElementById("songbook-list");
+const songbookEmpty = document.getElementById("songbook-empty");
+const songbookClose = document.getElementById("songbook-close");
 const roomIdentity = document.getElementById("room-identity");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
@@ -689,6 +697,9 @@ function applyRequestsOpen() {
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
   if (!open && viewMode === "room" && !requestSheet.hidden) closeRequestSheet();
+  // Same for the songbook: with the door shut it would only offer taps that
+  // can't land.
+  if (!open && viewMode === "room" && !songbookSheet.hidden) closeSongbook();
 }
 
 function setView(view) {
@@ -1768,18 +1779,27 @@ editionSelect.addEventListener("change", () => {
   persist();
 });
 
-// normalizeText lives in dupes.js now (shared with duplicate detection); it
-// mirrors the accent-insensitive matching the backend does in matcher.py, so
-// "sara" finds "Sarà" and users don't have to type diacritics on a phone.
+// The matching rules live in search.js, shared with the room's songbook sheet.
+// The dropdown keeps a short list: it hangs under a field the keyboard is
+// already squeezing.
 function searchCatalogue(query, limit = 8) {
-  const terms = normalizeText(query.trim()).split(/\s+/).filter(Boolean);
-  if (!terms.length) return [];
-  return app.catalogue
-    .filter((entry) => {
-      const haystack = normalizeText(`${entry.title} ${entry.artist || ""}`);
-      return terms.every((term) => haystack.includes(term));
-    })
-    .slice(0, limit);
+  return searchSongs(app.catalogue, query, { limit });
+}
+
+// Explain an empty result list instead of showing nothing: no catalogue yet,
+// catalogue unreachable, or a genuine no-match. Shared by the dropdown and the
+// songbook sheet, so silence never reads as "that song isn't in the book".
+function catalogueEmptyMessage(query) {
+  if (catalogueStatus === "loading") return "Loading the songbook…";
+  if (catalogueStatus === "error") return "Couldn't load the songbook. Check your connection";
+  return query.trim() ? `No matches for “${query.trim()}”` : "This songbook has no tunes in it yet";
+}
+
+// Tonight's state for a song, as a short tag next to it in any song list:
+// what's already played or asked for, seen BEFORE the tap rather than as a
+// refusal after it.
+function tonightTagLabel(where) {
+  return { played: "played", upnext: "up next", requests: "requested" }[where];
 }
 
 // Open pickers re-run their query when the catalogue (finally) arrives — text
@@ -1789,6 +1809,7 @@ const pickerRefreshers = new Set();
 
 function refreshPickers() {
   for (const refresh of pickerRefreshers) refresh();
+  if (!songbookSheet.hidden) renderSongbook();
 }
 
 // A tap that we fully handle at pointerdown still leaves the browser to
@@ -1867,26 +1888,19 @@ function makeCombobox({ placeholder, onPick }) {
     onPick(entry);
   }
 
-  // Explain an empty result list instead of showing nothing: no catalogue yet,
-  // catalogue unreachable, or a genuine no-match.
-  function emptyStateMessage() {
-    if (catalogueStatus === "loading") return "Loading the songbook…";
-    if (catalogueStatus === "error") return "Couldn't load the songbook. Check your connection";
-    return `No matches for “${input.value.trim()}”`;
-  }
-
   function renderMenu() {
     if (!matches.length) {
       if (!input.value.trim()) return close();
       const status = document.createElement("li");
       status.className = "song-picker-status";
-      status.textContent = emptyStateMessage();
+      status.textContent = catalogueEmptyMessage(input.value);
       menu.replaceChildren(status);
       setMenuOpen(true);
       input.setAttribute("aria-expanded", "true");
       input.removeAttribute("aria-activedescendant");
       return;
     }
+    const tonight = indexTonight(app.upNext, app.requests);
     menu.replaceChildren(
       ...matches.map((entry, i) => {
         const li = document.createElement("li");
@@ -1900,7 +1914,15 @@ function makeCombobox({ placeholder, onPick }) {
         const page = document.createElement("span");
         page.className = "page-badge";
         page.textContent = `p.${entry.page}`;
-        li.append(name, page);
+        const existing = tonight.get(matchKey(entry));
+        if (existing) {
+          const tag = document.createElement("span");
+          tag.className = "tonight-tag";
+          tag.textContent = tonightTagLabel(existing.where);
+          li.append(name, tag, page);
+        } else {
+          li.append(name, page);
+        }
         // pointerdown fires before the input's blur, so the pick registers
         // instead of the field closing first (works for mouse and touch).
         li.addEventListener("pointerdown", (ev) => {
@@ -1991,7 +2013,9 @@ function buildPickerToggle(row) {
 // The standalone add field lives outside any row and creates a new confirmed
 // request instead of correcting an existing one. The optional comment rides
 // along in the full app only — the room enters one in the confirm sheet
-// instead, so the mode CSS hides this affordance there.
+// instead, so the mode CSS hides this affordance there. Room devices get the
+// songbook trigger in place of the type-ahead; both are mounted and the mode
+// CSS picks, like every other room/full difference.
 function mountManualAdd() {
   const comment = buildManualComment();
   manualAddHost.replaceChildren(
@@ -1999,9 +2023,232 @@ function mountManualAdd() {
       placeholder: "Add a tune by name…",
       onPick: (entry) => onManualPick(entry, comment),
     }),
-    comment.el
+    comment.el,
+    buildSongbookTrigger()
   );
 }
+
+// Field-shaped, because "this is where you find a tune" is the one thing it
+// has to say; a button, because what it opens is a list to browse, not a
+// prompt to type into.
+function buildSongbookTrigger() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "songbook-trigger";
+  button.append(icon("search"), document.createTextNode("Find a tune in the songbook"));
+  button.onclick = openSongbook;
+  return button;
+}
+
+// --- The room's songbook sheet ----------------------------------------------
+// The whole book, browsable, with tonight's state on every tune (see the
+// #songbook-sheet comment in index.html for why). A tap does whatever actually
+// helps: a new tune goes to the confirm sheet, one already asked for gets this
+// phone's thumbs up, a played one says so and stays put.
+
+let songbookNoteTimer;
+let songbookWaitTimer;
+let songbookRenderQueued = false;
+
+function openSongbook() {
+  songbookSearch.value = "";
+  songbookStatus.hidden = true;
+  songbookSheet.hidden = false;
+  renderSongbook();
+  songbookList.scrollTop = 0;
+  // Not the search field: focusing it raises the keyboard over the list, and
+  // browsing is the point. Typing is one tap away at the top.
+  songbookClose.focus({ preventScroll: true });
+}
+
+function closeSongbook() {
+  songbookSheet.hidden = true;
+  songbookSearch.blur();
+  clearTimeout(songbookNoteTimer);
+  clearTimeout(songbookWaitTimer);
+}
+
+// Peers keep adding, voting and playing while the sheet is open, and every
+// such change re-renders both lists back to back: coalesce them into one
+// repaint of the book.
+function scheduleSongbookRender() {
+  if (songbookSheet.hidden || songbookRenderQueued) return;
+  songbookRenderQueued = true;
+  queueMicrotask(() => {
+    songbookRenderQueued = false;
+    if (!songbookSheet.hidden) renderSongbook();
+  });
+}
+
+function renderSongbook() {
+  const query = songbookSearch.value;
+  const songs = query.trim() ? searchSongs(app.catalogue, query) : app.catalogue;
+  const tonight = indexTonight(app.upNext, app.requests);
+  // A live repaint must not throw the reader back to page 1 mid-scroll.
+  const scroll = songbookList.scrollTop;
+  songbookList.replaceChildren(
+    ...songs.map((entry) => renderSongbookRow(entry, tonight.get(matchKey(entry))))
+  );
+  songbookList.scrollTop = scroll;
+  songbookEmpty.hidden = songs.length > 0;
+  if (!songs.length) songbookEmpty.textContent = catalogueEmptyMessage(query);
+  renderSongbookWait();
+}
+
+function renderSongbookRow(entry, existing) {
+  const li = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "songbook-song";
+
+  const text = document.createElement("span");
+  text.className = "songbook-text";
+  const title = document.createElement("span");
+  title.className = "songbook-title";
+  title.textContent = entry.title || entry.display;
+  text.append(title);
+  if (entry.artist) {
+    const artist = document.createElement("span");
+    artist.className = "songbook-artist";
+    artist.textContent = entry.artist;
+    text.append(artist);
+  }
+
+  const side = document.createElement("span");
+  side.className = "songbook-side";
+  let state = "";
+  if (existing) {
+    button.classList.add(existing.where);
+    const tag = document.createElement("span");
+    tag.className = "tonight-tag";
+    if (existing.where === "played") {
+      tag.textContent = tonightTagLabel("played");
+      state = ", played tonight";
+    } else {
+      // The thumbs count says "tapping this adds to something", which is what
+      // a tap on an asked-for tune now does.
+      const count = voteCount(app.votes, existing.row.uid);
+      const mine = hasVoted(app.votes, existing.row.uid, presence.getClientId());
+      if (mine) tag.classList.add("voted");
+      tag.append(icon("want"), document.createTextNode(` ${count} · ${tonightTagLabel(existing.where)}`));
+      state =
+        `, ${existing.where === "upnext" ? "in Up next" : "requested"}, ` +
+        `${count} ${count === 1 ? "person wants" : "people want"} it` +
+        (mine ? ", including you" : "");
+    }
+    side.append(tag);
+  }
+  const page = document.createElement("span");
+  page.className = "page-badge";
+  page.textContent = `p.${entry.page}`;
+  side.append(page);
+
+  button.setAttribute("aria-label", `${entry.display}, page ${entry.page}${state}`);
+  button.append(text, side);
+  // click, not the dropdown's pointerdown: in a list you scroll with the same
+  // finger, and a pick on touch-down would fire on every scroll that starts on
+  // a row.
+  button.onclick = () => onSongbookPick(entry);
+  li.append(button);
+  return li;
+}
+
+function onSongbookPick(entry) {
+  // Belt and braces, as in onManualPick: applyRequestsOpen() closes this
+  // sheet when the door shuts, but a tap can race the change.
+  if (!requestsState().open) {
+    closeSongbook();
+    flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
+    return;
+  }
+  const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
+  if (existing?.where === "played") {
+    songbookNote(`“${entry.title}” was played earlier tonight. Pick another?`);
+    return;
+  }
+  if (existing) {
+    // Already asked for: what this person wants is for it to be played, and
+    // the thumbs up says exactly that. Add-only, never a toggle, so a second
+    // tap can't quietly take the vote back.
+    const clientId = presence.getClientId();
+    const already = hasVoted(app.votes, existing.row.uid, clientId);
+    if (!already) {
+      app.votes = seedAsker(app.votes, existing.row.uid, clientId);
+      renderUpNext();
+      renderRequests();
+      persist();
+    }
+    closeSongbook();
+    flashNote(
+      addFeedback,
+      already
+        ? `You already want “${entry.title}”. Fingers crossed!`
+        : `Your thumbs up is on “${entry.title}”.`
+    );
+    return;
+  }
+  // The wait only gates new requests, so it's checked last: thumbs up and
+  // browsing carry on through it.
+  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
+  if (waiting) {
+    songbookNote(`One at a time! You can add another in ${cooldownLabel(waiting)}.`);
+    return;
+  }
+  closeSongbook();
+  openRequestSheet(entry);
+}
+
+// Why a tap didn't add, said in the sheet the person is looking at.
+// Self-retiring like flashNote, but on the sheet's own timer so closing the
+// sheet cancels it. It stands in for the wait line while shown: the cooldown
+// note says the same thing with the number in it.
+function songbookNote(message) {
+  songbookStatus.textContent = message;
+  songbookStatus.hidden = false;
+  songbookWait.hidden = true;
+  clearTimeout(songbookNoteTimer);
+  songbookNoteTimer = setTimeout(() => {
+    songbookStatus.hidden = true;
+    renderSongbookWait();
+  }, 6000);
+}
+
+// The wait between requests, told up front rather than discovered on a tap.
+// No number in it: a figure that sat still for a minute would be wrong, and a
+// ticking one would chatter at screen readers. The exact wait comes with the
+// tap (songbookNote). Re-checked once, when the wait runs out.
+function renderSongbookWait() {
+  clearTimeout(songbookWaitTimer);
+  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
+  songbookWait.hidden = !waiting || !songbookStatus.hidden;
+  if (waiting) songbookWaitTimer = setTimeout(renderSongbookWait, waiting + 50);
+}
+
+songbookSearch.addEventListener("input", () => {
+  renderSongbook();
+  songbookList.scrollTop = 0;
+});
+// The keyboard's search key means "show me": drop the keyboard so the
+// results it was covering come into view.
+songbookSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") songbookSearch.blur();
+});
+// Dragging the list means reading it, so put the keyboard away. touchmove,
+// not scroll: the list also scrolls programmatically as you type.
+songbookList.addEventListener(
+  "touchmove",
+  () => {
+    if (document.activeElement === songbookSearch) songbookSearch.blur();
+  },
+  { passive: true }
+);
+songbookClose.addEventListener("click", closeSongbook);
+songbookSheet.addEventListener("click", (event) => {
+  if (event.target === songbookSheet) closeSongbook();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !songbookSheet.hidden) closeSongbook();
+});
 
 // The full app adds on the spot (no sheet), so a comment has to be typed
 // BEFORE the pick. Collapsed to a link so bulk board transcription keeps a
@@ -2491,6 +2738,7 @@ function renderUpNext() {
   renderEditionNote();
   updateSessionMode();
   updateExportButtons();
+  scheduleSongbookRender();
   // Played and binned rows are lifted out into their collapsed groups, so the
   // empty note keys off the rows still *visible* in the running order.
   const visible = app.upNext.filter((e) => !e.binned && !e.played);
@@ -2547,6 +2795,7 @@ function renderUpNext() {
 function renderRequests() {
   updateSessionMode();
   updateExportButtons();
+  scheduleSongbookRender();
   const visible = app.requests.filter((e) => !e.binned);
   requestsEmpty.hidden = visible.length > 0;
   // The empty note mentions snapping the board, but room mode has no camera —
