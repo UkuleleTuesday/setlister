@@ -17,6 +17,7 @@ import {
   openingSoonLabel,
   resolveWindow,
   toDateTimeInputValue,
+  windowStatus,
 } from "../request-window.js";
 
 const at = (y, m, d, h = 20, min = 0) => new Date(y, m, d, h, min);
@@ -137,6 +138,44 @@ describe("effectiveRequestsOpen", () => {
   it("auto (null) matches isWithinWindow", () => {
     expect(effectiveRequestsOpen({ mode: null, window, now: insideWindow })).toBe(true);
     expect(effectiveRequestsOpen({ mode: null, window, now: outsideWindow })).toBe(false);
+  });
+});
+
+describe("windowStatus", () => {
+  const window = { opensAt: at(2026, 7, 4, 19, 30), closesAt: at(2026, 7, 5, 4, 0) };
+
+  it("names the closing time while an auto window is open", () => {
+    expect(windowStatus({ mode: null, window, now: at(2026, 7, 4, 21, 0) })).toEqual({
+      state: "open",
+      at: window.closesAt,
+    });
+  });
+
+  it("names the opening time before an auto window opens", () => {
+    expect(windowStatus({ mode: null, window, now: at(2026, 7, 4, 18, 0) })).toEqual({
+      state: "later",
+      at: window.opensAt,
+    });
+  });
+
+  it("is closed once an auto window has passed", () => {
+    expect(windowStatus({ mode: null, window, now: at(2026, 7, 5, 5, 0) })).toEqual({
+      state: "closed",
+      at: null,
+    });
+  });
+
+  it("follows a forced switch with no time to name", () => {
+    const now = at(2026, 7, 4, 18, 0);
+    expect(windowStatus({ mode: true, window, now })).toEqual({ state: "open", at: null });
+    expect(windowStatus({ mode: false, window, now })).toEqual({ state: "closed", at: null });
+  });
+
+  it("is open with no end when there is no window", () => {
+    expect(windowStatus({ mode: null, window: null, now: at(2026, 7, 4) })).toEqual({
+      state: "open",
+      at: null,
+    });
   });
 });
 

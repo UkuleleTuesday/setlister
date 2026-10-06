@@ -66,6 +66,22 @@ body.in-session header {
   padding-top: 0.4rem; padding-bottom: 0.4rem;
 }
 body.in-session header h1 { font-size: 1.25rem; }
+/* The club's name over the night's date: a link opened away from the pub
+   still says whose night it is. Session only; home's title is the brand. */
+.club-name { display: none; }
+body.in-session .title-stack {
+  display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+  max-width: calc(100% - 6rem);
+}
+/* The stack keeps the corner clearance itself; the h1's own max-width would
+   be taken from the stack's (shrink-wrapped) width and squeeze the date into
+   a sliver it overflows to the right. */
+body.in-session .title-stack h1 { max-width: none; margin: 0; }
+body.in-session .club-name {
+  display: block; margin: 0;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent);
+}
 body.in-session .subtitle { display: none; }
 
 .settings-toggle {
@@ -229,9 +245,9 @@ footer#edition-note:empty { display: none; }
   min-height: 2.75rem; text-align: left;
 }
 
-/* The one full-width primary button style, shared by "Snap the request board"
-   and "New session" so the two can't drift apart. */
-.primary-action, .camera-button {
+/* The full-width hero button ("New session"). The session's add row has its
+   own pair below (.manual-add). */
+.primary-action {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   width: 100%; text-align: center; padding: 0.95rem;
   background: linear-gradient(160deg, #5e1ca9, var(--accent) 70%);
@@ -240,7 +256,7 @@ footer#edition-note:empty { display: none; }
   font-family: inherit; font-size: 1.05rem; font-weight: 600;
   cursor: pointer; user-select: none;
 }
-.primary-action:active, .camera-button:active { opacity: 0.85; }
+.primary-action:active { opacity: 0.85; }
 .primary-action:disabled { opacity: 0.45; cursor: default; }
 
 .preview-wrap { position: relative; margin-top: 0.8rem; }
@@ -544,8 +560,54 @@ h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
 /* Under the quick-add field the note reads as part of that control, so it
    hugs the input and keeps the pool's spacing. */
 #add-feedback { margin: 0 0 0.7rem; }
-/* Quick add sits between the Requests heading and the pool. */
-.manual-add { margin: 0 0 0.7rem; }
+/* Full app: both ways in, side by side between the Requests heading and the
+   pool. The songbook button leads; the camera sits beside it in the soft
+   accent so the row has one primary action. Room devices use .room-top's
+   button instead. */
+.manual-add {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;
+  margin: 0 0 0.7rem;
+}
+#session-view.room .manual-add { display: none; }
+.songbook-trigger, .camera-button {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  width: 100%; min-height: 54px; padding: 0.75rem 0.6rem;
+  font-family: inherit; font-size: 1rem; font-weight: 650;
+  border: none; border-radius: var(--radius-lg); box-shadow: none;
+  cursor: pointer; user-select: none;
+}
+.songbook-trigger { color: #fff; background: var(--accent); }
+.camera-button { color: var(--accent); background: var(--accent-soft); }
+.songbook-trigger:active, .camera-button:active { opacity: 0.85; }
+
+/* What a list is, or what to do with it, under its heading. Same register as
+   the copy around it, not the small-caps heading. */
+.list-hint { margin: -0.3rem 0 0.6rem; color: #4f4f4f; font-size: 0.9rem; }
+
+/* The request link's state as a pill: a dot plus words, so it never relies on
+   the colour alone. Green while the link takes tunes, quiet grey otherwise.
+   The full app's is a button into the share panel; the room's is just text. */
+.window-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 36px; padding: 0 0.75rem;
+  font: inherit; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  color: #1f5a23; background: #e7f2e7; border: none; border-radius: 999px;
+}
+.window-pill::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: #2e7d32;
+}
+.window-pill[data-state="later"], .window-pill[data-state="closed"] {
+  color: #4f4f4f; background: #efebe4;
+}
+.window-pill[data-state="later"]::before, .window-pill[data-state="closed"]::before {
+  background: none; border: 1.5px solid var(--muted); box-sizing: border-box;
+}
+button.window-pill { cursor: pointer; position: relative; }
+/* 36px to look at, 44px to hit. */
+button.window-pill::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  transform: translateY(-50%); height: 44px;
+}
 
 /* --- Fresh session: one job on screen -------------------------------------
    While both lists are empty (and no scan is in review) the session view
@@ -555,28 +617,23 @@ h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
    current by updateSessionMode() in app.js; visibility is class-driven only
    (the [hidden] attribute would fight these rules). */
 .fresh-intro { display: none; }
-#session-view.fresh .fresh-intro {
-  display: block; margin: 1.6rem 0 1.2rem;
-  text-align: center; color: var(--muted); font-size: 0.95rem;
+#session-view.fresh .fresh-intro { display: block; margin: 1.2rem 0 1rem; }
+/* Same title style as the request view's .room-purpose. */
+.fresh-intro h2, .room-purpose {
+  margin: 0 0 0.35rem; font-size: 1.6rem; line-height: 1.15; font-weight: 750;
+}
+.fresh-intro p, .room-purpose-sub {
+  margin: 0 0 1rem; color: #4f4f4f; font-size: 0.95rem; line-height: 1.4;
 }
 #session-view.fresh #upnext,
 #session-view.fresh #requests h2,
+#session-view.fresh #requests-hint,
 #session-view.fresh #requests-rows,
 #session-view.fresh #requests-empty { display: none; }
-#session-view.fresh #add { margin-top: 0.8rem; }
-/* The camera is the hero of a fresh night. Vertical padding only — anything
-   wider (or a bigger font) wraps the label at 390px. */
-#session-view.fresh .camera-button { padding: 1.15rem 0.9rem; }
-/* "or" only reads correctly while the add-by-name field sits directly above
-   the camera — i.e. in the fresh state. */
-#session-view:not(.fresh) .or-divider { display: none; }
-.or-divider {
-  display: flex; align-items: center; gap: 0.6rem;
-  color: #999; font-size: 0.8rem; margin: 0.6rem 0;
-}
-.or-divider::before, .or-divider::after {
-  content: ""; flex: 1; height: 1px; background: #ddd;
-}
+/* The two ways in stack full width: they are the whole screen's content. */
+#session-view.fresh .manual-add { grid-template-columns: minmax(0, 1fr); gap: 0.6rem; }
+#session-view.fresh .songbook-trigger,
+#session-view.fresh .camera-button { font-size: 1.05rem; }
 
 /* --- Room mode: the requests view (#86) ------------------------------------
    A device that arrived through a `?mode=request` link gets the add-by-name
@@ -597,26 +654,38 @@ body.room-mode #edition-note { display: none; }
 #session-view.room #add,
 #session-view.room #review,
 #session-view.room #bin-group { display: none; }
-/* The "Requesting as …" line is room mode's only trace of the name — it's
-   entered in #room-request-sheet, which wears the house sheet styles. One quiet
-   line in the note register; the change button keeps its .link-button 44px
-   hit area, so the line stays slim but comfortably tappable.
-   renderRoomIdentity() shows it via the hidden attribute, which composes with
-   this mode rule because [hidden]'s !important beats it. */
-.room-identity { display: none; }
-#session-view.room .room-identity {
-  display: flex; align-items: center; gap: 0.5rem;
-  margin: 0 0 0.7rem; min-height: 24px;
-  color: var(--muted); font-size: 0.9rem;
+/* The request view's top: what the page is for, the one action, then the
+   link's rules and the name requests go under. Room only. */
+.room-top { display: none; }
+#session-view.room .room-top { display: block; margin: 0.4rem 0 0.4rem; }
+.room-add { margin: 0 0 0.6rem; }
+.room-rules {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem;
+  color: var(--muted); font-size: 0.85rem;
+}
+/* The name line is the only trace of the name: entered in
+   #room-request-sheet, shown via the hidden attribute by renderRoomIdentity().
+   The change button keeps its .link-button 44px hit area. */
+.room-identity { display: inline-flex; align-items: center; gap: 0.4rem; }
+/* Nothing queued and nothing played: one line, not a box, so the top of the
+   page stays the add button's. */
+#session-view.room #upnext.empty {
+  display: flex; align-items: center; gap: 0.6rem;
+  min-height: 44px; margin-top: 1.2rem; padding: 0 0.8rem;
+  background: var(--card); border: 1px solid #ece6dc; border-radius: var(--radius);
+}
+#session-view.room #upnext.empty h2 { margin: 0; }
+#session-view.room #upnext.empty #upnext-empty {
+  margin: 0; padding: 0; border: none; background: none; text-align: left;
+  font-size: 0.9rem;
 }
 /* Closed to requests (#86): the room loses the way in, not the view. The add
    field and its feedback line go, the note takes their place, and the pool
    below stays so the room can still see what's coming. Full-app devices are
    untouched by all of this — an organiser adds whatever the switch says. */
 .requests-closed-note { display: none; }
-#session-view.room.requests-closed #manual-add,
-#session-view.room.requests-closed #add-feedback,
-#session-view.room.requests-closed .room-identity { display: none; }
+#session-view.room.requests-closed .room-top,
+#session-view.room.requests-closed #add-feedback { display: none; }
 #session-view.room.requests-closed .requests-closed-note {
   display: block;
   margin: 0 0 0.8rem;
@@ -626,9 +695,8 @@ body.room-mode #edition-note { display: none; }
    time, room devices get this note in place of the closed one above — same
    swap, one more state. */
 .requests-opening-soon-note { display: none; }
-#session-view.room.requests-opening-soon #manual-add,
-#session-view.room.requests-opening-soon #add-feedback,
-#session-view.room.requests-opening-soon .room-identity { display: none; }
+#session-view.room.requests-opening-soon .room-top,
+#session-view.room.requests-opening-soon #add-feedback { display: none; }
 #session-view.room.requests-opening-soon .requests-opening-soon-note {
   display: block;
   margin: 0 0 0.8rem;
@@ -813,6 +881,7 @@ body.room-mode #edition-note { display: none; }
 /* The working lists' single provenance line ("Added by Sam · from the
    whiteboard"), same quiet register as the review sheet's detail lines. */
 .row-meta { color: #6b6b6b; font-size: 0.82rem; margin-top: 0.15rem; }
+.row-meta .page-badge { margin-right: 0.4rem; padding: 0.05rem 0.4rem; font-size: 0.8rem; }
 .explanation { font-size: 0.84rem; margin-top: 0.3rem; color: #666; }
 /* "Already in Up next" on a review row (#52): amber — a caution about the
    match's destination, same register as the ⚠️ flag, not an error. */
@@ -868,18 +937,23 @@ body.room-mode #edition-note { display: none; }
 }
 .row-tools .check-button.active .icon,
 .row-tools .bin-button.active .icon { width: 1rem; height: 1rem; }
-/* "I want this one" (#83). Icon plus count, so it's wider than the bare icon
-   buttons beside it — gap:0 keeps the hand and its number reading as one
-   control rather than two. Inherits the 44px pseudo-element target above. */
-.row-tools .vote-button { gap: 0.25rem; padding: 0.3rem 0.4rem; }
-.vote-count { font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-/* Voted: filled, in the accent rather than the played-green or binned-red, so
-   the three toggled states on a row stay tellable apart at a glance. The count
-   is deliberately still legible at zero (nobody has voted yet is information),
-   which is why the unvoted state dims rather than hides it. */
-.row-tools .vote-button:not(.voted) .vote-count { opacity: 0.55; }
-.row-tools .vote-button.voted { color: var(--accent); }
-.row-tools .vote-button.voted .vote-count { opacity: 1; }
+/* "I want this one" (#83): a pill saying whose vote it is ("You" / "+1") plus
+   the count when it adds something. Inherits the 44px pseudo-element target
+   above. */
+.row-tools .vote-button {
+  gap: 0.3rem; min-height: 40px; padding: 0 0.7rem;
+  font-family: inherit; font-size: 0.85rem; font-weight: 650;
+  color: var(--accent); background: var(--card);
+  border: 1.5px solid var(--accent); border-radius: 999px;
+}
+.row-tools .vote-button .icon { width: 1.05rem; height: 1.05rem; }
+.vote-count { font-weight: 500; font-variant-numeric: tabular-nums; }
+/* Voted ("You"): filled, in the accent rather than the played-green or
+   binned-red, so the three toggled states on a row stay tellable apart at a
+   glance. Not voted ("+1"): outlined, so it reads as something to press. */
+.row-tools .vote-button:not(.voted) .vote-count { color: var(--muted); }
+.row-tools .vote-button.voted { color: #fff; background: var(--accent); }
+.row-tools .vote-button.voted .icon { fill: currentColor; }
 
 /* Collapsed correct-song picker on a confirmed review row. The expanded picker
    is the flex:1 child that normally takes up the slack in a review row's tools;
@@ -967,19 +1041,7 @@ body.room-mode #edition-note { display: none; }
 .tonight-tag svg.icon { width: 1em; height: 1em; }
 .tonight-tag.voted { color: var(--accent); font-weight: 600; }
 
-/* --- The songbook (#songbook-sheet) ---------------------------------------
-   The way to add by name, in both modes: same size and frame as
-   .song-picker-input, so it reads as "the place to find a tune". */
-.songbook-trigger {
-  display: flex; align-items: center; gap: 0.5rem;
-  width: 100%; min-height: 44px; padding: 0.5rem 0.7rem;
-  font: inherit; font-size: 1rem; color: var(--muted); text-align: left;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--card); cursor: pointer;
-}
-.songbook-trigger svg.icon { color: var(--accent); }
-.songbook-trigger:active { background: var(--accent-soft); }
-
+/* --- The songbook (#songbook-sheet) --------------------------------------- */
 /* Taller than the other sheets (the list is the content) but still short of
    both edges: the backdrop strip left above and below is the easy way out,
    alongside Close. Chrome pinned, list scrolled, like What's new. A fixed

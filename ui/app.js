@@ -45,6 +45,7 @@ import {
   openingSoonLabel,
   resolveWindow,
   toDateTimeInputValue,
+  windowStatus,
 } from "./request-window.js";
 import {
   CATALOGUES_CACHE_KEY,
@@ -124,6 +125,12 @@ const songbookList = document.getElementById("songbook-list");
 const songbookEmpty = document.getElementById("songbook-empty");
 const songbookClose = document.getElementById("songbook-close");
 const roomIdentity = document.getElementById("room-identity");
+const roomAddHost = document.getElementById("room-add");
+const roomWindow = document.getElementById("room-window");
+const windowChip = document.getElementById("window-chip");
+const upnextSection = document.getElementById("upnext");
+const upnextHint = document.getElementById("upnext-hint");
+const requestsHint = document.getElementById("requests-hint");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
 const modelSelect = document.getElementById("model");
@@ -183,7 +190,7 @@ const nameResetLater = document.getElementById("name-reset-later");
 settingsToggle.replaceChildren(icon("settings"));
 shareToggle.replaceChildren(icon("share"));
 photoLightboxClose.replaceChildren(icon("close"));
-cameraButton.replaceChildren(...iconLabel("camera", "Snap the whiteboard of wishes"));
+cameraButton.replaceChildren(...iconLabel("camera", "Snap the board"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
 newSessionButton.replaceChildren(...iconLabel("add", "New session"));
@@ -260,7 +267,7 @@ playerName.addEventListener("input", () => setPlayerName(playerName.value));
 function renderRoomIdentity() {
   const name = app.name.trim();
   roomIdentity.hidden = !name;
-  if (name) roomIdentityText.textContent = `Requesting as ${name}`;
+  if (name) roomIdentityText.textContent = `As ${name}`;
 }
 
 // The request this sheet will submit, or null when it was opened from
@@ -698,6 +705,7 @@ function applyRequestsOpen() {
       `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
   }
   shareRequestNote.textContent = requestNoteText(meta, open, reqWindow);
+  renderWindowPills(meta, reqWindow);
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
@@ -706,6 +714,23 @@ function applyRequestsOpen() {
   // can't land.
   if (!open && viewMode === "room" && !songbookSheet.hidden) closeSongbook();
 }
+
+// The link's state, worded once for both views: the request view's rules line
+// says what the room can do (it only shows while requests are open), the full
+// app's chip names the link the organiser controls.
+function renderWindowPills(meta, reqWindow) {
+  const { state, at } = windowStatus({ mode: meta.requestsOpen, window: reqWindow, now: new Date() });
+  const time = at ? sessionTimeLabel(at) : "";
+  roomWindow.textContent = state === "open" && time ? `Requests open until ${time}` : "Requests open";
+  windowChip.textContent = {
+    open: time ? `Request link open until ${time}` : "Request link open",
+    later: `Request link opens at ${time}`,
+    closed: "Request link is view only",
+  }[state];
+  windowChip.dataset.state = state;
+}
+
+windowChip.addEventListener("click", () => setSharePanelOpen(true));
 
 function setView(view) {
   const home = view === "home";
@@ -2013,20 +2038,21 @@ function buildPickerToggle(row) {
   return button;
 }
 
-// Adding by name, in both modes: the songbook trigger, which creates a new
-// confirmed request instead of correcting an existing row.
+// Adding by name opens the songbook in both modes. The request view's button
+// leads its page; the full app's sits first in the add row, beside the camera.
+// Both are mounted and the mode CSS shows one, like every other room/full
+// difference. Worded per audience: a player requests, an organiser adds on
+// the board's behalf.
 function mountManualAdd() {
-  manualAddHost.replaceChildren(buildSongbookTrigger());
+  roomAddHost.replaceChildren(buildSongbookTrigger("Request a tune"));
+  manualAddHost.prepend(buildSongbookTrigger("Add a tune"));
 }
 
-// Field-shaped, because "this is where you find a tune" is the one thing it
-// has to say; a button, because what it opens is a list to browse, not a
-// prompt to type into.
-function buildSongbookTrigger() {
+function buildSongbookTrigger(label) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "songbook-trigger";
-  button.append(icon("search"), document.createTextNode("Find a tune in the songbook"));
+  button.append(...iconLabel("add", label));
   button.onclick = openSongbook;
   return button;
 }
@@ -2669,10 +2695,18 @@ function renderUpNext() {
   // empty note keys off the rows still *visible* in the running order.
   const visible = app.upNext.filter((e) => !e.binned && !e.played);
   upnextEmpty.hidden = visible.length > 0;
+  upnextHint.hidden = visible.length === 0;
+  // Nothing queued and nothing played: the room CSS shrinks the section to a
+  // one-line bar, so an empty box doesn't take the top of a page whose job is
+  // adding a tune.
+  upnextSection.classList.toggle(
+    "empty",
+    visible.length === 0 && !app.upNext.some((e) => e.played && !e.binned)
+  );
   // The full app's note points at promote, a control room mode doesn't have.
   upnextEmpty.textContent =
     viewMode === "room"
-      ? "Nothing queued yet."
+      ? "Nothing queued yet"
       : "Nothing queued yet. Promote a request from below.";
   renderCount(upnextCount, visible.length);
   // Room mode watches the set and can want a tune, nothing else: "room-upnext"
@@ -2727,12 +2761,20 @@ function renderRequests() {
   // The empty note mentions snapping the board, but room mode has no camera —
   // there, adding by name is the only door, and once requests are closed (#86)
   // there is no door at all, so pointing at one above would be a lie.
+  const roomOpen = viewMode === "room" && requestsState().open;
   requestsEmpty.textContent =
     viewMode === "room"
-      ? requestsState().open
-        ? "No requests yet. Add one above."
+      ? roomOpen
+        ? "No requests yet. Be the first: tap Request a tune."
         : "No requests yet."
       : "No requests yet. Snap the board, or add one above.";
+  // Players vote, organisers promote. A closed room can't vote (see
+  // votingEnabled), so it gets no hint about thumbs.
+  requestsHint.textContent =
+    viewMode === "room"
+      ? "Thumbs up the ones you want to hear."
+      : "Most wanted first. Move one up when it's time.";
+  requestsHint.hidden = visible.length === 0 || (viewMode === "room" && !roomOpen);
   renderCount(requestsCount, visible.length);
   // Most-wanted first (#83). Display only: `requestsOrder` stays arrival order,
   // because reordering the real array would rewrite that whole-array
@@ -2804,10 +2846,12 @@ function votingEnabled() {
   return viewMode !== "room" || requestsState().open;
 }
 
-// The want button: a thumb plus the count, pressed while this device is one of
-// them. The count is real text rather than a CSS pseudo-element so screen
-// readers get it, and the aria-label says the number out loud because a bare
-// "8" next to an icon doesn't say what it counts.
+// The want button says whose vote it is: "You" (filled) once this device
+// wants the tune, which includes every request it added (seedAsker), and "+1"
+// (outlined) while it doesn't, so it reads as a button to press rather than a
+// tally someone else already ran up. The count follows only when it adds
+// something: others besides you, or anyone at all on a "+1". The aria-label
+// says it in words, since "+1 · 2" doesn't say what it counts.
 function buildVoteButton(row) {
   const clientId = presence.getClientId();
   const count = voteCount(app.votes, row.uid);
@@ -2819,16 +2863,26 @@ function buildVoteButton(row) {
   if (mine) button.classList.add("voted");
   button.setAttribute("aria-pressed", mine ? "true" : "false");
   button.title = mine ? "You want this one" : "I want this one";
+  const others = mine ? count - 1 : count;
   button.setAttribute(
     "aria-label",
-    count === 0
-      ? "I want this one, nobody has yet"
-      : `${mine ? "You and " : ""}${count} ${count === 1 ? "person wants" : "people want"} this one`
+    mine
+      ? others === 0
+        ? "You want this one"
+        : `You and ${others} ${others === 1 ? "other want" : "others want"} this one`
+      : others === 0
+        ? "I want this one, nobody has yet"
+        : `I want this one too, ${others} ${others === 1 ? "person wants" : "people want"} it`
   );
-  const tally = document.createElement("span");
-  tally.className = "vote-count";
-  tally.textContent = String(count);
-  button.append(icon("want"), tally);
+  const label = document.createElement("span");
+  label.textContent = mine ? "You" : "+1";
+  button.append(icon("want"), label);
+  if (mine ? count > 1 : count > 0) {
+    const tally = document.createElement("span");
+    tally.className = "vote-count";
+    tally.textContent = `· ${count}`;
+    button.append(tally);
+  }
   button.onclick = () => toggleRowVote(row.uid);
   return button;
 }
@@ -2843,6 +2897,13 @@ function toggleRowVote(uid) {
   renderUpNext();
   renderRequests();
   persist();
+}
+
+function pageBadge(page) {
+  const badge = document.createElement("span");
+  badge.className = "page-badge";
+  badge.textContent = `p.${page}`;
+  return badge;
 }
 
 function renderRow(row, index, context) {
@@ -2891,12 +2952,10 @@ function renderRow(row, index, context) {
     title.append(" ", warn);
   }
   top.appendChild(title);
-  if (row.match) {
-    const badge = document.createElement("span");
-    badge.className = "page-badge";
-    badge.textContent = `p.${row.match.page}`;
-    top.appendChild(badge);
-  }
+  // On the working lists the page leads the info line instead (below): beside
+  // the title it took the width the thumbs pill and the row tools need, and
+  // long titles wrapped a word per line.
+  if (row.match && context === "review") top.appendChild(pageBadge(row.match.page));
   main.appendChild(top);
 
   if (context === "review") {
@@ -2962,11 +3021,12 @@ function renderRow(row, index, context) {
     }
     if (row.notes) parts.push(row.notes);
     if (row.crossed_out) parts.push("crossed out");
-    if (parts.length) {
+    if (parts.length || row.match) {
       const meta = document.createElement("div");
       meta.className = "row-meta";
+      if (row.match) meta.appendChild(pageBadge(row.match.page));
       const text = parts.join(" · ");
-      meta.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+      meta.append(text.charAt(0).toUpperCase() + text.slice(1));
       main.appendChild(meta);
     }
   }
