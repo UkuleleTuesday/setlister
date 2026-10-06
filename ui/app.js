@@ -268,8 +268,8 @@ function renderRoomIdentity() {
 let requestSheetEntry = null;
 
 // One sheet, doing as little as the situation needs: it always confirms the
-// request (a room submitter can't take a row back out), and adds the name
-// field only while there's no name to put on it.
+// request (a mis-tap in a dark pub shouldn't land a tune for the whole room),
+// and adds the name field only while there's no name to put on it.
 function openRequestSheet(entry) {
   requestSheetEntry = entry;
   const askName = !app.name.trim() || !entry;
@@ -323,7 +323,7 @@ function onRequestSheetConfirm() {
   // The door can shut (or the window can lapse) while this sheet is open.
   // applyRequestsOpen() dismisses it when that happens, but a tap racing the
   // change gets here.
-  if (entry && !requestsState().open) {
+  if (entry && viewMode === "room" && !requestsState().open) {
     flashNote(addFeedback, "Requests just closed. Try the whiteboard of wishes!");
     return;
   }
@@ -332,7 +332,12 @@ function onRequestSheetConfirm() {
   // so — the sheet just covered the pool where the row landed — and set the
   // expectation for the cool-down before it bites.
   if (entry && addManualEntry(entry, comment)) {
-    flashNote(addFeedback, `Added “${entry.title}”. Next one in a minute.`);
+    flashNote(
+      addFeedback,
+      viewMode === "room"
+        ? `Added “${entry.title}”. Next one in a minute.`
+        : `Added “${entry.title}”.`
+    );
   }
 }
 
@@ -1779,7 +1784,7 @@ editionSelect.addEventListener("change", () => {
   persist();
 });
 
-// The matching rules live in search.js, shared with the room's songbook sheet.
+// The matching rules live in search.js, shared with the songbook sheet.
 // The dropdown keeps a short list: it hangs under a field the keyboard is
 // already squeezing.
 function searchCatalogue(query, limit = 8) {
@@ -1833,9 +1838,8 @@ function swallowNextClick() {
 
 // A small custom combobox. We rolled our own instead of a native <datalist>
 // because datalist support is unreliable on the mobile browsers this app
-// targets (no dropdown on iOS Safari, flaky on Android). Shared by the per-row
-// correction picker and the standalone "add a song" field so the two can't
-// drift apart.
+// targets (no dropdown on iOS Safari, flaky on Android). Used by the review
+// sheet's per-row correction picker.
 let comboboxSeq = 0;
 function makeCombobox({ placeholder, onPick }) {
   const wrap = document.createElement("div");
@@ -1866,8 +1870,7 @@ function makeCombobox({ placeholder, onPick }) {
   // for the swipe layer — which makes every card its own stacking context, so
   // the *next* card paints over this menu no matter how high its own z-index
   // is. Lift the whole card for as long as the menu is open; the swipe
-  // layering inside it is untouched. No-op for the manual-add combobox, which
-  // isn't inside a row.
+  // layering inside it is untouched.
   function setMenuOpen(open) {
     menu.hidden = !open;
     wrap.closest(".row-card")?.classList.toggle("picker-open", open);
@@ -2010,22 +2013,10 @@ function buildPickerToggle(row) {
   return button;
 }
 
-// The standalone add field lives outside any row and creates a new confirmed
-// request instead of correcting an existing one. The optional comment rides
-// along in the full app only — the room enters one in the confirm sheet
-// instead, so the mode CSS hides this affordance there. Room devices get the
-// songbook trigger in place of the type-ahead; both are mounted and the mode
-// CSS picks, like every other room/full difference.
+// Adding by name, in both modes: the songbook trigger, which creates a new
+// confirmed request instead of correcting an existing row.
 function mountManualAdd() {
-  const comment = buildManualComment();
-  manualAddHost.replaceChildren(
-    makeCombobox({
-      placeholder: "Add a tune by name…",
-      onPick: (entry) => onManualPick(entry, comment),
-    }),
-    comment.el,
-    buildSongbookTrigger()
-  );
+  manualAddHost.replaceChildren(buildSongbookTrigger());
 }
 
 // Field-shaped, because "this is where you find a tune" is the one thing it
@@ -2040,7 +2031,7 @@ function buildSongbookTrigger() {
   return button;
 }
 
-// --- The room's songbook sheet ----------------------------------------------
+// --- The songbook sheet ------------------------------------------------------
 // The whole book, browsable, with tonight's state on every tune (see the
 // #songbook-sheet comment in index.html for why). A tap does whatever actually
 // helps: a new tune goes to the confirm sheet, one already asked for gets this
@@ -2153,10 +2144,14 @@ function renderSongbookRow(entry, existing) {
   return li;
 }
 
+// The same flow in both modes. The one room-only part is the request link's
+// brakes (open/closed and the one-a-minute wait, see room-limits.js): they
+// govern that link, and an organiser adds whatever the switch says.
 function onSongbookPick(entry) {
-  // Belt and braces, as in onManualPick: applyRequestsOpen() closes this
-  // sheet when the door shuts, but a tap can race the change.
-  if (!requestsState().open) {
+  const room = viewMode === "room";
+  // Belt and braces: applyRequestsOpen() closes this sheet when the door
+  // shuts, but a tap can race the change.
+  if (room && !requestsState().open) {
     closeSongbook();
     flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
     return;
@@ -2189,7 +2184,7 @@ function onSongbookPick(entry) {
   }
   // The wait only gates new requests, so it's checked last: thumbs up and
   // browsing carry on through it.
-  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
+  const waiting = room ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
   if (waiting) {
     songbookNote(`One at a time! You can add another in ${cooldownLabel(waiting)}.`);
     return;
@@ -2219,7 +2214,8 @@ function songbookNote(message) {
 // tap (songbookNote). Re-checked once, when the wait runs out.
 function renderSongbookWait() {
   clearTimeout(songbookWaitTimer);
-  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
+  const waiting =
+    viewMode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
   songbookWait.hidden = !waiting || !songbookStatus.hidden;
   if (waiting) songbookWaitTimer = setTimeout(renderSongbookWait, waiting + 50);
 }
@@ -2249,76 +2245,6 @@ songbookSheet.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !songbookSheet.hidden) closeSongbook();
 });
-
-// The full app adds on the spot (no sheet), so a comment has to be typed
-// BEFORE the pick. Collapsed to a link so bulk board transcription keeps a
-// single control and an empty field never parks on screen reading as
-// mandatory. Cleared after each add — a comment is about one tune, never a
-// sticky setting.
-function buildManualComment() {
-  const wrap = document.createElement("div");
-  wrap.className = "manual-add-comment";
-  const input = document.createElement("input");
-  input.type = "text";
-  input.maxLength = 120;
-  input.placeholder = "Comment for the next tune you add…";
-  input.setAttribute("aria-label", "Comment for the next tune you add (optional)");
-  input.hidden = true;
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "link-button";
-  toggle.textContent = "Add a comment";
-  toggle.onclick = () => {
-    toggle.hidden = true;
-    input.hidden = false;
-    input.focus();
-  };
-  wrap.append(toggle, input);
-  return {
-    el: wrap,
-    read: () => input.value,
-    clear: () => {
-      input.value = "";
-    },
-  };
-}
-
-// Where the two modes part company (#88). The full app adds on the spot: an
-// organiser transcribing the board adds in bulk, and anything they regret is
-// one tap in the bin. A request from the room goes through the brakes first —
-// it can't be taken back once it lands, and one keen phone shouldn't be able
-// to fill the pool in a minute.
-function onManualPick(entry, comment) {
-  if (viewMode !== "room") {
-    // Cleared only once the row actually lands: a duplicate refusal keeps the
-    // typed comment for the retry on the right tune.
-    if (addManualEntry(entry, comment.read())) comment.clear();
-    return;
-  }
-  // Belt and braces: the combobox is already gone when requests are closed
-  // (#86), so this only catches the flip (or window boundary) landing between
-  // paint and tap.
-  if (!requestsState().open) {
-    flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
-    return;
-  }
-  const waiting = cooldownRemaining(readLastRoomAdd(), Date.now());
-  if (waiting) {
-    flashNote(
-      addFeedback,
-      `One at a time! You can add another in ${cooldownLabel(waiting)}.`
-    );
-    return;
-  }
-  // Check for a duplicate up front so the sheet never offers to add something
-  // that would only be refused on confirm (#52).
-  const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
-  if (existing) {
-    flashNote(addFeedback, duplicateLabel(existing.where));
-    return;
-  }
-  openRequestSheet(entry);
-}
 
 // Returns whether a row was actually added, so the request sheet can tell a
 // completed pick from a refusal. `comment` reuses the row's `notes` slot — the

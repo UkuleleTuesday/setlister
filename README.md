@@ -9,9 +9,11 @@ against the active UT songbook, so a row carries the page to turn to.
 
 Songs get in two ways:
 
-- **By name** — type-ahead search over the songbook (title, artist or page
-  number). The field sits at the top of the pool, because mid-night someone
-  shouts a request and it has to land without scrolling past twenty cards.
+- **By name** — pick from the songbook: the whole book in page order, searchable
+  by title, artist or page number, each tune tagged if it's already played or
+  on tonight's lists. Each add is confirmed, with an optional comment. It sits
+  at the top of the pool, because mid-night someone shouts a request and it has
+  to land without scrolling past twenty cards.
 - **By photo of the whiteboard** — the club writes its requests on the physical
   "whiteboard of wishes", and one snap turns the whole board into matched
   entries. The board keeps circulating during the night, so it gets snapped
