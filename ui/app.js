@@ -155,10 +155,6 @@ const sessionListEl = document.getElementById("session-list");
 const pastOlderEl = document.getElementById("past-older");
 const sessionListStatus = document.getElementById("session-list-status");
 const sessionListRetry = document.getElementById("session-list-retry");
-const carryoverBox = document.getElementById("carryover");
-const carryoverText = document.getElementById("carryover-text");
-const carryoverStart = document.getElementById("carryover-start");
-const carryoverDiscard = document.getElementById("carryover-discard");
 const backHomeButton = document.getElementById("back-home");
 // The header h1 doubles as the screen title: the brand on home, the night's
 // date in a session (see setView / renderSessionMeta).
@@ -462,12 +458,6 @@ function restore() {
     if (saved.votes && typeof saved.votes === "object") app.votes = saved.votes;
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
-    // Lists with no session behind them can only come from a build predating
-    // #77. Computed ONCE, here at boot: after leaving a session persist()
-    // legitimately writes lists with a null sessionId, and re-deriving this
-    // later would resurrect the carry-over card every time.
-    hasCarryover =
-      !saved.sessionId && (app.upNext.length > 0 || app.requests.length > 0);
     if (saved.settings && typeof saved.settings === "object") {
       const s = saved.settings;
       if (typeof s.model === "string") modelSelect.value = s.model;
@@ -546,11 +536,8 @@ function saveCatalogueCache() {
 // The durable state sync lives in sync.js; app.js only feeds it state and
 // applies remote updates.
 //
-// Every set of lists now belongs to a session (#77) — there is no local-only
-// mode to fall back to. `hasCarryover` is the one exception: lists left in
-// localStorage by a build from before that change, offered on the home screen
-// so a night in progress isn't silently swallowed by the new session list.
-let hasCarryover = false;
+// Every set of lists belongs to a session (#77): there is no local-only mode
+// to fall back to.
 
 function sessionState() {
   return {
@@ -789,22 +776,16 @@ async function applyRoute(id) {
     // wipe the session for everyone still in it. Once sync has torn down,
     // pushTimer/pendingState are cleared and flushPush early-returns, so
     // nothing can escape.
-    const wasInSession = sync.getSessionId() !== null;
     sync.leaveSession(); // also clears the session's createdAt
-    if (wasInSession || !hasCarryover) {
-      // Only carry-over is the user's to decide about; any other lists in
-      // memory are a session's copy (the session keeps them). That includes a
-      // cold open of home: restore() still loads the last session's lists,
-      // and left in memory the next persist() on home saved them with no
-      // session id, minting a fake carry-over card on every reload after.
-      app.upNext = [];
-      app.requests = [];
-      closeReview();
-      persist();
-      renderUpNext();
-      renderRequests();
-    }
-    renderCarryover();
+    // Lists on home are only ever a session's copy (the session keeps them),
+    // so drop them. That includes a cold open of home, where restore() has
+    // just loaded the last session's lists from storage.
+    app.upNext = [];
+    app.requests = [];
+    closeReview();
+    persist();
+    renderUpNext();
+    renderRequests();
     setView("home");
     updateShareUi();
     refreshSessionList();
@@ -1506,10 +1487,6 @@ document.addEventListener("keydown", (event) => {
 });
 
 // --- New session sheet ------------------------------------------------------
-// Whether Start should carry the carry-over lists into the new session, or
-// begin empty (the normal case — a new night shouldn't inherit last week's
-// leftovers).
-let sheetSeedsCarryover = false;
 
 // The soonest upcoming session from the last list render, or null. One planned
 // night at a time: while this is set, starting another SHARED session is
@@ -1530,8 +1507,7 @@ function updateSheetGate() {
 // open across midnight into an explicit yesterday-evening pick.
 let sheetDateDefault = "";
 
-function openSheet({ seedCarryover = false } = {}) {
-  sheetSeedsCarryover = seedCarryover;
+function openSheet() {
   sheetError.hidden = true;
   sheetDateDefault = toDateInputValue(new Date());
   sheetDate.value = sheetDateDefault;
@@ -1578,7 +1554,6 @@ async function onSheetStart() {
       ? fromDateInputValue(sheetDate.value)
       : null;
   const listed = sheetVisibility.value === "shared";
-  const seed = sheetSeedsCarryover;
   sheetError.hidden = true;
   sheetStart.disabled = true;
   sheetStart.replaceChildren(icon("loader", "spin"));
@@ -1616,23 +1591,16 @@ async function onSheetStart() {
     // Creating loads the Firestore chunk lazily, so the first tap can take a
     // beat — hence the spinner above.
     const id = await sync.createSession(
-      () =>
-        seed
-          ? { ...sessionState(), edition: chosenEdition }
-          : { upNext: [], requests: [], edition: chosenEdition },
+      () => ({ upNext: [], requests: [], edition: chosenEdition }),
       applyRemoteState,
       { createdBy: presence.displayName(app.name), listed, createdAt }
     );
     app.edition = chosenEdition;
     scopeCatalogueToEdition(chosenId);
-    if (!seed) {
-      app.upNext = [];
-      app.requests = [];
-      renderUpNext();
-      renderRequests();
-    }
-    hasCarryover = false;
-    carryoverBox.hidden = true;
+    app.upNext = [];
+    app.requests = [];
+    renderUpNext();
+    renderRequests();
     persist();
     closeSheet();
     await navigateTo(id, { cameFromHome: homeSection.hidden === false });
@@ -1672,30 +1640,6 @@ sheetDate.addEventListener("keydown", (event) => {
     // planned-session gate.
     if (!sheetStart.disabled) onSheetStart();
   }
-});
-
-// --- Carry-over from before sessions were mandatory -------------------------
-function renderCarryover() {
-  if (!hasCarryover) {
-    carryoverBox.hidden = true;
-    return;
-  }
-  const count = app.upNext.length + app.requests.length;
-  carryoverText.textContent =
-    `You have a list from before that isn’t in a session yet ` +
-    `(${count} ${count === 1 ? "song" : "songs"}).`;
-  carryoverBox.hidden = false;
-}
-
-carryoverStart.addEventListener("click", () => openSheet({ seedCarryover: true }));
-carryoverDiscard.addEventListener("click", () => {
-  app.upNext = [];
-  app.requests = [];
-  hasCarryover = false;
-  carryoverBox.hidden = true;
-  persist();
-  renderUpNext();
-  renderRequests();
 });
 
 // --- Loading editions + catalogue ------------------------------------------
@@ -3538,7 +3482,6 @@ downloadButton.addEventListener("click", () => {
   mountManualAdd();
   renderUpNext();
   renderRequests();
-  renderCarryover();
   renderWhatsNew();
 
   // Paint the right view before any network work so a cold open shows the

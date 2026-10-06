@@ -448,13 +448,6 @@ h2#upcoming-heading, h2#past-heading { margin-top: 1.4rem; }
 /* The collapsed remainder of the history, below the visible rows. */
 #past-older { margin-top: 0.5rem; }
 #past-older .group-rows { margin-top: 0.5rem; }
-/* Carry-over card: quiet and dashed like the empty states, not a warning. */
-.carryover {
-  margin-top: 1rem; padding: 0.8rem;
-  border: 1px dashed var(--border); border-radius: var(--radius);
-}
-.carryover .note { margin: 0 0 0.6rem; }
-.carryover .actions { flex-direction: column; margin: 0; }
 
 /* "What's new": announcement and archive are separate surfaces, and neither
    sits inside the pick-a-session flow. The banner (unseen entries only) is an
