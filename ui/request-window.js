@@ -93,6 +93,19 @@ export function minutesUntilOpen(win, now) {
   return Math.ceil(ms / 60000);
 }
 
+// The request link's state for the pill both views show (the room's rules
+// line, the full app's session bar): "open" (until `at` when a schedule will
+// close it), "later" (opens at `at`) or "closed". A forced open has no end to
+// name; a forced close, or a window that has passed, is simply closed.
+export function windowStatus({ mode, window: win, now }) {
+  if (mode === true) return { state: "open", at: null };
+  if (mode === false) return { state: "closed", at: null };
+  if (!win) return { state: "open", at: null };
+  if (now < win.opensAt) return { state: "later", at: win.opensAt };
+  if (now < win.closesAt) return { state: "open", at: win.closesAt };
+  return { state: "closed", at: null };
+}
+
 // "a minute" / "12 minutes" — said in a room view note, mirrors
 // room-limits.js's cooldownLabel.
 export function openingSoonLabel(minutes) {
