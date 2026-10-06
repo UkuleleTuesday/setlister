@@ -1,15 +1,10 @@
-// Room mode's brakes on adding (#88). Two of them, for two different failure
-// modes:
+// Room mode's brake on adding (#88): a **cool-down** between one device's
+// requests, so a keen participant can't fill the pool in a minute. #88's "rate
+// over volume" reading: ten requests across an evening is ordinary, ten in
+// ninety seconds is a flood. (The confirmation before a request lands applies
+// in both modes now; see openRequestSheet in app.js.)
 //
-// - A **confirmation** before a request lands, because a room submitter has no
-//   bin and no undo — once a row is in the pool it's in, and it's in for
-//   everyone. The full app doesn't need this: an organiser transcribing the
-//   board adds in bulk and can bin a mistake.
-// - A **cool-down** between one device's requests, so a keen participant can't
-//   fill the pool in a minute. #88's "rate over volume" reading: ten requests
-//   across an evening is ordinary, ten in ninety seconds is a flood.
-//
-// Both are client-side and per-device. The only identity the app has is a
+// Client-side and per-device. The only identity the app has is a
 // free-text name, so anyone determined clears storage and carries on — which
 // is the point #88 makes: the goal is making a flood visible and slightly
 // inconvenient, not preventing it. This stops the accidental version.

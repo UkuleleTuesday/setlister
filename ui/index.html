@@ -282,9 +282,8 @@
       <h2>Requests <span id="requests-count" class="count" hidden></span></h2>
       <!-- Quick add lives at the TOP of the pool: mid-night, someone shouts a
            request and it has to go in without scrolling past twenty cards. The
-           combobox mounts here (mountManualAdd) and its dropdown opens down
-           over the list. In the fresh state it moves visually next to the
-           camera via the mode CSS. -->
+           songbook trigger mounts here (mountManualAdd). In the fresh state it
+           moves visually next to the camera via the mode CSS. -->
       <!-- Room mode only (#86): the name is asked for in a sheet at the moment
            it's needed — picking a song — rather than by a field parked here
            (see #room-request-sheet). Once set it's fire-and-forget, and this
@@ -435,10 +434,10 @@
     </div>
   </div>
 
-  <!-- Room mode (#86, #88): the one sheet a room requester ever sees, doing
-       two jobs at the moment they pick a song. It CONFIRMS the request —
-       a room submitter has no bin, so a row in the pool is in for everyone,
-       and a mis-tap in a dark pub shouldn't be permanent — and on the first
+  <!-- Both modes (#86, #88): the sheet every add by name goes through, doing
+       two jobs at the moment a song is picked. It CONFIRMS the request —
+       a row in the pool is in for everyone, and a mis-tap in a dark pub
+       shouldn't land a tune unasked — and on the first
        request it also asks the name that will go on it. The name field is
        dropped once there is a name, so a regular is one tap from adding.
        Also reached from "change" above with no request attached: then it's
@@ -478,7 +477,7 @@
     </div>
   </div>
 
-  <!-- Room mode's way in: the whole songbook, browsable. At the club people
+  <!-- The way to add by name, in both modes: the whole songbook, browsable. At the club people
        rarely know an exact title ("that Beatles one", "p.42"), so a blank
        type-ahead asks for recall they don't have; a list lets them recognise
        the tune instead, in the printed book's page order. Every row carries
