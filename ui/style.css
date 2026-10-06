@@ -73,6 +73,10 @@ body.in-session .title-stack {
   display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
   max-width: calc(100% - 6rem);
 }
+/* The stack keeps the corner clearance itself; the h1's own max-width would
+   be taken from the stack's (shrink-wrapped) width and squeeze the date into
+   a sliver it overflows to the right. */
+body.in-session .title-stack h1 { max-width: none; margin: 0; }
 body.in-session .club-name {
   display: block; margin: 0;
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
