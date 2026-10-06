@@ -535,9 +535,6 @@ function saveCatalogueCache() {
 // --- Session sharing wiring ------------------------------------------------
 // The durable state sync lives in sync.js; app.js only feeds it state and
 // applies remote updates.
-//
-// Every set of lists belongs to a session (#77): there is no local-only mode
-// to fall back to.
 
 function sessionState() {
   return {
@@ -717,7 +714,6 @@ function renderWindowPills(meta, reqWindow) {
   windowChip.dataset.state = state;
 }
 
-// Straight to the request-link settings: the switch and its open/close times.
 windowChip.addEventListener("click", () => {
   setSharePanelOpen(true);
   shareRequests.closest(".field").scrollIntoView({ block: "nearest" });
@@ -777,9 +773,6 @@ async function applyRoute(id) {
     // pushTimer/pendingState are cleared and flushPush early-returns, so
     // nothing can escape.
     sync.leaveSession(); // also clears the session's createdAt
-    // Lists on home are only ever a session's copy (the session keeps them),
-    // so drop them. That includes a cold open of home, where restore() has
-    // just loaded the last session's lists from storage.
     app.upNext = [];
     app.requests = [];
     closeReview();
@@ -1129,8 +1122,6 @@ document.addEventListener("click", (event) => {
     !sharePanel.hidden &&
     !sharePanel.contains(event.target) &&
     !shareToggle.contains(event.target) &&
-    // The request-link pill opens this panel too; without this the same tap
-    // that opened it bubbled here and shut it again.
     !windowChip.contains(event.target)
   ) {
     setSharePanelOpen(false);

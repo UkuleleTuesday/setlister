@@ -31,16 +31,11 @@ export function defaultOpensAt(sessionCreatedAt) {
   return new Date(sessionCreatedAt.getTime() - DEFAULT_OPEN_LEAD_MS);
 }
 
-// When the club's night winds down: requests close at 22:30 on the night's
-// own evening (startOfNight, so a session stamped just after midnight still
-// counts as the evening before).
 const DEFAULT_CLOSE_HOUR = 22;
 const DEFAULT_CLOSE_MINUTE = 30;
 
-// A session started after that (a late, impromptu night) would get a window
-// that closes before it opens. It falls back to the end of the night instead,
-// 04:00 (NIGHT_BOUNDARY_HOUR) the next morning, the same boundary every date
-// label in the app uses.
+// 22:30 on the night's evening; a session starting after that closes at the
+// end of the night instead.
 export function defaultClosesAt(sessionCreatedAt) {
   const d = startOfNight(sessionCreatedAt);
   d.setHours(DEFAULT_CLOSE_HOUR, DEFAULT_CLOSE_MINUTE, 0, 0);
