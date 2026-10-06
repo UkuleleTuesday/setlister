@@ -29,22 +29,23 @@ describe("defaultOpensAt", () => {
 });
 
 describe("defaultClosesAt", () => {
-  it("closes at 04:00 the day after an evening session starts", () => {
-    expect(defaultClosesAt(at(2026, 7, 4, 20, 0))).toEqual(at(2026, 7, 5, 4, 0));
+  it("closes at 22:30 the same evening an evening session starts", () => {
+    expect(defaultClosesAt(at(2026, 7, 4, 20, 0))).toEqual(at(2026, 7, 4, 22, 30));
   });
 
-  it("closes at the same 04:00 for a session server-stamped late in the night", () => {
+  it("falls back to 04:00 next morning for a session starting after 22:30", () => {
     expect(defaultClosesAt(at(2026, 7, 4, 23, 47))).toEqual(at(2026, 7, 5, 4, 0));
+  });
+
+  it("falls back too when the 30-minute lead would open it at or after 22:30", () => {
+    expect(defaultClosesAt(at(2026, 7, 4, 23, 0))).toEqual(at(2026, 7, 5, 4, 0));
   });
 
   it("attributes a session created just after midnight to the PREVIOUS night", () => {
     // 01:15 still belongs to the night that started the evening before (see
-    // startOfNight in session-index.js) — the close time must match what a
-    // 20:00 start the previous evening would produce, not roll forward a
-    // whole extra day.
-    expect(defaultClosesAt(at(2026, 7, 5, 1, 15))).toEqual(
-      defaultClosesAt(at(2026, 7, 4, 20, 0))
-    );
+    // startOfNight in session-index.js): that evening's 22:30 has passed, so
+    // it closes at that same night's 04:00, not a whole extra day later.
+    expect(defaultClosesAt(at(2026, 7, 5, 1, 15))).toEqual(at(2026, 7, 5, 4, 0));
   });
 });
 

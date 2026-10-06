@@ -730,7 +730,11 @@ function renderWindowPills(meta, reqWindow) {
   windowChip.dataset.state = state;
 }
 
-windowChip.addEventListener("click", () => setSharePanelOpen(true));
+// Straight to the request-link settings: the switch and its open/close times.
+windowChip.addEventListener("click", () => {
+  setSharePanelOpen(true);
+  shareRequests.closest(".field").scrollIntoView({ block: "nearest" });
+});
 
 function setView(view) {
   const home = view === "home";
@@ -1143,7 +1147,10 @@ document.addEventListener("click", (event) => {
   if (
     !sharePanel.hidden &&
     !sharePanel.contains(event.target) &&
-    !shareToggle.contains(event.target)
+    !shareToggle.contains(event.target) &&
+    // The request-link pill opens this panel too; without this the same tap
+    // that opened it bubbled here and shut it again.
+    !windowChip.contains(event.target)
   ) {
     setSharePanelOpen(false);
   }

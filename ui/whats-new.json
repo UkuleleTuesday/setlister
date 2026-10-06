@@ -2,7 +2,7 @@
   {
     "date": "2026-10-06",
     "items": [
-      "The request link now opens with what it's for, a big Request a tune button, and when requests close.",
+      "The request link now opens with what it's for, a big Request a tune button, and when requests close (10:30pm by default; organisers can tap the request link pill to change it).",
       "Request a tune opens the whole songbook, searchable by title, artist or page, with tonight's played and requested tunes marked; tap one already asked for to thumbs it up.",
       "Thumbs up now say \"You\" once you want a tune and \"+1\" to join in, and organisers get Add a tune and Snap the board side by side."
     ]
