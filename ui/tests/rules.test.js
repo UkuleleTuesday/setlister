@@ -215,6 +215,21 @@ describe("sessions/{id}", () => {
     expect((await getDoc(ref)).data().votes[row]).toEqual({ [b]: true });
   });
 
+  // Row contents are an unvalidated map, so gig-state.js's timestamps need no
+  // hasOnly entry — pinned here so a future row-schema rule can't quietly
+  // break "mark played" for a bundle that already writes them.
+  it("accepts a row carrying played/binned times", async () => {
+    const ref = doc(db, "sessions", "misty-banjo");
+    await setDoc(ref, session());
+    await assertSucceeds(
+      updateDoc(ref, {
+        "rows.r1": { uid: "r1", played: true, playedAt: "2026-10-21T20:42:11.000Z" },
+        "rows.r2": { uid: "r2", binned: true, binnedAt: "2026-10-21T20:45:00.000Z" },
+      })
+    );
+    expect((await getDoc(ref)).data().rows.r1.playedAt).toBe("2026-10-21T20:42:11.000Z");
+  });
+
   it("rejects a malformed id", async () => {
     for (const id of ["mistybanjo", "Misty-Banjo", "misty-banjo-2"]) {
       await assertFails(setDoc(doc(db, "sessions", id), session()));
