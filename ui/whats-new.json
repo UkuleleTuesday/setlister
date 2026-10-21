@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-21",
+    "items": [
+      "Played tunes now remember when they were ticked off: open the played group to see the time next to each one, and binned tunes do the same in the Bin. The JSON download carries the times too."
+    ]
+  },
+  {
     "date": "2026-10-06",
     "items": [
       "The request link now opens with what it's for, a big Request a tune button, and when requests close (10:30pm by default; organisers can tap the request link pill to change it).",

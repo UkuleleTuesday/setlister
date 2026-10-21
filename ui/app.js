@@ -37,6 +37,7 @@ import {
   writeLastRoomAdd,
 } from "./room-limits.js";
 import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "./votes.js";
+import { setBinned, setPlayed, stateTime } from "./gig-state.js";
 import {
   defaultWindowLabel,
   effectiveRequestsOpen,
@@ -2679,8 +2680,8 @@ function renderUpNext() {
   }
   // The set plays from the top, so played songs collapse into a one-line count
   // *above* the list and Up next always starts at the next tune. Expanding
-  // shows the night's history (array order = play order) and the un-play
-  // control that rescues a stray swipe-right. Room mode gets the same
+  // shows the night's history (each row dated with when it was ticked off)
+  // and the un-play control that rescues a stray swipe-right. Room mode gets the same
   // disclosure (expanding is view state, not an edit) but a read-only context,
   // so no un-play button on a room phone.
   renderGroup(playedGroup, {
@@ -2965,6 +2966,13 @@ function renderRow(row, index, context) {
     }
     if (row.notes) parts.push(row.notes);
     if (row.crossed_out) parts.push("crossed out");
+    // When it was ticked off or binned, in the viewer's own clock. Only in the
+    // two groups: on the working lists the row isn't in that state. Rows
+    // marked before times were recorded simply show none.
+    const playedAt = context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
+    if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
+    const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
+    if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
     if (parts.length || row.match) {
       const meta = document.createElement("div");
       meta.className = "row-meta";
@@ -3152,17 +3160,16 @@ function renderRow(row, index, context) {
 }
 
 // Played and binned are mutually exclusive: a tune can't be both "done" and
-// "skipped". Both follow the mutate -> render -> persist pattern used elsewhere.
+// "skipped" (gig-state.js owns that, and stamps when each was set). Both
+// follow the mutate -> render -> persist pattern used elsewhere.
 function togglePlayed(row) {
-  row.played = !row.played;
-  if (row.played) row.binned = false;
+  setPlayed(row, !row.played);
   rerender();
   persist();
 }
 
 function toggleBinned(row) {
-  row.binned = !row.binned;
-  if (row.binned) row.played = false;
+  setBinned(row, !row.binned);
   rerender();
   persist();
 }
@@ -3430,7 +3437,9 @@ function exportText() {
 }
 
 // Drop the internal UI/provenance fields from the exported JSON. `played` and
-// `binned` are live gig-tracking state, not part of the setlist payload.
+// `binned` are live gig-tracking state, not part of the setlist payload; the
+// times they were set (`playedAt` / `binnedAt`) stay, as the night's record of
+// what got played when. A row carrying `playedAt` is a played row.
 function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest }) {
   return rest;
 }
