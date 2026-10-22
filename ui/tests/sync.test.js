@@ -5,7 +5,7 @@
 // costs a club its setlist, quietly. Neither needs Firestore.
 
 import { describe, expect, it } from "vitest";
-import { deserialize, diff, readMeta, serialize } from "../sync.js";
+import { deserialize, diff, readMeta, rebase, serialize } from "../sync.js";
 
 const row = (uid, title) => ({ uid, raw_title: title });
 
@@ -222,5 +222,63 @@ describe("diff", () => {
       const updates = diff(pooled, promoted, fx);
       expect(updates).toEqual({ upNextOrder: ["a"], requestsOrder: [] });
     });
+  });
+});
+
+// A snapshot landing inside the push debounce must not swallow this device's
+// unsent edits (they would never be pushed).
+describe("rebase", () => {
+  const state = (requests, upNext = [], votes = {}) =>
+    serialize({ upNext, requests, edition: { id: "current" }, votes });
+  const ids = (merged) => {
+    const back = deserialize(merged);
+    return { upNext: back.upNext.map((r) => r.uid), requests: back.requests.map((r) => r.uid) };
+  };
+
+  it("keeps a request added locally when a peer's change arrives first", () => {
+    const base = state([row("a", "Jolene")]);
+    const local = state([row("a", "Jolene"), row("b", "Angels")]);
+    const incoming = state([row("a", "Jolene")], [], { a: { peer: true } });
+    const merged = rebase(base, local, incoming);
+    expect(ids(merged).requests).toEqual(["a", "b"]);
+    expect(merged.votes).toEqual({ a: { peer: true } });
+  });
+
+  it("keeps a row the peer added alongside one added locally", () => {
+    const base = state([row("a", "Jolene")]);
+    const local = state([row("a", "Jolene"), row("b", "Angels")]);
+    const incoming = state([row("a", "Jolene"), row("c", "Africa")]);
+    expect(ids(rebase(base, local, incoming)).requests.sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("replays a local delete and a local edit, and keeps the peer's other edits", () => {
+    const base = state([row("a", "Jolene"), row("b", "Angels"), row("c", "Africa")]);
+    const local = state([row("a", "Jolene (slow)"), row("c", "Africa")]);
+    const incoming = state([row("a", "Jolene"), row("b", "Angels"), row("c", "Africa!")]);
+    const merged = rebase(base, local, incoming);
+    expect(Object.keys(merged.rows).sort()).toEqual(["a", "c"]);
+    expect(merged.rows.a.raw_title).toBe("Jolene (slow)");
+    expect(merged.rows.c.raw_title).toBe("Africa!");
+  });
+
+  it("replays a local promote but leaves the peer's order alone when nothing moved here", () => {
+    const base = state([row("a", "Jolene"), row("b", "Angels")]);
+    const promoted = state([row("b", "Angels")], [row("a", "Jolene")]);
+    expect(ids(rebase(base, promoted, base))).toEqual({ upNext: ["a"], requests: ["b"] });
+    const reordered = state([row("b", "Angels"), row("a", "Jolene")]);
+    expect(ids(rebase(base, base, reordered)).requests).toEqual(["b", "a"]);
+  });
+
+  it("replays local votes and un-votes per voter, keeping everyone else's", () => {
+    const base = state([row("a", "Jolene")], [], { a: { me: true } });
+    const local = state([row("a", "Jolene")], [], { b: { me: true } });
+    const incoming = state([row("a", "Jolene")], [], { a: { me: true, peer: true } });
+    expect(rebase(base, local, incoming).votes).toEqual({ a: { peer: true }, b: { me: true } });
+  });
+
+  it("is the incoming state when nothing changed locally", () => {
+    const base = state([row("a", "Jolene")]);
+    const incoming = state([row("a", "Jolene"), row("c", "Africa")], [], { c: { peer: true } });
+    expect(rebase(base, base, incoming)).toEqual(incoming);
   });
 });

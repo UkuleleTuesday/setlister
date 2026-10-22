@@ -511,9 +511,15 @@ function attachListener(db, fx) {
   );
 }
 
+// A snapshot can land inside the push debounce, while this device still holds
+// edits it hasn't sent. Applying the snapshot as-is would hand app.js lists
+// without them, and its persist() would then queue THAT as the next push: the
+// edits would be gone for everyone. So the unsent edits are replayed on top.
 function applyRemote(remote) {
-  lastRemote = deepCopy(syncFields(remote));
-  applyState(deserialize(remote));
+  const incoming = syncFields(remote);
+  const merged = pendingState ? rebase(lastRemote, serialize(pendingState), incoming) : incoming;
+  lastRemote = deepCopy(incoming);
+  applyState(deserialize(merged));
   sessionCreatedAt = readCreatedAt(remote) ?? sessionCreatedAt;
   emitMeta(remote);
 }
@@ -573,6 +579,50 @@ async function flushPush() {
   } catch (err) {
     emitStatus({ status: "error", error: err });
   }
+}
+
+// Replays what changed between `base` (the last state both sides agreed on)
+// and `local` onto `incoming`, at the same grain the push writes: per row, per
+// order array, per vote. Local wins where both sides touched the same thing,
+// which is the conflict model's last-write-wins, since the local edit is the
+// one about to be written. A row only the other side added survives even when
+// the local order array wins: deserialize() appends orphan rows to requests.
+// Exported for ui/tests.
+export function rebase(base, local, incoming) {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const baseRows = base?.rows || {};
+  const rows = { ...incoming.rows };
+  for (const [uid, row] of Object.entries(local.rows)) {
+    if (!same(row, baseRows[uid])) rows[uid] = row;
+  }
+  for (const uid of Object.keys(baseRows)) {
+    if (!(uid in local.rows)) delete rows[uid];
+  }
+  const pick = (key) => (same(local[key], base?.[key]) ? incoming[key] : local[key]);
+
+  const votes = {};
+  for (const [uid, voters] of Object.entries(incoming.votes || {})) votes[uid] = { ...voters };
+  const baseVotes = base?.votes || {};
+  for (const uid of new Set([...Object.keys(baseVotes), ...Object.keys(local.votes || {})])) {
+    const before = baseVotes[uid] || {};
+    const after = local.votes?.[uid] || {};
+    for (const clientId of Object.keys(after)) {
+      if (!before[clientId]) votes[uid] = { ...votes[uid], [clientId]: true };
+    }
+    for (const clientId of Object.keys(before)) {
+      if (!after[clientId] && votes[uid]) {
+        delete votes[uid][clientId];
+        if (!Object.keys(votes[uid]).length) delete votes[uid];
+      }
+    }
+  }
+  return {
+    rows,
+    upNextOrder: pick("upNextOrder"),
+    requestsOrder: pick("requestsOrder"),
+    edition: pick("edition"),
+    votes,
+  };
 }
 
 // One updateDoc payload with dotted paths: changed/added rows as
