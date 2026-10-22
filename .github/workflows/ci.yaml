@@ -21,8 +21,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Install dependencies
         run: uv sync --locked --dev
       - name: Lint
@@ -40,21 +40,21 @@ jobs:
       contents: read
       id-token: write # mint the GitHub OIDC token exchanged for GCP credentials
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Load deploy config
-        uses: falti/dotenv-action@v1.1.4
+        uses: falti/dotenv-action@v1.2.1
         with:
           path: .env.deploy
           export-variables: true
           keys-case: bypass
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v1
+      - uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Generate requirements.txt for the function build
         run: >
           uv export --no-emit-project --no-dev --format requirements-txt
@@ -94,18 +94,18 @@ jobs:
       contents: read
       id-token: write # mint the GitHub OIDC token exchanged for GCP credentials
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Load deploy config
-        uses: falti/dotenv-action@v1.1.4
+        uses: falti/dotenv-action@v1.2.1
         with:
           path: .env.deploy
           export-variables: true
           keys-case: bypass
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_DEPLOYER_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v1
+      - uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
       - name: Deploy Firestore rules
@@ -119,8 +119,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -138,14 +138,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
       # The Firestore emulator is a Java process the CLI downloads on first run.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -192,8 +192,8 @@ jobs:
       contents: write # pushes the gh-pages branch
       pull-requests: write # posts/updates the preview URL comment on PRs
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -230,7 +230,7 @@ jobs:
       contents: write # pushes the gh-pages branch
       pull-requests: write # updates the preview URL comment
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Remove PR preview
         uses: rossjrw/pr-preview-action@v1
         with:
