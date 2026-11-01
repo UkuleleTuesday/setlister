@@ -8,8 +8,8 @@
        session's tab is titled after the night (see updateDocumentTitle). -->
   <title>Setlister · Ukulele Tuesday</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>">
-  <script type="module" crossorigin src="./assets/index-Bt3bdLKw.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Dmp-DuKr.css">
+  <script type="module" crossorigin src="./assets/index-D8MA_km6.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-yQFFVr70.css">
 </head>
 <body>
   <header>
@@ -25,7 +25,13 @@
          In a session app.js swaps this h1's text for the night's date: the
          date is the screen's title, sitting between the share and settings
          buttons that act on it, and the brand belongs to home. -->
-    <h1>🎶 Setlister</h1>
+    <!-- The club's name sits over the night's date in a session, so a link
+         opened away from the pub (forwarded, reopened next day) still says
+         whose night this is. Hidden on home, where the brand is the title. -->
+    <div class="title-stack">
+      <p class="club-name">Ukulele Tuesday</p>
+      <h1>🎶 Setlister</h1>
+    </div>
     <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
 
     <!-- In-session popover (mirrors the settings panel, anchored top-left).
@@ -188,16 +194,6 @@
       <button id="new-session" class="primary-action" type="button">New session</button>
       <div id="home-error" class="error" hidden></div>
 
-      <!-- One-time carry-over for lists left in localStorage from before every
-           session became a shared one. Offered, never silently discarded. -->
-      <div id="carryover" class="carryover" hidden>
-        <p id="carryover-text" class="note"></p>
-        <div class="actions">
-          <button id="carryover-start">Start a session with it</button>
-          <button id="carryover-discard" class="secondary">Discard</button>
-        </div>
-      </div>
-
       <!-- The joinable nights, above the history. The next one leads as a big
            card (on a club night the screen's one job is getting you into
            tonight's session), any further prepped nights queue beneath it.
@@ -242,6 +238,36 @@
          list, one tap away behind this button. -->
     <div class="session-bar">
       <button id="back-home" class="link-button" type="button">All sessions</button>
+      <!-- Where the request link stands right now, so an organiser sees it
+           without opening the share panel; tapping opens that panel. Same
+           pill the request view shows in its rules line (renderWindowPills). -->
+      <button id="window-chip" class="window-pill" type="button"></button>
+    </div>
+
+    <!-- Request view only: what this page is for and the one thing to do on
+         it, first. Someone who just scanned a QR code needs both before they
+         need the running order. Hidden by the mode CSS while requests are
+         closed or about to open, where the notes in Requests take over. -->
+    <div class="room-top">
+      <h2 class="room-purpose">Pick a tune for tonight</h2>
+      <p class="room-purpose-sub">Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.</p>
+      <div id="room-add" class="room-add"></div>
+      <!-- The link's rules, up front instead of discovered by bumping into
+           them, plus the name this phone requests under. -->
+      <div class="room-rules">
+        <span id="room-window" class="window-pill"></span>
+        <span>One request a minute</span>
+        <!-- The name is asked for in the confirm sheet at the moment it's
+             needed (see #room-request-sheet). Once set it's fire-and-forget,
+             and this is the only trace it leaves; "change" reopens the same
+             sheet, since the settings gear that normally holds "Your name" is
+             hidden in room mode. Shown via the hidden attribute by
+             renderRoomIdentity(). -->
+        <span id="room-identity" class="room-identity" hidden>
+          <span id="room-identity-text"></span>
+          <button id="room-identity-change" class="link-button" type="button">change</button>
+        </span>
+      </div>
     </div>
 
     <!-- A brand-new session has exactly one job — get songs in — so while both
@@ -249,7 +275,10 @@
          affordances (see #session-view.fresh in style.css; the class is kept
          current by updateSessionMode()). Shown/hidden purely via that class,
          never the hidden attribute, which would override the mode CSS. -->
-    <p class="fresh-intro">A fresh night, an empty stage. Snap the board, or add tunes by name.</p>
+    <div class="fresh-intro">
+      <h2>No tunes yet</h2>
+      <p>Snap the whiteboard, or add tunes from the songbook.</p>
+    </div>
 
     <!-- "Up next" is the curated running order: the tunes you'll actually play,
          promoted (in order) from the Requests pool below. -->
@@ -272,6 +301,8 @@
            the top, so the list "consumes itself"); tap to expand for the
            night's history and the un-play control. Hidden until a song is
            played. Populated by renderGroup(). -->
+      <!-- What the list is, said once it has something in it. -->
+      <p id="upnext-hint" class="list-hint" hidden>Coming up, in order.</p>
       <div id="played-group" class="row-group" hidden></div>
       <ul id="upnext-rows"></ul>
       <p id="upnext-empty" class="note">Nothing queued yet. Promote a request from below.</p>
@@ -281,23 +312,19 @@
          the board lands here first, then gets promoted up into the set. -->
     <section id="requests">
       <h2>Requests <span id="requests-count" class="count" hidden></span></h2>
-      <!-- Quick add lives at the TOP of the pool: mid-night, someone shouts a
-           request and it has to go in without scrolling past twenty cards. The
-           combobox mounts here (mountManualAdd) and its dropdown opens down
-           over the list. In the fresh state it moves visually next to the
-           camera via the mode CSS. -->
-      <!-- Room mode only (#86): the name is asked for in a sheet at the moment
-           it's needed — picking a song — rather than by a field parked here
-           (see #room-request-sheet). Once set it's fire-and-forget, and this
-           quiet line is the only trace it leaves; "change" reopens the same
-           sheet, since the settings gear that normally holds "Your name" is
-           hidden in room mode. Shown via the hidden attribute by
-           renderRoomIdentity(); room-mode visibility stays class-driven. -->
-      <p id="room-identity" class="room-identity" hidden>
-        <span id="room-identity-text"></span>
-        <button id="room-identity-change" class="link-button" type="button">change</button>
-      </p>
-      <div id="manual-add" class="manual-add"></div>
+      <!-- What to do with the pool; worded per mode by renderRequests(). -->
+      <p id="requests-hint" class="list-hint" hidden></p>
+      <!-- Full app only: both ways in, side by side at the TOP of the pool.
+           Mid-night someone shouts a request and it has to go in without
+           scrolling past twenty cards; the board gets snapped from the same
+           spot. mountManualAdd() puts the songbook button before the camera.
+           The request view has its own add button up in .room-top. -->
+      <div id="manual-add" class="manual-add">
+        <!-- A real button (not a label) so it's reachable and activatable with
+             a keyboard / switch access; it forwards the tap to the hidden
+             input in #add below. -->
+        <button id="camera-button" class="camera-button" type="button">Snap the board</button>
+      </div>
       <!-- What replaces the add field once the organiser closes the session to
            requests (#86). Room mode only, and shown purely by the mode CSS (no
            hidden attribute) so a room device that loads a closed session never
@@ -319,15 +346,10 @@
       <p id="requests-empty" class="note">No requests yet. Snap the board, or add one above.</p>
     </section>
 
-    <!-- The scan ritual: the camera CTA sits below the pool (scanning is a
-         once-a-night act), and is the hero of the fresh state. The "or"
-         divider only makes sense while the add-by-name field sits directly
-         above it, i.e. in the fresh state — mode CSS hides it otherwise. -->
+    <!-- The scan ritual's working parts: the photo input the camera button in
+         #manual-add forwards to, the post-scan note, and the photo with its
+         scanning overlay. -->
     <section id="add">
-      <div class="or-divider"><span>or</span></div>
-      <!-- A real button (not a label) so it's reachable and activatable with a
-           keyboard / switch access; it forwards the tap to the hidden input. -->
-      <button id="camera-button" class="camera-button" type="button">Snap the whiteboard of wishes</button>
       <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
       <!-- Post-scan feedback for the no-review path: when every row matched
            confidently they go straight into Requests (#80) and this line is
@@ -436,10 +458,10 @@
     </div>
   </div>
 
-  <!-- Room mode (#86, #88): the one sheet a room requester ever sees, doing
-       two jobs at the moment they pick a song. It CONFIRMS the request —
-       a room submitter has no bin, so a row in the pool is in for everyone,
-       and a mis-tap in a dark pub shouldn't be permanent — and on the first
+  <!-- Both modes (#86, #88): the sheet every add by name goes through, doing
+       two jobs at the moment a song is picked. It CONFIRMS the request —
+       a row in the pool is in for everyone, and a mis-tap in a dark pub
+       shouldn't land a tune unasked — and on the first
        request it also asks the name that will go on it. The name field is
        dropped once there is a name, so a regular is one tap from adding.
        Also reached from "change" above with no request attached: then it's
@@ -476,6 +498,37 @@
         <button id="room-request-cancel" class="secondary">Cancel</button>
       </div>
       <p class="sheet-hint">Tap outside to close</p>
+    </div>
+  </div>
+
+  <!-- The way to add by name, in both modes: the whole songbook, browsable. At the club people
+       rarely know an exact title ("that Beatles one", "p.42"), so a blank
+       type-ahead asks for recall they don't have; a list lets them recognise
+       the tune instead, in the printed book's page order. Every row carries
+       tonight's state, so "already asked for" becomes a thumbs up rather than
+       a refusal after the tap. Opened by the trigger mountManualAdd() puts in
+       #manual-add. Same pinned-chrome layout as What's new: it runs several
+       screens long, so Close stays under the thumb. -->
+  <div id="songbook-sheet" class="sheet-backdrop" hidden role="dialog"
+       aria-modal="true" aria-labelledby="songbook-title">
+    <div class="sheet">
+      <h2 id="songbook-title">The songbook</h2>
+      <input type="search" id="songbook-search" class="song-picker-input"
+             placeholder="Title, artist or page" autocomplete="off"
+             enterkeyhint="search" aria-label="Search the songbook">
+      <!-- Shown while this phone's one-a-minute wait runs (renderSongbookWait):
+           new requests pause, browsing and thumbs up don't. -->
+      <p id="songbook-wait" class="note songbook-wait" hidden>
+        Your next request opens up shortly. Thumbs up work any time.
+      </p>
+      <!-- Why a tap didn't add. aria-live so it reaches screen readers
+           without moving focus. -->
+      <p id="songbook-status" class="songbook-status" aria-live="polite" hidden></p>
+      <ul id="songbook-list" class="songbook-list"></ul>
+      <p id="songbook-empty" class="note songbook-empty" hidden></p>
+      <div class="actions">
+        <button id="songbook-close" class="secondary" type="button">Close</button>
+      </div>
     </div>
   </div>
 
