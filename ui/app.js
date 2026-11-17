@@ -51,6 +51,7 @@ import {
 import {
   CATALOGUES_CACHE_KEY,
   LEGACY_CATALOGUE_CACHE_KEY,
+  catalogueNeedsRefresh,
   getCachedCatalogue,
   migrateLegacyCatalogue,
   putCachedCatalogue,
@@ -558,6 +559,11 @@ function scopeCatalogueToEdition(editionId) {
     }
     refreshPickers();
     loadCatalogue(editionId);
+  } else {
+    // Same book, but this tab may have been open since before the weekly
+    // regen: joining or starting tonight's session is exactly when stale
+    // pages would start landing in the shared list.
+    refreshCatalogueIfStale();
   }
   syncEditionSelect(editionId);
 }
@@ -1711,14 +1717,22 @@ async function loadEditions() {
 // sequenced: hopping between sessions with different books can leave two
 // fetches in flight, and the slower (stale) one must not win.
 let catalogueLoadSeq = 0;
+// The edition the latest fetch asked for, and when: what a staleness re-check
+// re-fetches. Not loadedCatalogueEditionId, which lags a switch still in
+// flight, and re-fetching it would supersede the switch.
+let catalogueLoadEditionId = null;
+let catalogueLoadAttemptAt = 0;
 async function loadCatalogue(edition) {
   const seq = ++catalogueLoadSeq;
+  catalogueLoadEditionId = edition;
+  catalogueLoadAttemptAt = Date.now();
   try {
     const res = await fetch(
       `${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`
     );
     if (seq !== catalogueLoadSeq) return;
     if (!res.ok) {
+      catalogueLoadAttemptAt = 0; // retry on the next foreground, not in 15 min
       if (!app.catalogue.length) catalogueStatus = "error";
       refreshPickers();
       return;
@@ -1741,10 +1755,26 @@ async function loadCatalogue(edition) {
   } catch {
     /* leave any previously loaded catalogue in place */
     if (seq !== catalogueLoadSeq) return;
+    catalogueLoadAttemptAt = 0; // retry on the next foreground, not in 15 min
     if (!app.catalogue.length) catalogueStatus = "error";
     refreshPickers();
   }
 }
+
+// Re-fetch the book in play if the last try is old. The weekly regen shifts
+// every page after a rotated song, and a phone tab can live for days.
+function refreshCatalogueIfStale() {
+  if (!catalogueLoadEditionId) return;
+  if (catalogueNeedsRefresh(catalogueLoadAttemptAt, Date.now())) {
+    loadCatalogue(catalogueLoadEditionId);
+  }
+}
+
+// A phone "reopens" the app by foregrounding a tab it never reloaded, so this,
+// not a page load, is when a new night usually starts.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshCatalogueIfStale();
+});
 
 // Switching the book mid-session: cache-first swap like any other re-scope,
 // and an immediate persist() so a cached switch reaches the session peers even
