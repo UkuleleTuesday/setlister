@@ -49,3 +49,16 @@ export function migrateLegacyCatalogue(store, legacy, now) {
     now
   );
 }
+
+// How long a fetched catalogue is trusted before it's re-checked. A phone keeps
+// the app's tab alive for days, and the book is regenerated weekly with songs
+// rotated in and out, so every page after a change shifts. Without a re-check
+// a tab opened before the regen keeps adding tonight's songs with last week's
+// pages. Matches the API's own 15-minute catalogue cache.
+export const CATALOGUE_MAX_AGE_MS = 15 * 60 * 1000;
+
+// Whether the catalogue should be re-fetched: never tried, or last tried long
+// enough ago that the published book may have moved on.
+export function catalogueNeedsRefresh(lastAttemptAt, now) {
+  return !lastAttemptAt || now - lastAttemptAt >= CATALOGUE_MAX_AGE_MS;
+}

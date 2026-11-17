@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-17",
+    "items": [
+      "Page numbers stay right when the songbook gets its weekly refresh: a phone that left the app open since last week now picks up the new book instead of adding tunes with old pages."
+    ]
+  },
+  {
     "date": "2026-10-21",
     "items": [
       "Played tunes now remember when they were ticked off: open the played group to see the time next to each one, and binned tunes do the same in the Bin. The JSON download carries the times too."

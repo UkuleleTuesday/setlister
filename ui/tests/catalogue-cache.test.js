@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   CATALOGUE_CACHE_LIMIT,
+  CATALOGUE_MAX_AGE_MS,
+  catalogueNeedsRefresh,
   getCachedCatalogue,
   migrateLegacyCatalogue,
   putCachedCatalogue,
@@ -96,5 +98,20 @@ describe("migrateLegacyCatalogue", () => {
     expect(
       migrateLegacyCatalogue({}, { edition: { id: "current" }, catalogue: [] }, NOW)
     ).toEqual({});
+  });
+});
+
+// The weekly regen shifts pages: a long-lived tab must re-check, but not on
+// every foregrounding.
+describe("catalogueNeedsRefresh", () => {
+  it("refreshes when never tried", () => {
+    expect(catalogueNeedsRefresh(0, NOW)).toBe(true);
+  });
+  it("trusts a recent fetch", () => {
+    expect(catalogueNeedsRefresh(NOW - CATALOGUE_MAX_AGE_MS + 1, NOW)).toBe(false);
+  });
+  it("re-checks once the fetch is old enough", () => {
+    expect(catalogueNeedsRefresh(NOW - CATALOGUE_MAX_AGE_MS, NOW)).toBe(true);
+    expect(catalogueNeedsRefresh(NOW - 7 * 24 * 60 * 60 * 1000, NOW)).toBe(true);
   });
 });
