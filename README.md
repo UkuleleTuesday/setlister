@@ -140,6 +140,18 @@ uv run ruff check .
 uv run ruff format .
 ```
 
+`scripts/compare_played.py` checks the club's "2026 Tracking" songs-played
+sheet against the sessions in production Firestore, night by night (last two
+months by default; `--side-by-side` for the full lists):
+
+```bash
+uv run scripts/compare_played.py --xlsx "2026 Tracking.xlsx"  # File > Download
+uv run scripts/compare_played.py                              # Sheets API via ADC
+```
+
+Firestore reads need no auth. Fetching the sheet directly needs ADC with the
+`spreadsheets.readonly` scope; the `.xlsx` download needs none.
+
 The `ui/` app is plain ES modules bundled by [Vite](https://vite.dev/) and
 managed with npm — `index.html` + `app.js` plus focused modules (sync,
 presence, session index, dedupe, downscaling) and no framework; `firebase` and
