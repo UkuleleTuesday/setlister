@@ -1,6 +1,9 @@
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // Svelte 5 components, mounted from app.js one screen at a time (#158).
+  plugins: [svelte()],
   // Use relative asset URLs so the built site works under the GitHub Pages
   // subpath (https://ukuleletuesday.github.io/setlister/).
   base: "./",
