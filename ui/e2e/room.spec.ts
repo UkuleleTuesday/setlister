@@ -12,7 +12,8 @@ import { addByName, startSession } from "./steps.js";
 // Done BEFORE any tune is added, deliberately: a snapshot landing inside
 // sync.ts's 300ms push debounce currently replaces local edits that haven't
 // been pushed yet (applyRemoteState in app.js re-persists the remote lists),
-// and this metadata write's own snapshot is one.
+// and this metadata write's own snapshot is one. Drop the ordering once #153
+// is fixed.
 async function openForRequests(organiser: Page): Promise<string> {
   const id = await startSession(organiser);
   await organiser.locator("#share-toggle").tap();
@@ -23,8 +24,8 @@ async function openForRequests(organiser: Page): Promise<string> {
 }
 
 // Open the request link and wait until the organiser's Jolene has synced in.
-// Acting earlier races the same debounce: Jolene's snapshot would land on top
-// of the room's own unpushed request.
+// Acting earlier races the same debounce (#153): Jolene's snapshot would land
+// on top of the room's own unpushed request.
 async function joinRoom(room: Page, id: string) {
   await room.goto(`/?session=${id}&mode=request`);
   await expect(room.locator("#room-window")).toHaveText(/requests open/i);
