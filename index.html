@@ -11,7 +11,7 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>"
     />
-    <script type="module" crossorigin src="./assets/index-CmaSQUyg.js"></script>
+    <script type="module" crossorigin src="./assets/index-DK-3rM42.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-yQFFVr70.css">
   </head>
   <body>
@@ -225,28 +225,8 @@
           ✨ What’s new
         </button>
 
-        <button id="new-session" class="primary-action" type="button">New session</button>
-        <div id="home-error" class="error" hidden></div>
-
-        <!-- The joinable nights, above the history. The next one leads as a big
-           card (on a club night the screen's one job is getting you into
-           tonight's session), any further prepped nights queue beneath it.
-           Heading and card hidden when nothing is upcoming — then "New
-           session" above is the hero instead. Populated by
-           renderNextSession() / renderSessionList(). -->
-        <h2 id="upcoming-heading" hidden>Coming up</h2>
-        <div id="next-session" hidden></div>
-        <ul id="upcoming-list" class="session-list"></ul>
-
-        <!-- The club's history: a different job (looking back, not joining), so
-           it sits below under its own quiet heading. Only the most recent few
-           show; the rest collapse behind #past-older so a year of Tuesdays
-           doesn't bury the page. -->
-        <h2 id="past-heading" hidden>Past sessions</h2>
-        <ul id="session-list" class="session-list"></ul>
-        <div id="past-older" class="row-group" hidden></div>
-        <p id="session-list-status" class="note" aria-live="polite">Loading sessions…</p>
-        <button id="session-list-retry" class="link-button" type="button" hidden>Try again</button>
+        <!-- The session history (Home.svelte) mounts here, between the What's
+           new banner above and its footer below. -->
 
         <!-- The quiet, always-there door to the release notes once the banner has
            retired — and, unlike the banner, it opens the whole history: someone
@@ -453,64 +433,9 @@
       <!-- /#session-view -->
     </main>
 
-    <!-- Starting a night: confirm the date (prefilled with today) and whether it
-       joins the club's list. A centred sheet over a tap-anywhere backdrop, like
-       the photo lightbox — it's a decision, not a menu hanging off a header
-       button. -->
-    <div
-      id="new-session-sheet"
-      class="sheet-backdrop"
-      hidden
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="new-session-title"
-    >
-      <div class="sheet">
-        <h2 id="new-session-title">New session</h2>
-        <!-- Sessions have no names — the date IS the identity, rendered live in
-           each viewer's locale. Left on today, the server stamps the moment of
-           creation (the happy path); any other day — backfilling a missed night
-           or prepping a future one — stamps that day's evening instead.
-           value/max are set by openSheet(). -->
-        <label class="field">
-          <span>Date</span>
-          <input type="date" id="new-session-date" />
-        </label>
-        <!-- Read-only preview of the smart default request window (#NEW) —
-           nothing is stored yet (see ui/sync.ts's createSession, and
-           AGENTS.md's create-path rule); recomputed live by
-           updateSheetWindowPreview() as the date moves. Editable overrides
-           live in the share panel, once the session exists. -->
-        <p class="note" id="new-session-window-note"></p>
-        <!-- The night's songbook: one book per session is how the club plays.
-           Options are replaced by loadEditions(); openSheet() resets the pick
-           to the default book every time, whatever this device loaded last. -->
-        <label class="field">
-          <span>Songbook</span>
-          <select id="new-session-edition">
-            <option value="current" selected>Current</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Visibility</span>
-          <select id="new-session-visibility">
-            <option value="shared" selected>Shared</option>
-            <option value="unlisted">Unlisted</option>
-          </select>
-        </label>
-        <p class="note">Anyone with the link can open it either way.</p>
-        <!-- One planned night at a time: while a session is coming up, Start is
-           disabled for Shared and this note says why. Text and visibility are
-           driven by updateSheetGate() in app.js. -->
-        <div id="new-session-notice" class="note planned-notice" hidden></div>
-        <div id="new-session-error" class="error" hidden></div>
-        <div class="actions">
-          <button id="new-session-start">Start</button>
-          <button id="new-session-cancel" class="secondary">Cancel</button>
-        </div>
-        <p class="sheet-hint">Tap outside to close</p>
-      </div>
-    </div>
+    <!-- New session sheet: NewSessionSheet.svelte, mounted just before this
+       placeholder by app.js, so it sits with the other sheets. -->
+    <div id="new-session-mount" hidden></div>
 
     <!-- Both modes (#86, #88): the sheet every add by name goes through, doing
        two jobs at the moment a song is picked. It CONFIRMS the request —
