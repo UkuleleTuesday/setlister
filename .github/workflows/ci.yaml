@@ -152,6 +152,12 @@ jobs:
       - name: Install UI dependencies
         run: npm ci
         working-directory: ui
+      - name: Lint
+        run: npm run lint
+        working-directory: ui
+      - name: Check formatting
+        run: npm run format:check
+        working-directory: ui
       # firestore.rules is the app's entire access-control layer (the browser
       # writes Firestore directly), so the suite runs against the emulator —
       # a rules regression must fail CI, not production.
