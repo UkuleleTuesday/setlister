@@ -3262,7 +3262,7 @@ function dragAfterElement(container, y) {
 // so a keyboard user can move a song several slots without losing their place.
 function wireKeyboardReorder(handle, row) {
   handle.addEventListener("keydown", (ev) => {
-    let delta = 0;
+    let delta;
     if (ev.key === "ArrowUp") delta = -1;
     else if (ev.key === "ArrowDown") delta = 1;
     else return;

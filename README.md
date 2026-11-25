@@ -149,6 +149,8 @@ presence, session index, dedupe, downscaling) and no framework; `firebase` and
 cd ui
 npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
+npm run lint          # ESLint
+npm run format        # Prettier (format:check is the CI gate)
 npm run build         # production bundle into ui/dist
 npm run preview       # serve that build locally
 ```

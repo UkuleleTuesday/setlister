@@ -148,14 +148,12 @@ let getName = null; // () => current typed name
 let unsubscribe = null;
 let heartbeatTimer = null;
 let rosterCallback = null;
-let lastRoster = [];
 
 export function onRoster(cb) {
   rosterCallback = cb;
 }
 
 function emitRoster(roster) {
-  lastRoster = roster;
   if (rosterCallback) rosterCallback(roster);
 }
 
