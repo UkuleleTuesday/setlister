@@ -202,7 +202,7 @@ const STORAGE_KEY = "setlister.v1";
 // The catalogues are cached separately from the lists: ~20KB of derived data
 // per edition that lets manual search work instantly on revisit (and ride out
 // a slow Cloud Function cold start) while a fresh copy loads in the
-// background. Keyed by edition id — see catalogue-cache.js.
+// background. Keyed by edition id — see catalogue-cache.ts.
 // The ISO date of the last "What's new" entry this device has seen. Its own
 // key, outside setlister.v1, so persist()/restore()'s schema stays untouched.
 const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
@@ -225,7 +225,7 @@ let app = {
   upNext: [],
   requests: [],
   // Upvotes on requests (#83): { rowUid: { clientId: true } }. Keyed by row
-  // rather than stored on it — see the header in votes.js for why that is a
+  // rather than stored on it — see the header in votes.ts for why that is a
   // correctness requirement and not a preference.
   votes: {},
   review: null,
@@ -475,7 +475,7 @@ function restore() {
 // --- Catalogue cache ---------------------------------------------------------
 // Search should work the moment the app opens: hydrate from the last-seen
 // catalogue for the edition in play, then let the network fetch replace it.
-// The map logic lives in catalogue-cache.js; only the localStorage I/O is here.
+// The map logic lives in catalogue-cache.ts; only the localStorage I/O is here.
 function readCatalogueStore() {
   let store = {};
   try {
@@ -533,7 +533,7 @@ function saveCatalogueCache() {
 }
 
 // --- Session sharing wiring ------------------------------------------------
-// The durable state sync lives in sync.js; app.js only feeds it state and
+// The durable state sync lives in sync.ts; app.js only feeds it state and
 // applies remote updates.
 
 function sessionState() {
@@ -1142,7 +1142,7 @@ document.addEventListener("keydown", (event) => {
 // its own open or close instant. A 1-minute tick is enough resolution for a
 // whole-minutes message and does no network I/O, just re-runs
 // applyRequestsOpen() against a fresh clock. Same setInterval/clearInterval-
-// in-a-stop-function shape as presence.js's heartbeat, started/stopped at the
+// in-a-stop-function shape as presence.ts's heartbeat, started/stopped at the
 // exact same call sites as presence itself so it never outlives the session.
 // Runs for both view modes: applyRequestsOpen()'s own effects are already
 // scoped to room mode (the .room CSS prefix, votingEnabled()'s viewMode
@@ -1433,7 +1433,7 @@ document.addEventListener("keydown", (event) => {
 // --- One-time name reset ----------------------------------------------------
 // The names saved in the full app drifted into jokes, so this build runs a
 // name amnesty: once per device, the typed name is cleared and this sheet
-// asks for a real one. The decision logic and copy live in name-reset.js —
+// asks for a real one. The decision logic and copy live in name-reset.ts —
 // including why room devices are exempt and why a first-ever visitor never
 // sees it. Runs at boot, before presence can broadcast the old name anywhere.
 function maybeResetName() {
@@ -1522,7 +1522,7 @@ function openSheet() {
 }
 
 // Read-only preview of the smart default request window (#NEW) — nothing is
-// stored yet (see sync.js's createSession), so this is purely informational,
+// stored yet (see sync.ts's createSession), so this is purely informational,
 // recomputed live as the date picker moves. Mirrors onSheetStart's own
 // "untouched picker means now" rule so the preview never disagrees with what
 // Start is about to send.
@@ -1775,7 +1775,7 @@ editionSelect.addEventListener("change", () => {
   persist();
 });
 
-// The matching rules live in search.js, shared with the songbook sheet.
+// The matching rules live in search.ts, shared with the songbook sheet.
 // The dropdown keeps a short list: it hangs under a field the keyboard is
 // already squeezing.
 function searchCatalogue(query, limit = 8) {
@@ -2140,7 +2140,7 @@ function renderSongbookRow(entry, existing) {
 }
 
 // The same flow in both modes. The one room-only part is the request link's
-// brakes (open/closed and the one-a-minute wait, see room-limits.js): they
+// brakes (open/closed and the one-a-minute wait, see room-limits.ts): they
 // govern that link, and an organiser adds whatever the switch says.
 function onSongbookPick(entry) {
   const room = viewMode === "room";
@@ -2246,7 +2246,7 @@ document.addEventListener("keydown", (event) => {
 // syncs and renders with no new schema.
 function addManualEntry(entry, comment) {
   // Same song already on the night's lists (#52)? Say where it is instead of
-  // quietly doubling it. Binned copies don't block — see dupes.js.
+  // quietly doubling it. Binned copies don't block — see dupes.ts.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
   if (existing) {
     flashNote(addFeedback, duplicateLabel(existing.where));
@@ -3021,7 +3021,7 @@ function renderRow(row, index, context) {
   // first in the row so the buttons after it stay where the thumb expects. Up
   // next is deliberately NOT re-sorted by the count like the pool is: the set
   // plays from the top, so that would move the next tune out from under the MC.
-  // No confirm sheet or cool-down, unlike a room request (room-limits.js): a
+  // No confirm sheet or cool-down, unlike a room request (room-limits.ts): a
   // second tap takes a vote back.
   const votable =
     context === "requests" ||
@@ -3179,7 +3179,7 @@ function renderRow(row, index, context) {
 }
 
 // Played and binned are mutually exclusive: a tune can't be both "done" and
-// "skipped" (gig-state.js owns that, and stamps when each was set). Both
+// "skipped" (gig-state.ts owns that, and stamps when each was set). Both
 // follow the mutate -> render -> persist pattern used elsewhere.
 function togglePlayed(row) {
   setPlayed(row, !row.played);

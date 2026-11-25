@@ -1,19 +1,30 @@
 // The request time window: when the room's request link takes tunes on its
 // own, with no organiser action (#NEW). Pure and DOM-free like
-// session-index.js/room-limits.js — app.js owns all the DOM, this module only
+// session-index.ts/room-limits.ts — app.js owns all the DOM, this module only
 // answers "what does the schedule say right now".
 //
 // The window has two independent boundaries, each either an explicit override
-// (stored on the session doc, see sync.js's requestsOpensAt/requestsClosesAt)
+// (stored on the session doc, see sync.ts's requestsOpensAt/requestsClosesAt)
 // or a smart default derived from the session's own start time
 // (sessionCreatedAt, already stored on every session — no new field needed
-// for the common case). The manual requestsOpen toggle in sync.js sits above
+// for the common case). The manual requestsOpen toggle in sync.ts sits above
 // both: forced open/closed always wins over the schedule.
 //
 // `now` is always injected, never read from the wall clock in here, so every
-// branch is testable with a pinned clock (see session-index.js's tests).
+// branch is testable with a pinned clock (see session-index.ts's tests).
 
 import { NIGHT_BOUNDARY_HOUR, sessionTimeLabel, startOfNight } from "./session-index.js";
+
+/** When the room's request link takes tunes on its own. */
+export interface RequestWindow {
+  opensAt: Date;
+  closesAt: Date;
+}
+
+/** The manual override: true = forced open, false = forced closed, null = auto. */
+export type RequestsMode = boolean | null;
+
+export type WindowState = "open" | "later" | "closed";
 
 // The window opens this long before the session's own start — early enough
 // that people arriving can get a request in before the first song, not so
@@ -27,7 +38,7 @@ const OPENING_SOON_LEAD_MS = 30 * 60 * 1000;
 
 // --- Smart defaults ---------------------------------------------------------
 
-export function defaultOpensAt(sessionCreatedAt) {
+export function defaultOpensAt(sessionCreatedAt: Date): Date {
   return new Date(sessionCreatedAt.getTime() - DEFAULT_OPEN_LEAD_MS);
 }
 
@@ -36,7 +47,7 @@ const DEFAULT_CLOSE_MINUTE = 30;
 
 // 22:30 on the night's evening; a session starting after that closes at the
 // end of the night instead.
-export function defaultClosesAt(sessionCreatedAt) {
+export function defaultClosesAt(sessionCreatedAt: Date): Date {
   const d = startOfNight(sessionCreatedAt);
   d.setHours(DEFAULT_CLOSE_HOUR, DEFAULT_CLOSE_MINUTE, 0, 0);
   if (d > defaultOpensAt(sessionCreatedAt)) return d;
@@ -54,10 +65,18 @@ export function defaultClosesAt(sessionCreatedAt) {
 //
 // A misconfigured window (close at or before open) resolves to null —
 // unrestricted — rather than a window nothing can ever fall inside. Same call
-// as room-limits.js's clock-skew guard: a broken restriction costs one extra
+// as room-limits.ts's clock-skew guard: a broken restriction costs one extra
 // request, a window nobody can ever be inside costs a room that can never
 // request at all.
-export function resolveWindow({ sessionCreatedAt, opensAtOverride, closesAtOverride }) {
+export function resolveWindow({
+  sessionCreatedAt,
+  opensAtOverride,
+  closesAtOverride,
+}: {
+  sessionCreatedAt: Date | null;
+  opensAtOverride?: Date | null;
+  closesAtOverride?: Date | null;
+}): RequestWindow | null {
   if (!sessionCreatedAt) return null;
   const opensAt = opensAtOverride ?? defaultOpensAt(sessionCreatedAt);
   const closesAt = closesAtOverride ?? defaultClosesAt(sessionCreatedAt);
@@ -72,7 +91,7 @@ export function resolveWindow({ sessionCreatedAt, opensAtOverride, closesAtOverr
 // Named `win`, not `window`: this runs in the browser, where `window` is the
 // global object — shadowing it here would be legal JS but a trap for the next
 // edit.
-export function isWithinWindow(win, now) {
+export function isWithinWindow(win: RequestWindow | null, now: Date): boolean {
   if (!win) return true;
   return now >= win.opensAt && now < win.closesAt;
 }
@@ -80,7 +99,15 @@ export function isWithinWindow(win, now) {
 // The manual toggle (mode: true = forced open, false = forced closed, null =
 // auto) layered over the window. A deliberate override always outranks the
 // schedule; auto defers to it entirely.
-export function effectiveRequestsOpen({ mode, window: win, now }) {
+export function effectiveRequestsOpen({
+  mode,
+  window: win,
+  now,
+}: {
+  mode: RequestsMode;
+  window: RequestWindow | null;
+  now: Date;
+}): boolean {
   if (mode === true) return true;
   if (mode === false) return false;
   return isWithinWindow(win, now);
@@ -90,9 +117,9 @@ export function effectiveRequestsOpen({ mode, window: win, now }) {
 // period — null once it's open, once it's more than half an hour out, or when
 // there's no window to open. Ceil so "40 seconds to go" reads as "in a
 // minute", never "in 0 minutes".
-export function minutesUntilOpen(win, now) {
+export function minutesUntilOpen(win: RequestWindow | null, now: Date): number | null {
   if (!win) return null;
-  const ms = win.opensAt - now;
+  const ms = win.opensAt.getTime() - now.getTime();
   if (ms <= 0 || ms > OPENING_SOON_LEAD_MS) return null;
   return Math.ceil(ms / 60000);
 }
@@ -101,7 +128,15 @@ export function minutesUntilOpen(win, now) {
 // line, the full app's session bar): "open" (until `at` when a schedule will
 // close it), "later" (opens at `at`) or "closed". A forced open has no end to
 // name; a forced close, or a window that has passed, is simply closed.
-export function windowStatus({ mode, window: win, now }) {
+export function windowStatus({
+  mode,
+  window: win,
+  now,
+}: {
+  mode: RequestsMode;
+  window: RequestWindow | null;
+  now: Date;
+}): { state: WindowState; at: Date | null } {
   if (mode === true) return { state: "open", at: null };
   if (mode === false) return { state: "closed", at: null };
   if (!win) return { state: "open", at: null };
@@ -111,33 +146,33 @@ export function windowStatus({ mode, window: win, now }) {
 }
 
 // "a minute" / "12 minutes" — said in a room view note, mirrors
-// room-limits.js's cooldownLabel.
-export function openingSoonLabel(minutes) {
+// room-limits.ts's cooldownLabel.
+export function openingSoonLabel(minutes: number): string {
   return minutes <= 1 ? "a minute" : `${minutes} minutes`;
 }
 
 // The New Session sheet's read-only preview of the smart default — nothing is
-// stored at create time (see sync.js's createSession), so this is the only
+// stored at create time (see sync.ts's createSession), so this is the only
 // place the default window is ever shown before the session exists.
-export function defaultWindowLabel(sessionCreatedAt) {
+export function defaultWindowLabel(sessionCreatedAt: Date): string {
   const opensAt = defaultOpensAt(sessionCreatedAt);
   const closesAt = defaultClosesAt(sessionCreatedAt);
   return `Requests open ${sessionTimeLabel(opensAt)} to ${sessionTimeLabel(closesAt)}`;
 }
 
 // The <input type="datetime-local"> bridge, local time only — same footgun
-// toDateInputValue/fromDateInputValue in session-index.js already dodge for
+// toDateInputValue/fromDateInputValue in session-index.ts already dodge for
 // the date-only picker (toISOString renders UTC, new Date(string) parses as
 // UTC midnight). A datetime-local value has no timezone of its own, so both
 // directions just read/write the Date's local getters.
-export function toDateTimeInputValue(date) {
-  const pad = (n) => String(n).padStart(2, "0");
+export function toDateTimeInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 // "" (a cleared picker) and malformed values both come back null — the caller
 // treats that as "clear the override, fall back to the default".
-export function fromDateTimeInputValue(value) {
+export function fromDateTimeInputValue(value: string | null | undefined): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || "");
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));

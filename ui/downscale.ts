@@ -12,7 +12,7 @@
 // it always did. A scan must never fail because the shrink did.
 //
 // Pure-ish module, no DOM ids and no app state: the browser bits are injected
-// so ui/tests can exercise the decisions (same precedent as dupes.js).
+// so ui/tests can exercise the decisions (same precedent as dupes.ts).
 
 /** Matches the API's own default and the settings field's placeholder. */
 export const DEFAULT_MAX_EDGE = 1600;
@@ -27,7 +27,7 @@ export const MAX_EDGE = 4096;
  * back to the default, anything else is clamped to the range the API accepts
  * so the client and the server agree on the size.
  */
-export function resolveMaxEdge(value) {
+export function resolveMaxEdge(value: unknown): number {
   const edge = Math.round(Number(value));
   if (!Number.isFinite(edge) || edge <= 0) return DEFAULT_MAX_EDGE;
   return Math.min(Math.max(edge, MIN_EDGE), MAX_EDGE);
@@ -38,7 +38,11 @@ export function resolveMaxEdge(value) {
  * when it already does (nothing to gain from a re-encode). Aspect ratio is
  * preserved and both sides stay ≥ 1px.
  */
-export function targetSize(width, height, maxEdge) {
+export function targetSize(
+  width: number,
+  height: number,
+  maxEdge: number,
+): { width: number; height: number } | null {
   if (!(width > 0) || !(height > 0)) return null;
   const longest = Math.max(width, height);
   if (longest <= maxEdge) return null;
@@ -50,7 +54,7 @@ export function targetSize(width, height, maxEdge) {
 }
 
 /** `board.heic` -> `board.jpg`; the bytes really are JPEG after the re-encode. */
-export function jpegName(name) {
+export function jpegName(name: string | null | undefined): string {
   const base = (name || "photo").replace(/\.[^./\\]+$/, "");
   return `${base || "photo"}.jpg`;
 }
@@ -58,20 +62,34 @@ export function jpegName(name) {
 // EXIF is stripped by the re-encode, so the rotation has to be baked into the
 // pixels here — `from-image` is what makes a portrait photo stay portrait.
 // (The server's exif_transpose can't save us once the tag is gone.)
-const createBitmap = (file) => createImageBitmap(file, { imageOrientation: "from-image" });
+type Size = { width: number; height: number };
+
+/** The browser bits downscaleImage() uses, swappable for the tests. */
+export interface DownscaleDeps {
+  createBitmap?: (file: File) => Promise<ImageBitmap>;
+  encodeJpeg?: (bitmap: ImageBitmap, size: Size, quality: number) => Promise<Blob | null>;
+}
+
+const createBitmap = (file: File) => createImageBitmap(file, { imageOrientation: "from-image" });
 
 // OffscreenCanvas where it exists (no layout, no document), <canvas> otherwise
 // — Safari only got OffscreenCanvas recently and phones are the whole point.
-async function encodeJpeg(bitmap, { width, height }, quality) {
+// A missing 2D context throws on the `!`, which downscaleImage() turns into
+// "send the original", like every other failure here.
+async function encodeJpeg(
+  bitmap: ImageBitmap,
+  { width, height }: Size,
+  quality: number,
+): Promise<Blob | null> {
   if (typeof OffscreenCanvas === "function") {
     const canvas = new OffscreenCanvas(width, height);
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, width, height);
     return canvas.convertToBlob({ type: "image/jpeg", quality });
   }
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, width, height);
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
 }
 
@@ -82,15 +100,19 @@ async function encodeJpeg(bitmap, { width, height }, quality) {
  * `deps` exists for the tests; production callers pass the options only.
  */
 export async function downscaleImage(
-  file,
-  { maxEdge = DEFAULT_MAX_EDGE, quality = JPEG_QUALITY, deps = {} } = {},
-) {
+  file: File,
+  {
+    maxEdge = DEFAULT_MAX_EDGE,
+    quality = JPEG_QUALITY,
+    deps = {},
+  }: { maxEdge?: number; quality?: number; deps?: DownscaleDeps } = {},
+): Promise<File> {
   const toBitmap = deps.createBitmap || createBitmap;
   const encode = deps.encodeJpeg || encodeJpeg;
   // Videos and PDFs can reach a file input with accept="image/*" on some
   // pickers; hand anything we can't read straight through.
   if (!file || !file.type?.startsWith("image/")) return file;
-  let bitmap;
+  let bitmap: ImageBitmap | undefined;
   try {
     bitmap = await toBitmap(file);
     const size = targetSize(bitmap.width, bitmap.height, maxEdge);

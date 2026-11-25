@@ -12,8 +12,10 @@ import {
   normalizeText,
   rowKey,
 } from "../dupes.js";
+import type { CatalogueEntry, Row } from "../types.js";
+import { row as baseRow } from "./fixtures.js";
 
-const entry = (over = {}) => ({
+const entry = (over: Partial<CatalogueEntry> = {}): CatalogueEntry => ({
   id: "sweet-caroline-neil-diamond",
   display: "Sweet Caroline - Neil Diamond",
   title: "Sweet Caroline",
@@ -22,14 +24,15 @@ const entry = (over = {}) => ({
   ...over,
 });
 
-const row = (over = {}) => ({
-  uid: "u1",
-  raw_title: "Sweet Caroline",
-  match: entry(),
-  played: false,
-  binned: false,
-  ...over,
-});
+const row = (over: Partial<Row> = {}): Row =>
+  baseRow({
+    uid: "u1",
+    raw_title: "Sweet Caroline",
+    match: entry(),
+    played: false,
+    binned: false,
+    ...over,
+  });
 
 describe("normalizeText", () => {
   it("is accent-insensitive and lowercase, like the backend matcher", () => {
@@ -108,10 +111,10 @@ describe("indexTonight", () => {
 
   it("tags played, Up next and Requests copies, and skips binned ones", () => {
     const index = indexTonight(upNext, requests);
-    expect(index.get(matchKey(entry())).where).toBe("played");
+    expect(index.get(matchKey(entry()))?.where).toBe("played");
     expect(index.get(matchKey(jolene))).toMatchObject({ where: "upnext", row: { uid: "b" } });
     expect(index.has(matchKey(africa))).toBe(false);
-    expect(index.get("free bird").where).toBe("requests");
+    expect(index.get("free bird")?.where).toBe("requests");
   });
 });
 

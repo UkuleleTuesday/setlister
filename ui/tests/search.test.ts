@@ -5,8 +5,9 @@
 import { describe, expect, it } from "vitest";
 
 import { searchSongs } from "../search.js";
+import type { CatalogueEntry } from "../types.js";
 
-const song = (page, title, artist) => ({
+const song = (page: number, title: string, artist: string): CatalogueEntry => ({
   id: `${title}-${artist}`.toLowerCase().replace(/\W+/g, "-"),
   display: `${title} - ${artist}`,
   title,
@@ -24,7 +25,7 @@ const book = [
   song(55, "Lean on Me", "Bill Withers"),
 ];
 
-const titles = (results) => results.map((e) => e.title);
+const titles = (results: CatalogueEntry[]) => results.map((e) => e.title);
 
 describe("searchSongs", () => {
   it("finds nothing for an empty or blank query", () => {

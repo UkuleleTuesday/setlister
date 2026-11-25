@@ -19,7 +19,7 @@ describe("entryDate", () => {
   it("builds a LOCAL date, not a UTC one", () => {
     // new Date("2026-08-05") would be UTC midnight — i.e. August 4th on a phone
     // west of Greenwich. The whole point of entryDate is that it never is.
-    const date = entryDate({ date: "2026-08-05" });
+    const date = entryDate({ date: "2026-08-05" })!;
     expect(date.getFullYear()).toBe(2026);
     expect(date.getMonth()).toBe(7);
     expect(date.getDate()).toBe(5);
@@ -44,7 +44,7 @@ describe("latestEntry", () => {
       { date: "2026-08-05", items: ["a"] },
       { date: "2026-07-18", items: ["c"] },
     ];
-    expect(latestEntry(shuffled).date).toBe("2026-08-05");
+    expect(latestEntry(shuffled)?.date).toBe("2026-08-05");
   });
 
   it("is null for an empty changelog", () => {
@@ -56,7 +56,7 @@ describe("latestEntry", () => {
       latestEntry([
         { date: "not a date", items: ["x"] },
         { date: "2026-07-13", items: ["y"] },
-      ]).date,
+      ])?.date,
     ).toBe("2026-07-13");
   });
 
@@ -131,7 +131,7 @@ describe("whats-new.json hygiene", () => {
       const date = entryDate(entry);
       expect(date, entry.date).not.toBeNull();
       // Catches 2026-02-31-style dates, which Date silently rolls over.
-      expect(date.getDate()).toBe(Number(entry.date.slice(8, 10)));
+      expect(date?.getDate()).toBe(Number(entry.date.slice(8, 10)));
     }
   });
 

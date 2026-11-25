@@ -69,7 +69,9 @@ const ICONS = {
 // Build a fresh <svg> element for `name`. Icons inherit the button's text
 // colour (stroke: currentColor) and are aria-hidden — the accessible name
 // always lives on the button, never on the glyph.
-export function icon(name, extraClass = "") {
+export type IconName = keyof typeof ICONS;
+
+export function icon(name: IconName, extraClass = ""): SVGElement {
   const svg = createElement(ICONS[name]);
   svg.classList.add("icon");
   if (extraClass) svg.classList.add(extraClass);
@@ -78,7 +80,7 @@ export function icon(name, extraClass = "") {
 }
 
 // Convenience for buttons that pair an icon with a text label.
-export function iconLabel(name, label) {
+export function iconLabel(name: IconName, label: string): [SVGElement, HTMLSpanElement] {
   const span = document.createElement("span");
   span.className = "btn-label";
   span.textContent = label;

@@ -9,18 +9,26 @@
 // The one way back out is a deliberate `?mode=full` link — no in-app escape.
 //
 // Pure decision logic lives here (app.js can't be imported under node, so this
-// is the testable seam, like dupes.js and session-id.js).
+// is the testable seam, like dupes.ts and session-id.ts).
 
 // The sticky flag's localStorage key. Its own key, outside setlister.v1, so
 // persist()/restore()'s schema stays untouched (the WHATS_NEW_SEEN_KEY
 // precedent).
+import type { RowSource } from "./types.js";
+
+/** Which view a device gets: the full app or the room's request view. */
+export type ViewMode = "full" | "room";
+
 export const ROOM_MODE_KEY = "setlister.roomMode.v1";
 
 // What view this device gets, from the URL and the sticky flag. Returns
 // `{ mode, store }`: `mode` is the view to render now, `store` is what the
 // sticky flag should become ("room" or null). An unrecognised `mode` param
 // falls through to the flag, so a mangled link can't flip a device's view.
-export function resolveMode(searchParams, storedMode) {
+export function resolveMode(
+  searchParams: URLSearchParams,
+  storedMode: string | null,
+): { mode: ViewMode; store: "room" | null } {
   const param = searchParams.get("mode");
   if (param === "request") return { mode: "room", store: "room" };
   if (param === "full") return { mode: "full", store: null };
@@ -35,7 +43,7 @@ export function resolveMode(searchParams, storedMode) {
 // (and a room-mode sharer can't propagate their own mode by accident either,
 // since location.href's param is always overwritten).
 // Built on the given href so the GitHub Pages subpath survives.
-export function buildSessionUrl(href, id, { room = false } = {}) {
+export function buildSessionUrl(href: string, id: string, { room = false } = {}): string {
   const url = new URL(href);
   url.searchParams.set("session", id);
   url.searchParams.set("mode", room ? "request" : "full");
@@ -44,7 +52,7 @@ export function buildSessionUrl(href, id, { room = false } = {}) {
 
 // Provenance wording for a row's `source`, shared by every renderRow branch so
 // a new source value can't silently fall into the whiteboard bucket.
-export function sourceLabel(source) {
+export function sourceLabel(source: RowSource | undefined): string {
   if (source === "manual") return "added manually";
   if (source === "room") return "from the room";
   return "from the whiteboard";
@@ -52,7 +60,7 @@ export function sourceLabel(source) {
 
 // Thin storage wrappers: in private mode stickiness degrades to URL-only,
 // which is fine for an honour-system view.
-export function readStoredMode() {
+export function readStoredMode(): string | null {
   try {
     return localStorage.getItem(ROOM_MODE_KEY);
   } catch {
@@ -60,7 +68,7 @@ export function readStoredMode() {
   }
 }
 
-export function writeStoredMode(value) {
+export function writeStoredMode(value: string | null): void {
   try {
     if (value) localStorage.setItem(ROOM_MODE_KEY, value);
     else localStorage.removeItem(ROOM_MODE_KEY);

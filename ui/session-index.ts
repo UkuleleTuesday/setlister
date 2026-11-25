@@ -13,10 +13,31 @@
 // session stays world-readable by id like every other one (see
 // firestore.rules). Unlisted means "not advertised in the club's list".
 //
-// UI-free, like sync.js and presence.js: app.js owns all DOM. Firebase still
-// loads lazily through firebase.js, so importing this module pulls no SDK.
+// UI-free, like sync.ts and presence.ts: app.js owns all DOM. Firebase still
+// loads lazily through firebase.ts, so importing this module pulls no SDK.
 
 import { getFirestore } from "./firebase.js";
+
+/** One night in the club's history, as the home screen lists it. */
+export interface SessionEntry {
+  id: string;
+  createdBy: string;
+  createdAt: Date | null;
+}
+
+/** A SessionEntry with its rendered, disambiguated date label. */
+export type LabelledEntry<T extends Pick<SessionEntry, "createdAt">> = T & { label: string };
+
+/**
+ * A Firestore Timestamp as a Date, or null for anything else. Duck-typed, not
+ * `instanceof`: the SDK loads lazily (firebase.ts), so there's no class to
+ * check against at import time, and a doc written moments ago by this client
+ * can still hold a null serverTimestamp locally.
+ */
+export function timestampToDate(value: unknown): Date | null {
+  const ts = value as { toDate?: unknown } | null | undefined;
+  return typeof ts?.toDate === "function" ? (ts as { toDate(): Date }).toDate() : null;
+}
 
 export const INDEX_COLLECTION = "sessionIndex";
 
@@ -60,7 +81,7 @@ const EVENING_HOUR = 17;
 // A night belongs to the evening it started, not to the calendar. Without this
 // a session that kicks off at 21:00 and is still running at 00:30 — an entirely
 // normal pub night — would relabel itself "Yesterday" while people are still
-// adding songs to it. Exported so request-window.js can default the request
+// adding songs to it. Exported so request-window.ts can default the request
 // window's close time to the same boundary, instead of re-deriving it.
 export const NIGHT_BOUNDARY_HOUR = 4;
 // A session created for a day other than today (backfilling a missed night, or
@@ -70,21 +91,21 @@ export const NIGHT_BOUNDARY_HOUR = 4;
 const PICKED_SESSION_HOUR = 20;
 
 // The start of the *night* `date` falls in, which is the previous calendar day
-// for anything before 04:00. Exported for request-window.js: the request
+// for anything before 04:00. Exported for request-window.ts: the request
 // window's default close time is "the end of the night", so it needs the same
 // night bucket this module already uses for labelling and partitioning.
-export function startOfNight(date) {
+export function startOfNight(date: Date): Date {
   const d = new Date(date);
   d.setHours(d.getHours() - NIGHT_BOUNDARY_HOUR);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-function nightsBetween(then, now) {
-  return Math.round((startOfNight(now) - startOfNight(then)) / 86_400_000);
+function nightsBetween(then: Date, now: Date): number {
+  return Math.round((startOfNight(now).getTime() - startOfNight(then).getTime()) / 86_400_000);
 }
 
-function isEvening(date) {
+function isEvening(date: Date): boolean {
   const h = date.getHours();
   return h >= EVENING_HOUR || h < NIGHT_BOUNDARY_HOUR;
 }
@@ -94,7 +115,7 @@ function isEvening(date) {
 // of its night. `now` is injectable so the tests can pin the clock — every
 // branch here is relative, and a test that reads the wall clock is a test that
 // fails at midnight.
-export function sessionDateLabel(date, now = new Date()) {
+export function sessionDateLabel(date: Date | null, now = new Date()): string {
   if (!date) return "";
   const days = nightsBetween(date, now);
 
@@ -116,14 +137,14 @@ export function sessionDateLabel(date, now = new Date()) {
 // The browser-tab title. Session-first: the night's label leads so parked tabs
 // can be told apart; the brand alone marks the home view. DOM-free here (not in
 // app.js) so it's testable without a browser.
-export function pageTitle(label) {
+export function pageTitle(label: string | null | undefined): string {
   return label ? `${label} · Setlister` : "Setlister · Ukulele Tuesday";
 }
 
 // Used to tell apart two sessions started on the same day. Cheaper than
 // suffixing at create time, which would cost a round trip on the critical path
 // (and race two phones creating at once).
-export function sessionTimeLabel(date) {
+export function sessionTimeLabel(date: Date | null): string {
   return date ? TIME_FORMAT.format(date) : "";
 }
 
@@ -132,14 +153,14 @@ export function sessionTimeLabel(date) {
 // wrong day for an evening in any western timezone), and new Date("YYYY-MM-DD")
 // PARSES as UTC midnight (the previous local day east of Greenwich). Both
 // helpers work strictly in local time.
-export function toDateInputValue(date) {
-  const pad = (n) => String(n).padStart(2, "0");
+export function toDateInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 // "" (a cleared picker) and malformed values both come back null — the caller
 // treats that as "today".
-export function fromDateInputValue(value) {
+export function fromDateInputValue(value: string | null | undefined): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), PICKED_SESSION_HOUR);
@@ -149,17 +170,20 @@ export function fromDateInputValue(value) {
 // the start time to each member of a matching run. Runs on the rendered label:
 // two sessions the same evening both say "Tonight" while storing only their
 // timestamps. A label that's unique stays clean.
-export function disambiguate(entries, now = new Date()) {
+export function disambiguate<T extends Pick<SessionEntry, "createdAt">>(
+  entries: T[],
+  now = new Date(),
+): LabelledEntry<T>[] {
   const labelled = entries.map((entry) => ({
     ...entry,
     label: sessionDateLabel(entry.createdAt, now),
   }));
-  const counts = new Map();
+  const counts = new Map<string, number>();
   for (const entry of labelled) {
     counts.set(entry.label, (counts.get(entry.label) || 0) + 1);
   }
   return labelled.map((entry) =>
-    counts.get(entry.label) > 1 && entry.createdAt
+    (counts.get(entry.label) ?? 0) > 1 && entry.createdAt
       ? { ...entry, label: `${entry.label} · ${sessionTimeLabel(entry.createdAt)}` }
       : entry,
   );
@@ -170,9 +194,12 @@ export function disambiguate(entries, now = new Date()) {
 // is the one you want on top. Input arrives newest-first (listSessions), so
 // upcoming is reversed to soonest-first and `upcoming[0]` is THE next session.
 // A null createdAt can't claim a future night, so it files under past.
-export function partitionSessions(entries, now = new Date()) {
-  const upcoming = [];
-  const past = [];
+export function partitionSessions<T extends Pick<SessionEntry, "createdAt">>(
+  entries: T[],
+  now = new Date(),
+): { upcoming: T[]; past: T[] } {
+  const upcoming: T[] = [];
+  const past: T[] = [];
   for (const entry of entries) {
     if (entry.createdAt && nightsBetween(entry.createdAt, now) <= 0) upcoming.push(entry);
     else past.push(entry);
@@ -184,7 +211,10 @@ export function partitionSessions(entries, now = new Date()) {
 // Why Start is refused while another night is already planned. The copy lives
 // here (DOM-free) so the wording is pinned by tests; the escape hatch is named
 // because Unlisted is the one way past the block.
-export function plannedSessionMessage(entry, now = new Date()) {
+export function plannedSessionMessage(
+  entry: Pick<SessionEntry, "createdAt">,
+  now = new Date(),
+): string {
   const label = sessionDateLabel(entry.createdAt, now) || "an upcoming night";
   return (
     `A session is already planned for ${label}. Open it from the home screen, ` +
@@ -192,12 +222,16 @@ export function plannedSessionMessage(entry, now = new Date()) {
   );
 }
 
-// The document shape, in one place, so sync.js can write an entry inside its
+// The document shape, in one place, so sync.ts can write an entry inside its
 // id-claiming transaction without owning the schema. `createdAt` is passed in
 // when the creator picked a day other than today, or when re-listing/backfilling
 // a session that already exists; otherwise the server stamps it. firestore.rules
 // caps how far ahead it may sit (60 days), not behind.
-export function indexEntryData({ createdBy, createdAt }, fx) {
+export function indexEntryData(
+  { createdBy, createdAt }: { createdBy?: unknown; createdAt?: Date | null },
+  // Only the sentinels pass through, so a test stub can return anything.
+  fx: { serverTimestamp(): unknown; Timestamp: { fromDate(date: Date): unknown } },
+) {
   return {
     v: 1,
     createdBy: String(createdBy || "").slice(0, 60),
@@ -205,29 +239,30 @@ export function indexEntryData({ createdBy, createdAt }, fx) {
   };
 }
 
-function toEntry(id, data) {
+// The parse boundary for listing rows: Firestore data is unvalidated, so it
+// comes in as `unknown` and leaves as a SessionEntry.
+function toEntry(id: string, data: unknown): SessionEntry {
+  const doc = (data ?? {}) as Record<string, unknown>;
   return {
     id,
     // Legacy rows may still carry a `name`; it is deliberately ignored —
     // sessions are identified by their date now.
-    createdBy: typeof data?.createdBy === "string" ? data.createdBy : "",
-    // Firestore hands back a Timestamp; a doc written moments ago by this
-    // client can still have a null serverTimestamp locally.
-    createdAt: data?.createdAt?.toDate ? data.createdAt.toDate() : null,
+    createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
+    createdAt: timestampToDate(doc.createdAt),
   };
 }
 
-function withTimeout(promise, ms) {
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise((_, reject) =>
+    new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Timed out talking to Firestore")), ms),
     ),
   ]);
 }
 
 // Newest first — the night you want is almost always the most recent one.
-export async function listSessions({ max = DEFAULT_MAX } = {}) {
+export async function listSessions({ max = DEFAULT_MAX } = {}): Promise<SessionEntry[]> {
   const { db, fx } = await getFirestore();
   const snap = await withTimeout(
     fx.getDocs(
@@ -247,8 +282,8 @@ export async function listSessions({ max = DEFAULT_MAX } = {}) {
 }
 
 // This module deliberately READS the index and nothing else. Every write to a
-// listing row belongs in sync.js, batched with the matching `listed` flag on the
+// listing row belongs in sync.ts, batched with the matching `listed` flag on the
 // session document — the two must move together. A standalone "just write the
 // index row" helper used to live here, and it is exactly how a session ended up
 // listed in the club's history while its own share panel insisted it was
-// unlisted. See backfillListing() / setSessionListed() in sync.js.
+// unlisted. See backfillListing() / setSessionListed() in sync.ts.

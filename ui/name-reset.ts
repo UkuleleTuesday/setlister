@@ -1,7 +1,7 @@
 // One-time name amnesty: the names saved in the full app drifted into jokes,
 // so this build clears every device's typed name ONCE and asks for a real one
 // via a sheet on the next full-app open. Names are per-device (localStorage +
-// presence heartbeats — see presence.js), so "reset for everyone" can only
+// presence heartbeats — see presence.ts), so "reset for everyone" can only
 // ship as client code each device runs for itself.
 //
 // Room devices are left alone: the amnesty is aimed at the full (admin) view,
@@ -10,8 +10,8 @@
 // ?mode=full link still gets its amnesty.
 //
 // Pure decision logic + the sheet's copy live here (DOM-free, the testable
-// seam, like view-mode.js); app.js owns the sheet. The copy is exported so
-// tests pin the wording, same as plannedSessionMessage in session-index.js.
+// seam, like view-mode.ts); app.js owns the sheet. The copy is exported so
+// tests pin the wording, same as plannedSessionMessage in session-index.ts.
 
 // Its own localStorage key, outside setlister.v1, so persist()/restore()'s
 // schema stays untouched (the ROOM_MODE_KEY precedent).
@@ -30,16 +30,24 @@ export const NAME_RESET_MESSAGE =
 // actually used the app — a first-ever visitor has no name to reset and
 // shouldn't be greeted with news about one (they get the flag silently, so
 // the sheet can never bother them later).
-export function resolveNameReset({ mode, done, hasSavedState }) {
+export function resolveNameReset({
+  mode,
+  done,
+  hasSavedState,
+}: {
+  mode: string;
+  done: boolean;
+  hasSavedState: boolean;
+}): { clearName: boolean; showSheet: boolean; markDone: boolean } {
   if (mode !== "full" || done) return { clearName: false, showSheet: false, markDone: false };
   if (!hasSavedState) return { clearName: false, showSheet: false, markDone: true };
   return { clearName: true, showSheet: true, markDone: true };
 }
 
-// Thin storage wrappers, forgiving like view-mode.js's. Blocked storage reads
+// Thin storage wrappers, forgiving like view-mode.ts's. Blocked storage reads
 // as done: in private mode nothing persists anyway, and re-running the
 // amnesty (sheet included) on every visit would be hostile.
-export function readNameResetDone() {
+export function readNameResetDone(): boolean {
   try {
     return localStorage.getItem(NAME_RESET_KEY) === NAME_RESET_ROUND;
   } catch {
@@ -47,7 +55,7 @@ export function readNameResetDone() {
   }
 }
 
-export function writeNameResetDone() {
+export function writeNameResetDone(): void {
   try {
     localStorage.setItem(NAME_RESET_KEY, NAME_RESET_ROUND);
   } catch {

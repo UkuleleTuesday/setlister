@@ -140,16 +140,18 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-The `ui/` app is plain ES modules bundled by [Vite](https://vite.dev/) and
-managed with npm — `index.html` + `app.js` plus focused modules (sync,
-presence, session index, dedupe, downscaling) and no framework; `firebase` and
-`lucide` are the only runtime dependencies.
+The `ui/` app is ES modules bundled by [Vite](https://vite.dev/) and managed
+with npm — `index.html` + `app.js` plus focused, strict TypeScript modules
+(sync, presence, session index, dedupe, downscaling) and no framework;
+`firebase` and `lucide` are the only runtime dependencies. Shared shapes live
+in `ui/types.ts`; `app.js` stays JS until it's split up (#158).
 
 ```bash
 cd ui
 npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
 npm run lint          # ESLint
+npm run typecheck     # tsc, app modules then tests
 npm run format        # Prettier (format:check is the CI gate)
 npm run build         # production bundle into ui/dist
 npm run preview       # serve that build locally
@@ -249,7 +251,7 @@ gcloud firestore databases create --location=europe-west1 \
   --type=firestore-native --project=songbook-generator
 
 # Register a Web App and print its config, then paste the values into
-# ui/firebase-config.js — they are public client identifiers, not secrets.
+# ui/firebase-config.ts — they are public client identifiers, not secrets.
 firebase apps:create web setlister --project=songbook-generator
 firebase apps:sdkconfig web --project=songbook-generator
 

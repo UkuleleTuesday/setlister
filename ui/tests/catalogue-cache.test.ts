@@ -5,6 +5,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type CachedCatalogue,
+  type CatalogueStore,
   CATALOGUE_CACHE_LIMIT,
   CATALOGUE_MAX_AGE_MS,
   catalogueNeedsRefresh,
@@ -12,13 +14,14 @@ import {
   migrateLegacyCatalogue,
   putCachedCatalogue,
 } from "../catalogue-cache.js";
+import { song } from "./fixtures.js";
 
 const NOW = 1_770_000_000_000; // pinned: relative order is what matters
 
-function entry(id, n = 1) {
+function entry(id: string, n = 1): CachedCatalogue {
   return {
     edition: { id, title: id, description: "" },
-    catalogue: Array.from({ length: n }, (_, i) => ({ title: `Song ${i}` })),
+    catalogue: Array.from({ length: n }, (_, i) => song({ title: `Song ${i}` })),
     generatedAt: "2026-08-01T00:00:00Z",
   };
 }
@@ -26,7 +29,7 @@ function entry(id, n = 1) {
 describe("getCachedCatalogue", () => {
   it("returns the entry for a cached edition", () => {
     const store = putCachedCatalogue({}, "current", entry("current"), NOW);
-    expect(getCachedCatalogue(store, "current").edition.id).toBe("current");
+    expect(getCachedCatalogue(store, "current")!.edition.id).toBe("current");
   });
 
   it("misses on an unknown edition, an empty store, or no store at all", () => {
@@ -58,7 +61,7 @@ describe("putCachedCatalogue", () => {
   });
 
   it("evicts the least recently saved edition beyond the cap", () => {
-    let store = {};
+    let store: CatalogueStore = {};
     for (let i = 0; i < CATALOGUE_CACHE_LIMIT + 1; i++) {
       store = putCachedCatalogue(store, `book-${i}`, entry(`book-${i}`), NOW + i);
     }
@@ -68,7 +71,7 @@ describe("putCachedCatalogue", () => {
   });
 
   it("keeps an edition alive by refreshing it, evicting a staler one instead", () => {
-    let store = {};
+    let store: CatalogueStore = {};
     for (let i = 0; i < CATALOGUE_CACHE_LIMIT; i++) {
       store = putCachedCatalogue(store, `book-${i}`, entry(`book-${i}`), NOW + i);
     }

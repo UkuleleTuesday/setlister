@@ -6,8 +6,10 @@
 
 import { describe, expect, it } from "vitest";
 import { deserialize, diff, readMeta, serialize } from "../sync.js";
+import type { SyncFields, Votes } from "../types.js";
+import { row as baseRow } from "./fixtures.js";
 
-const row = (uid, title) => ({ uid, raw_title: title });
+const row = (uid: string, title: string) => baseRow({ uid, raw_title: title });
 
 // diff() only calls fx.deleteField(); a sentinel is enough to assert on.
 const DELETED = Symbol("deleteField");
@@ -108,7 +110,7 @@ describe("readMeta", () => {
   });
 
   // requestsOpen is tri-state: true/false are a deliberate override, absent is
-  // AUTO — follow the request window (see request-window.js), not "always
+  // AUTO — follow the request window (see request-window.ts), not "always
   // open". Every session that predates this field reads as auto now rather
   // than permanently open; the window's own default covers a whole ordinary
   // night, so that's invisible for anything actually happening tonight.
@@ -127,7 +129,7 @@ describe("readMeta", () => {
   });
 
   it("reads the request window overrides, or null when absent/malformed", () => {
-    const toDate = (d) => ({ toDate: () => d });
+    const toDate = (d: Date) => ({ toDate: () => d });
     const opensAt = new Date(2026, 7, 4, 19, 30);
     const closesAt = new Date(2026, 7, 5, 4, 0);
     const meta = readMeta({ requestsOpensAt: toDate(opensAt), requestsClosesAt: toDate(closesAt) });
@@ -139,11 +141,12 @@ describe("readMeta", () => {
 });
 
 describe("diff", () => {
-  const base = {
+  const base: SyncFields = {
     rows: { a: row("a", "Wagon Wheel") },
     upNextOrder: ["a"],
     requestsOrder: [],
     edition: null,
+    votes: {},
   };
 
   it("returns null when nothing changed, so the doc isn't churned", () => {
@@ -154,14 +157,14 @@ describe("diff", () => {
     const next = structuredClone(base);
     next.rows.a.raw_title = "Wagon Wheel (Old Crow)";
     const updates = diff(base, next, fx);
-    expect(Object.keys(updates)).toEqual(["rows.a"]);
+    expect(Object.keys(updates!)).toEqual(["rows.a"]);
   });
 
   it("deletes a removed row rather than rewriting the whole map", () => {
     const next = { ...structuredClone(base), rows: {}, upNextOrder: [] };
     const updates = diff(base, next, fx);
-    expect(updates["rows.a"]).toBe(DELETED);
-    expect(updates.upNextOrder).toEqual([]);
+    expect(updates!["rows.a"]).toBe(DELETED);
+    expect(updates!.upNextOrder).toEqual([]);
   });
 
   it("writes an order array only when it actually changed", () => {
@@ -185,7 +188,7 @@ describe("diff", () => {
   // avoid: the room votes for the same song at the same moment, and all of
   // those taps have to survive.
   describe("votes", () => {
-    const voted = (votes) => ({ ...structuredClone(base), votes });
+    const voted = (votes: Votes): SyncFields => ({ ...structuredClone(base), votes });
 
     it("writes one leaf per new vote, never the whole map", () => {
       const updates = diff(voted({}), voted({ a: { alex: true } }), fx);
@@ -218,14 +221,14 @@ describe("diff", () => {
     });
 
     it("stays quiet when the votes are unchanged", () => {
-      const votes = { a: { alex: true } };
+      const votes: Votes = { a: { alex: true } };
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
 
     // Votes are keyed on the row uid, which promote()/demote() carry across:
     // a promote must push as two order arrays and touch no vote leaf.
     it("carries a voted row between the lists without disturbing its votes", () => {
-      const pooled = {
+      const pooled: SyncFields = {
         ...structuredClone(base),
         upNextOrder: [],
         requestsOrder: ["a"],

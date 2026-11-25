@@ -1,7 +1,7 @@
 // Upvotes on requests (#83).
 //
 // Two things here are load bearing beyond "the arithmetic adds up": toggleVote
-// must not mutate its input (sync.js's diff compares against the last server
+// must not mutate its input (sync.ts's diff compares against the last server
 // state, and editing it underneath would make changes invisible to the push),
 // and the display sort must be stable (that is the whole of "ties keep arrival
 // order", and an unstable sort reshuffles the pool under the MC's thumb every
@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "../votes.js";
+import type { Votes } from "../types.js";
 
 const A = "client-a";
 const B = "client-b";
@@ -106,7 +107,7 @@ describe("seedAsker", () => {
   });
 
   it("does not mutate what it was given", () => {
-    const votes = { song1: { [B]: true } };
+    const votes: Votes = { song1: { [B]: true } };
     const before = structuredClone(votes);
     seedAsker(votes, "song1", A);
     expect(votes).toEqual(before);
