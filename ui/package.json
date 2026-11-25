@@ -13,8 +13,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "firebase": "^12.16.0",
-    "lucide": "^1.24.0"
+    "firebase": "^13.1.0",
+    "lucide": "^1.63.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
