@@ -1,22 +1,14 @@
 import * as sync from "./sync.js";
 import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
-import {
-  disambiguate,
-  fromDateInputValue,
-  listSessions,
-  pageTitle,
-  partitionSessions,
-  plannedSessionMessage,
-  sessionDateLabel,
-  sessionTimeLabel,
-  toDateInputValue,
-} from "./session-index.js";
+import { pageTitle, sessionDateLabel, sessionTimeLabel } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
 import { duplicateLabel, findDuplicate, indexTonight, matchKey, rowKey } from "./dupes.js";
 import { searchSongs } from "./search.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { mount } from "svelte";
+import Home from "./Home.svelte";
+import NewSessionSheet from "./NewSessionSheet.svelte";
 import WhatsNewSheet from "./WhatsNewSheet.svelte";
 import { latestEntry, sortedEntries } from "./whats-new.js";
 import {
@@ -41,7 +33,6 @@ import {
 import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "./votes.js";
 import { setBinned, setPlayed, stateTime } from "./gig-state.js";
 import {
-  defaultWindowLabel,
   effectiveRequestsOpen,
   fromDateTimeInputValue,
   minutesUntilOpen,
@@ -149,30 +140,11 @@ const scanStatusText = document.getElementById("scan-status-text");
 const scanCancel = document.getElementById("scan-cancel");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
-const newSessionButton = document.getElementById("new-session");
-const homeError = document.getElementById("home-error");
-const nextSessionEl = document.getElementById("next-session");
-const upcomingHeading = document.getElementById("upcoming-heading");
-const upcomingListEl = document.getElementById("upcoming-list");
-const pastHeading = document.getElementById("past-heading");
-const sessionListEl = document.getElementById("session-list");
-const pastOlderEl = document.getElementById("past-older");
-const sessionListStatus = document.getElementById("session-list-status");
-const sessionListRetry = document.getElementById("session-list-retry");
 const backHomeButton = document.getElementById("back-home");
 // The header h1 doubles as the screen title: the brand on home, the night's
 // date in a session (see setView / renderSessionMeta).
 const headerTitle = document.querySelector("header h1");
 const BRAND_TITLE = headerTitle.textContent;
-const sheet = document.getElementById("new-session-sheet");
-const sheetDate = document.getElementById("new-session-date");
-const sheetWindowNote = document.getElementById("new-session-window-note");
-const sheetEdition = document.getElementById("new-session-edition");
-const sheetVisibility = document.getElementById("new-session-visibility");
-const sheetNotice = document.getElementById("new-session-notice");
-const sheetError = document.getElementById("new-session-error");
-const sheetStart = document.getElementById("new-session-start");
-const sheetCancel = document.getElementById("new-session-cancel");
 const whatsNewBanner = document.getElementById("whats-new-banner");
 const whatsNewFooter = document.getElementById("whats-new-footer");
 const whatsNewOpen = document.getElementById("whats-new-open");
@@ -183,6 +155,27 @@ const whatsNewMount = document.getElementById("whats-new-mount");
 const whatsNewSheet = mount(WhatsNewSheet, {
   target: whatsNewMount.parentNode,
   anchor: whatsNewMount,
+});
+// Before Home: Home's first render reports the planned night straight into
+// the sheet's gate.
+const newSessionMount = document.getElementById("new-session-mount");
+const newSessionSheet = mount(NewSessionSheet, {
+  target: newSessionMount.parentNode,
+  anchor: newSessionMount,
+  props: { onStart: createNewSession },
+});
+// The history sits between the What's new banner and footer, which stay here.
+const home = mount(Home, {
+  target: homeSection,
+  anchor: document.getElementById("whats-new-footer"),
+  props: {
+    onPick: (id) => navigateTo(id, { cameFromHome: true }),
+    onNewSession: () => {
+      home.clearError();
+      newSessionSheet.open();
+    },
+    onPlanned: (entry) => newSessionSheet.setPlanned(entry),
+  },
 });
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
@@ -198,7 +191,6 @@ photoLightboxClose.replaceChildren(icon("close"));
 cameraButton.replaceChildren(...iconLabel("camera", "Snap the board"));
 shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
 shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
-newSessionButton.replaceChildren(...iconLabel("add", "New session"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
@@ -614,8 +606,7 @@ function showSessionError(message) {
 }
 
 function showHomeError(message) {
-  homeError.textContent = message;
-  homeError.hidden = false;
+  home.showError(message);
 }
 
 // --- Routing ---------------------------------------------------------------
@@ -797,7 +788,7 @@ async function applyRoute(id) {
     renderRequests();
     setView("home");
     updateShareUi();
-    refreshSessionList();
+    home.refresh();
     return;
   }
 
@@ -1193,164 +1184,8 @@ sync.onStatusChange((status) => {
 window.addEventListener("pagehide", presence.removeOnUnload);
 
 // --- Home view: next sessions on top, the club's history below -------------
-
-// How many past nights show before the rest collapse. Enough to cover "the
-// last month or so" at one Tuesday a week without the history burying the page.
-const PAST_VISIBLE = 5;
-// Survives refreshSessionList so a background refresh doesn't slam the
-// history shut under someone's thumb.
-let pastOlderOpen = false;
-
-function startedByText(entry) {
-  return entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
-}
-
-function sessionListItem(entry, extraClass) {
-  const li = document.createElement("li");
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = extraClass ? `session-item ${extraClass}` : "session-item";
-  button.dataset.id = entry.id;
-
-  // `label` is the session's date rendered in this viewer's locale — see
-  // disambiguate()/sessionDateLabel(). A just-created doc can still be waiting
-  // on its server timestamp, which labels as "": name the state rather than
-  // render a blank card.
-  const name = document.createElement("span");
-  name.className = "session-item-name";
-  name.textContent = entry.label || "Date pending";
-
-  const meta = document.createElement("span");
-  meta.className = "session-item-meta";
-  meta.textContent = startedByText(entry);
-
-  button.append(name, meta);
-  li.appendChild(button);
-  return li;
-}
-
-// The soonest joinable night, dressed to be tapped. While one exists, starting
-// ANOTHER session is a secondary act, so the New session button steps back to
-// a quiet style; with nothing upcoming it stays the hero it is today.
-function renderNextSession(entry) {
-  nextSessionEl.hidden = !entry;
-  newSessionButton.classList.toggle("secondary-new", Boolean(entry));
-  if (!entry) {
-    nextSessionEl.replaceChildren();
-    return;
-  }
-
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "next-session-card";
-  card.dataset.id = entry.id;
-
-  const kicker = document.createElement("span");
-  kicker.className = "next-session-kicker";
-  kicker.textContent = "Next session";
-
-  const name = document.createElement("span");
-  name.className = "next-session-name";
-  name.textContent = entry.label || "Date pending";
-
-  const meta = document.createElement("span");
-  meta.className = "next-session-meta";
-  meta.textContent = startedByText(entry);
-
-  // No CTA line: the home screen opens the FULL view, where people run the
-  // whole night (queue requests, reorder Up next, mark played, scan the
-  // board), so any verbs here would miscast someone. The card is a button in
-  // a list of buttons; the night's name is the message.
-  card.append(kicker, name, meta);
-  nextSessionEl.replaceChildren(card);
-}
-
-// Same collapsed-disclosure idea as the session view's played/bin groups, but
-// over session items rather than song rows, so it gets its own small builder.
-function renderPastOlder(entries) {
-  pastOlderEl.replaceChildren();
-  pastOlderEl.hidden = entries.length === 0;
-  if (pastOlderEl.hidden) return;
-
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "group-toggle";
-  toggle.setAttribute("aria-expanded", String(pastOlderOpen));
-  toggle.setAttribute("aria-controls", "past-older-rows");
-  const label = document.createElement("span");
-  label.className = "group-label";
-  label.textContent = `${entries.length} older ${entries.length === 1 ? "session" : "sessions"}`;
-  toggle.append(label, icon("chevron", "group-chevron"));
-  toggle.onclick = () => {
-    pastOlderOpen = !pastOlderOpen;
-    renderPastOlder(entries);
-  };
-  pastOlderEl.appendChild(toggle);
-
-  if (pastOlderOpen) {
-    const list = document.createElement("ul");
-    list.id = "past-older-rows";
-    list.className = "session-list group-rows";
-    list.append(...entries.map((e) => sessionListItem(e)));
-    pastOlderEl.appendChild(list);
-  }
-}
-
-function renderSessionList(entries) {
-  // Label the WHOLE list before splitting, so two sessions the same night get
-  // their disambiguating time suffixes even when one of them is the hero.
-  const now = new Date();
-  const { upcoming, past } = partitionSessions(disambiguate(entries, now), now);
-
-  // Remembered for the new-session sheet's gate. A failed load renders []
-  // through here, clearing this to null — the sheet then shows no notice and
-  // the Start-time check fails closed instead of trusting stale state.
-  plannedUpcoming = upcoming[0] || null;
-
-  renderNextSession(upcoming[0]);
-  upcomingListEl.replaceChildren(...upcoming.slice(1).map((e) => sessionListItem(e, "upcoming")));
-  upcomingHeading.hidden = upcoming.length === 0;
-
-  // Never hide a single item behind a tap: at the threshold, one more row
-  // costs less than a one-row disclosure.
-  const collapse = past.length > PAST_VISIBLE + 1;
-  const visible = collapse ? past.slice(0, PAST_VISIBLE) : past;
-  sessionListEl.replaceChildren(...visible.map((e) => sessionListItem(e)));
-  renderPastOlder(collapse ? past.slice(PAST_VISIBLE) : []);
-  pastHeading.hidden = past.length === 0;
-}
-
-// The list and "New session" are independent paths: a failed query must never
-// stop someone starting tonight's set.
-async function refreshSessionList() {
-  sessionListRetry.hidden = true;
-  sessionListStatus.hidden = false;
-  sessionListStatus.textContent = "Loading sessions…";
-  try {
-    const entries = await listSessions();
-    renderSessionList(entries);
-    sessionListStatus.hidden = entries.length > 0;
-    sessionListStatus.textContent = entries.length ? "" : "No sessions yet. Start one above.";
-  } catch {
-    // A failed query clears the whole layout, hero included: a stale "Next
-    // session" card over a "Couldn't load" error would be a lie.
-    renderSessionList([]);
-    sessionListStatus.hidden = false;
-    sessionListStatus.textContent = "Couldn’t load sessions.";
-    sessionListRetry.hidden = false;
-  }
-}
-
-// One delegated handler over every container that holds a session card: the
-// hero, the coming-up list, the visible history and the collapsed remainder.
-function handleSessionPick(event) {
-  const button = event.target.closest("[data-id]");
-  if (button) navigateTo(button.dataset.id, { cameFromHome: true });
-}
-for (const el of [nextSessionEl, upcomingListEl, sessionListEl, pastOlderEl]) {
-  el.addEventListener("click", handleSessionPick);
-}
-sessionListRetry.addEventListener("click", refreshSessionList);
+// Home.svelte, mounted above. It loads and lays out the history itself
+// (session-index.ts); this file only routes its taps.
 
 // --- What's new: release notes ----------------------------------------------
 // Announcement and archive are two different jobs, so they get two surfaces —
@@ -1452,158 +1287,35 @@ document.addEventListener("keydown", (event) => {
 });
 
 // --- New session sheet ------------------------------------------------------
-
-// The soonest upcoming session from the last list render, or null. One planned
-// night at a time: while this is set, starting another SHARED session is
-// blocked — Unlisted remains the escape hatch. Advisory only (it can be stale
-// or empty after a failed load); onSheetStart re-checks against Firestore.
-let plannedUpcoming = null;
-
-function updateSheetGate() {
-  const blocked = Boolean(plannedUpcoming) && sheetVisibility.value === "shared";
-  sheetNotice.hidden = !blocked;
-  if (blocked) sheetNotice.textContent = plannedSessionMessage(plannedUpcoming);
-  sheetStart.disabled = blocked;
+// NewSessionSheet.svelte owns the fields, the planned-night gate and Start's
+// states; creating the session is app state, so it happens here.
+async function createNewSession({ createdAt, listed, editionId }) {
+  // The session's songbook, picked on the sheet. Resolved through the editions
+  // listing so the doc carries a real {id, title}; when the listing never
+  // loaded the id alone is enough (loadCatalogue enriches it). Never null:
+  // every session names its book explicitly.
+  const chosenEdition = editionsList.find((e) => e.id === editionId) || {
+    id: editionId,
+    title: "",
+    description: "",
+  };
+  const id = await sync.createSession(
+    () => ({ upNext: [], requests: [], edition: chosenEdition }),
+    applyRemoteState,
+    { createdBy: presence.displayName(app.name), listed, createdAt },
+  );
+  app.edition = chosenEdition;
+  scopeCatalogueToEdition(editionId);
+  app.upNext = [];
+  app.requests = [];
+  renderUpNext();
+  renderRequests();
+  persist();
+  newSessionSheet.close();
+  await navigateTo(id, { cameFromHome: homeSection.hidden === false });
+  renderSessionMeta(sync.getMeta());
+  updateShareUi();
 }
-
-// What the date picker showed when the sheet OPENED. Start compares against
-// this, not a recomputed "today": an untouched picker means "now" (server
-// stamp), and comparing against a fresh today would silently turn a sheet left
-// open across midnight into an explicit yesterday-evening pick.
-let sheetDateDefault = "";
-
-function openSheet() {
-  sheetError.hidden = true;
-  sheetDateDefault = toDateInputValue(new Date());
-  sheetDate.value = sheetDateDefault;
-  // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
-  // earlier so a bad pick fails here, not as a rules error after Start.
-  sheetDate.max = toDateInputValue(new Date(Date.now() + 59 * 86_400_000));
-  // Always the default book, never the device's last-loaded one: a themed
-  // night shouldn't quietly become next Tuesday's songbook too.
-  sheetEdition.value = "current";
-  sheetVisibility.value = "shared";
-  updateSheetGate();
-  updateSheetWindowPreview();
-  sheet.hidden = false;
-  homeError.hidden = true;
-  // Don't autofocus: opening a date picker nobody needs to touch would put the
-  // extra tap back. Today is usually the answer — tap Start and go.
-}
-
-// Read-only preview of the smart default request window (#NEW) — nothing is
-// stored yet (see sync.ts's createSession), so this is purely informational,
-// recomputed live as the date picker moves. Mirrors onSheetStart's own
-// "untouched picker means now" rule so the preview never disagrees with what
-// Start is about to send.
-function updateSheetWindowPreview() {
-  const createdAt =
-    sheetDate.value && sheetDate.value !== sheetDateDefault
-      ? fromDateInputValue(sheetDate.value)
-      : new Date();
-  sheetWindowNote.textContent = defaultWindowLabel(createdAt);
-}
-
-function closeSheet() {
-  sheet.hidden = true;
-  sheetStart.disabled = false;
-  sheetStart.replaceChildren(document.createTextNode("Start"));
-}
-
-async function onSheetStart() {
-  // An untouched (or cleared) picker means "now": no createdAt is sent and the
-  // server stamps the moment of creation. Only a genuinely different day
-  // becomes an explicit date, stamped at that day's evening.
-  const createdAt =
-    sheetDate.value && sheetDate.value !== sheetDateDefault
-      ? fromDateInputValue(sheetDate.value)
-      : null;
-  const listed = sheetVisibility.value === "shared";
-  sheetError.hidden = true;
-  sheetStart.disabled = true;
-  sheetStart.replaceChildren(icon("loader", "spin"));
-  try {
-    // One planned night at a time. The sheet's gate is only advisory (its
-    // cache can be stale, or empty because the list never loaded), so a
-    // shared create re-asks Firestore here. Fail closed: an unanswered
-    // question is not a "no" — unlisted stays available either way.
-    if (listed) {
-      let planned;
-      try {
-        planned = partitionSessions(await listSessions()).upcoming[0];
-      } catch {
-        throw new Error(
-          "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted",
-        );
-      }
-      if (planned) {
-        plannedUpcoming = planned;
-        throw new Error(`a session is already planned for ${sessionDateLabel(planned.createdAt)}`);
-      }
-    }
-    // The session's songbook, picked on the sheet. Resolved through the
-    // editions listing so the doc carries a real {id, title}; when the listing
-    // never loaded the id alone is enough (loadCatalogue enriches it). Never
-    // null — every session now names its book explicitly.
-    const chosenId = sheetEdition.value || "current";
-    const chosenEdition = editionsList.find((e) => e.id === chosenId) || {
-      id: chosenId,
-      title: "",
-      description: "",
-    };
-    // Creating loads the Firestore chunk lazily, so the first tap can take a
-    // beat — hence the spinner above.
-    const id = await sync.createSession(
-      () => ({ upNext: [], requests: [], edition: chosenEdition }),
-      applyRemoteState,
-      { createdBy: presence.displayName(app.name), listed, createdAt },
-    );
-    app.edition = chosenEdition;
-    scopeCatalogueToEdition(chosenId);
-    app.upNext = [];
-    app.requests = [];
-    renderUpNext();
-    renderRequests();
-    persist();
-    closeSheet();
-    await navigateTo(id, { cameFromHome: homeSection.hidden === false });
-    renderSessionMeta(sync.getMeta());
-    updateShareUi();
-  } catch (err) {
-    // Keep the sheet open with the picked date intact so Start is one tap away
-    // once they're back on wifi. There is no local-only mode to fall back to.
-    sheetError.textContent = `Couldn’t start a session: ${err.message}`;
-    sheetError.hidden = false;
-    sheetStart.disabled = false;
-    sheetStart.replaceChildren(document.createTextNode("Start"));
-    // After the generic re-enable above, so a "planned session found" refusal
-    // ends with Start disabled and the notice explaining why.
-    updateSheetGate();
-  }
-}
-
-newSessionButton.addEventListener("click", () => openSheet());
-sheetStart.addEventListener("click", onSheetStart);
-sheetVisibility.addEventListener("change", updateSheetGate);
-sheetDate.addEventListener("input", updateSheetWindowPreview);
-sheetCancel.addEventListener("click", closeSheet);
-// Forgiving dismissal: tap the backdrop (the hint says so). Escape is a desktop
-// bonus, never the only way out.
-sheet.addEventListener("click", (event) => {
-  if (event.target === sheet) closeSheet();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !sheet.hidden) closeSheet();
-});
-// Desktop nicety; native mobile date pickers never surface an Enter key.
-sheetDate.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    // Enter would sail past a disabled Start button, so it honours the same
-    // planned-session gate.
-    if (!sheetStart.disabled) onSheetStart();
-  }
-});
 
 // --- Loading editions + catalogue ------------------------------------------
 // Drives the song-picker's placeholder states: "loading" until a catalogue is
@@ -1672,7 +1384,7 @@ async function loadEditions() {
     return;
   }
   populateEditionSelect(editionSelect, app.edition?.id || "current");
-  populateEditionSelect(sheetEdition, sheetEdition.value || "current");
+  newSessionSheet.setEditions(editionsList.map((e) => ({ id: e.id, label: editionLabel(e) })));
 }
 
 // Load the catalogue for an edition independently of any photo, so manual add
