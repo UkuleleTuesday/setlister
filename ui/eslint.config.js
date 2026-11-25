@@ -25,7 +25,11 @@ export default tseslint.config(
   },
   {
     // Config files run under Node, not in the page.
-    files: ["eslint.config.js", "vite.config.js"],
+    files: ["eslint.config.js", "vite.config.js", "playwright.config.ts"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["e2e/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
   {

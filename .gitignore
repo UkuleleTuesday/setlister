@@ -16,3 +16,6 @@ firebase-export-*/
 # UI build output and installed packages.
 ui/node_modules/
 ui/dist/
+# Playwright output (npm run test:e2e).
+ui/test-results/
+ui/playwright-report/

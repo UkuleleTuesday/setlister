@@ -150,6 +150,7 @@ in `ui/types.ts`; `app.js` stays JS until it's split up (#158).
 cd ui
 npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
+npm run test:e2e      # mobile Playwright smoke suite, against the emulator
 npm run lint          # ESLint
 npm run typecheck     # tsc, app modules then tests
 npm run format        # Prettier (format:check is the CI gate)
@@ -163,9 +164,17 @@ since the browser writes Firestore directly. `npm test` alone will fail it with
 a connection error, which is deliberate: a skipped security suite must not look
 like a passing one. CI runs `test:emulator`.
 
-Everything else is still verified by hand: drive the real page in a phone-sized,
-touch-enabled browser (e.g. Playwright with `{ isMobile: true, hasTouch: true }`
-at a ~390px viewport, using `.tap()`) and confirm there are no console errors.
+`npm run test:e2e` drives the production build (`vite preview`) on a 390px
+touch screen against the Firestore emulator: the session history, a night run
+end to end, the room's request link on a second phone, and the photo scan. The
+Python API is stubbed with `page.route` (`ui/e2e/api.ts`), so no Gemini call is
+made, and any console error fails the test. Tests select by the app's ids and
+accessible names, so markup changes must keep those. Run it once with
+`npx playwright install chromium` if Playwright has no browser yet.
+
+New flows still get a look by hand: drive the real page in a phone-sized,
+touch-enabled browser (the e2e project's settings in `ui/playwright.config.ts`)
+and confirm there are no console errors.
 
 User-visible changes also need an entry in `ui/whats-new.json`, the in-app
 changelog — see [AGENTS.md](./AGENTS.md) for that and the rest of the
