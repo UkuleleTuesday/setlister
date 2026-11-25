@@ -95,9 +95,9 @@ describe("migrateLegacyCatalogue", () => {
   it("ignores a legacy slot with no edition id or no songs", () => {
     expect(migrateLegacyCatalogue({}, null, NOW)).toEqual({});
     expect(migrateLegacyCatalogue({}, { catalogue: [{}] }, NOW)).toEqual({});
-    expect(
-      migrateLegacyCatalogue({}, { edition: { id: "current" }, catalogue: [] }, NOW)
-    ).toEqual({});
+    expect(migrateLegacyCatalogue({}, { edition: { id: "current" }, catalogue: [] }, NOW)).toEqual(
+      {},
+    );
   });
 });
 

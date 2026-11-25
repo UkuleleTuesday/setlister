@@ -161,7 +161,7 @@ export function disambiguate(entries, now = new Date()) {
   return labelled.map((entry) =>
     counts.get(entry.label) > 1 && entry.createdAt
       ? { ...entry, label: `${entry.label} · ${sessionTimeLabel(entry.createdAt)}` }
-      : entry
+      : entry,
   );
 }
 
@@ -221,7 +221,7 @@ function withTimeout(promise, ms) {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timed out talking to Firestore")), ms)
+      setTimeout(() => reject(new Error("Timed out talking to Firestore")), ms),
     ),
   ]);
 }
@@ -231,13 +231,9 @@ export async function listSessions({ max = DEFAULT_MAX } = {}) {
   const { db, fx } = await getFirestore();
   const snap = await withTimeout(
     fx.getDocs(
-      fx.query(
-        fx.collection(db, INDEX_COLLECTION),
-        fx.orderBy("createdAt", "desc"),
-        fx.limit(max)
-      )
+      fx.query(fx.collection(db, INDEX_COLLECTION), fx.orderBy("createdAt", "desc"), fx.limit(max)),
     ),
-    LIST_TIMEOUT_MS
+    LIST_TIMEOUT_MS,
   );
   // An unreachable server doesn't reject here — Firestore quietly answers from
   // its (empty, in-memory) cache, which would render as a confident "No

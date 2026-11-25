@@ -68,8 +68,7 @@ async function _init() {
 
   // Re-use an existing Firebase app if one was already initialised (e.g.
   // during hot-module replacement in dev).
-  const app =
-    getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+  const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 
   const db = _getFirestore(app);
 

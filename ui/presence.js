@@ -50,21 +50,97 @@ const ANON_NAME_KEY = "setlister.anonName.v1";
 // placeholder (not a chosen name), while the adjective + animal keep each one
 // distinct and easy to say across a pub table.
 const ANON_ADJECTIVES = [
-  "Merry", "Sunny", "Jolly", "Breezy", "Mellow", "Chirpy", "Plucky", "Snappy",
-  "Jazzy", "Funky", "Groovy", "Bouncy", "Lively", "Peppy", "Nifty", "Dandy",
-  "Cosmic", "Dreamy", "Golden", "Ruby", "Minty", "Honey", "Spicy", "Zesty",
-  "Brave", "Clever", "Witty", "Quirky", "Giddy", "Eager", "Bold", "Nimble",
-  "Humming", "Dancing", "Skipping", "Roaming", "Glowing", "Sparkly", "Dapper",
-  "Spiffy", "Jaunty", "Chipper", "Sprightly", "Wandering",
+  "Merry",
+  "Sunny",
+  "Jolly",
+  "Breezy",
+  "Mellow",
+  "Chirpy",
+  "Plucky",
+  "Snappy",
+  "Jazzy",
+  "Funky",
+  "Groovy",
+  "Bouncy",
+  "Lively",
+  "Peppy",
+  "Nifty",
+  "Dandy",
+  "Cosmic",
+  "Dreamy",
+  "Golden",
+  "Ruby",
+  "Minty",
+  "Honey",
+  "Spicy",
+  "Zesty",
+  "Brave",
+  "Clever",
+  "Witty",
+  "Quirky",
+  "Giddy",
+  "Eager",
+  "Bold",
+  "Nimble",
+  "Humming",
+  "Dancing",
+  "Skipping",
+  "Roaming",
+  "Glowing",
+  "Sparkly",
+  "Dapper",
+  "Spiffy",
+  "Jaunty",
+  "Chipper",
+  "Sprightly",
+  "Wandering",
 ];
 
 const ANON_ANIMALS = [
-  "Otter", "Badger", "Hedgehog", "Robin", "Sparrow", "Finch", "Lark", "Wren",
-  "Penguin", "Dolphin", "Walrus", "Seagull", "Fox", "Owl", "Heron", "Magpie",
-  "Squirrel", "Mole", "Newt", "Toad", "Frog", "Hare", "Stoat", "Weasel",
-  "Puffin", "Kestrel", "Swift", "Swan", "Goose", "Duck", "Moorhen", "Curlew",
-  "Bumblebee", "Cricket", "Ladybird", "Dragonfly", "Seal", "Porpoise",
-  "Dormouse", "Shrew", "Vole", "Ferret", "Pheasant", "Mallard",
+  "Otter",
+  "Badger",
+  "Hedgehog",
+  "Robin",
+  "Sparrow",
+  "Finch",
+  "Lark",
+  "Wren",
+  "Penguin",
+  "Dolphin",
+  "Walrus",
+  "Seagull",
+  "Fox",
+  "Owl",
+  "Heron",
+  "Magpie",
+  "Squirrel",
+  "Mole",
+  "Newt",
+  "Toad",
+  "Frog",
+  "Hare",
+  "Stoat",
+  "Weasel",
+  "Puffin",
+  "Kestrel",
+  "Swift",
+  "Swan",
+  "Goose",
+  "Duck",
+  "Moorhen",
+  "Curlew",
+  "Bumblebee",
+  "Cricket",
+  "Ladybird",
+  "Dragonfly",
+  "Seal",
+  "Porpoise",
+  "Dormouse",
+  "Shrew",
+  "Vole",
+  "Ferret",
+  "Pheasant",
+  "Mallard",
 ];
 
 function randomIndex(length) {
@@ -103,8 +179,7 @@ export function getClientId() {
     // survive a reload (a stale ghost lingers for ONLINE_WINDOW_MS) but
     // presence still works this session.
     if (!volatileClientId) {
-      volatileClientId =
-        globalThis.crypto?.randomUUID?.() ?? `c-${randomIndex(0xffffffff)}`;
+      volatileClientId = globalThis.crypto?.randomUUID?.() ?? `c-${randomIndex(0xffffffff)}`;
     }
     return volatileClientId;
   }
@@ -148,14 +223,12 @@ let getName = null; // () => current typed name
 let unsubscribe = null;
 let heartbeatTimer = null;
 let rosterCallback = null;
-let lastRoster = [];
 
 export function onRoster(cb) {
   rosterCallback = cb;
 }
 
 function emitRoster(roster) {
-  lastRoster = roster;
   if (rosterCallback) rosterCallback(roster);
 }
 
@@ -233,7 +306,7 @@ export async function startPresence(id, nameFn) {
     (snap) => emitRoster(toRoster(snap)),
     () => {
       /* transient listen error — heartbeats keep flowing, listener retries */
-    }
+    },
   );
 
   heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_MS);
@@ -279,7 +352,7 @@ export function removeOnUnload() {
   if (!sessionId) return;
   getFirestore()
     .then(({ db, fx }) =>
-      fx.deleteDoc(fx.doc(db, "sessions", sessionId, "presence", getClientId()))
+      fx.deleteDoc(fx.doc(db, "sessions", sessionId, "presence", getClientId())),
     )
     .catch(() => {});
 }

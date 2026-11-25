@@ -7,14 +7,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:emulator": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"vitest run\""
+    "test:emulator": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"vitest run\"",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "firebase": "^12.16.0",
     "lucide": "^1.24.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"
   }

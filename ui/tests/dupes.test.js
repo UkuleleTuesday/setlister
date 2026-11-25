@@ -73,7 +73,9 @@ describe("findDuplicate", () => {
   });
 
   it("ignores binned copies — a binned song can be requested again", () => {
-    expect(findDuplicate([row({ binned: true })], [row({ binned: true })], rowKey(row()))).toBeNull();
+    expect(
+      findDuplicate([row({ binned: true })], [row({ binned: true })], rowKey(row())),
+    ).toBeNull();
   });
 
   it("matches an id-less legacy row against a fresh catalogue pick by text", () => {
@@ -90,10 +92,7 @@ describe("findDuplicate", () => {
 describe("indexTonight", () => {
   const jolene = entry({ id: "jolene-dolly-parton", display: "Jolene - Dolly Parton" });
   const africa = entry({ id: "africa-toto", display: "Africa - Toto" });
-  const upNext = [
-    row({ uid: "a", played: true }),
-    row({ uid: "b", match: jolene }),
-  ];
+  const upNext = [row({ uid: "a", played: true }), row({ uid: "b", match: jolene })];
   const requests = [
     row({ uid: "c", match: africa, binned: true }),
     row({ uid: "d", match: jolene }),
