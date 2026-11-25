@@ -11,4 +11,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
   },
+  test: {
+    // Unit and rules tests only; e2e/ is Playwright's (npm run test:e2e).
+    include: ["tests/**/*.test.ts"],
+  },
 });

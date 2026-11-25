@@ -94,7 +94,7 @@
         </label>
         <!-- The request window (#NEW): when Auto's own schedule opens/closes the
            link, editable here once the session exists (the New Session sheet
-           only previews the smart default — see request-window.js). Hidden
+           only previews the smart default — see request-window.ts). Hidden
            whenever a forced Open/Closed override makes the schedule inert
            (renderRequestWindowFields), and datetime-local rather than a bare
            time picker so there's no day-of-week to infer for a close time
@@ -135,7 +135,7 @@
           change it.
         </p>
         <div class="actions">
-          <!-- Icon glyphs are injected by app.js (see icons.js) — the markup
+          <!-- Icon glyphs are injected by app.js (see icons.ts) — the markup
              ships text-only fallbacks. -->
           <button id="share-link">Share link</button>
           <button id="share-room-link" class="secondary">Share request link</button>
@@ -476,7 +476,7 @@
           <input type="date" id="new-session-date" />
         </label>
         <!-- Read-only preview of the smart default request window (#NEW) —
-           nothing is stored yet (see ui/sync.js's createSession, and
+           nothing is stored yet (see ui/sync.ts's createSession, and
            AGENTS.md's create-path rule); recomputed live by
            updateSheetWindowPreview() as the date moves. Editable overrides
            live in the share panel, once the session exists. -->
