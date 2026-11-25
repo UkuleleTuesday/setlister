@@ -8,6 +8,9 @@ import { searchSongs } from "./search.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { mount } from "svelte";
 import Home from "./Home.svelte";
+import SettingsPanel from "./SettingsPanel.svelte";
+import SharePanel from "./SharePanel.svelte";
+import { editionLabel } from "./editions.js";
 import NewSessionSheet from "./NewSessionSheet.svelte";
 import WhatsNewSheet from "./WhatsNewSheet.svelte";
 import { latestEntry, sortedEntries } from "./whats-new.js";
@@ -34,11 +37,9 @@ import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } fro
 import { setBinned, setPlayed, stateTime } from "./gig-state.js";
 import {
   effectiveRequestsOpen,
-  fromDateTimeInputValue,
   minutesUntilOpen,
   openingSoonLabel,
   resolveWindow,
-  toDateTimeInputValue,
   windowStatus,
 } from "./request-window.js";
 import {
@@ -50,8 +51,6 @@ import {
   putCachedCatalogue,
 } from "./catalogue-cache.js";
 
-const editionSelect = document.getElementById("edition");
-const editionSetting = document.getElementById("edition-setting");
 const photoInput = document.getElementById("photo-input");
 const preview = document.getElementById("preview");
 const previewWrap = document.getElementById("preview-wrap");
@@ -77,31 +76,10 @@ const addFeedback = document.getElementById("add-feedback");
 const reviewConfirm = document.getElementById("review-confirm");
 const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
-const includeCrossed = document.getElementById("include-crossed");
-const showSuggestions = document.getElementById("show-suggestions");
 const settingsToggle = document.getElementById("settings-toggle");
-const settingsPanel = document.getElementById("settings-panel");
 const shareToggle = document.getElementById("share-toggle");
-const sharePanel = document.getElementById("share-panel");
-const shareSessionIdEl = document.getElementById("share-session-id");
-const shareSessionNameEl = document.getElementById("share-session-name");
-const shareLinkButton = document.getElementById("share-link");
-const shareRoomLinkButton = document.getElementById("share-room-link");
-const shareVisibility = document.getElementById("share-visibility");
-const shareRequests = document.getElementById("share-requests");
-const shareRequestsOpenTimeField = document.getElementById("share-requests-open-time-field");
-const shareRequestsOpenTime = document.getElementById("share-requests-open-time");
-const shareRequestsOpenReset = document.getElementById("share-requests-open-reset");
-const shareRequestsCloseTimeField = document.getElementById("share-requests-close-time-field");
-const shareRequestsCloseTime = document.getElementById("share-requests-close-time");
-const shareRequestsCloseReset = document.getElementById("share-requests-close-reset");
-const shareRequestNote = document.getElementById("share-request-note");
 const requestsOpeningSoonNote = document.getElementById("requests-opening-soon-note");
 const shareCountBadge = document.getElementById("share-count-badge");
-const sharePresence = document.getElementById("share-presence");
-const sharePresenceCount = document.getElementById("share-presence-count");
-const sharePresenceList = document.getElementById("share-presence-list");
-const playerName = document.getElementById("player-name");
 const requestSheet = document.getElementById("room-request-sheet");
 const requestSheetTitle = document.getElementById("room-request-title");
 const requestSheetSong = document.getElementById("room-request-song");
@@ -128,10 +106,6 @@ const upnextHint = document.getElementById("upnext-hint");
 const requestsHint = document.getElementById("requests-hint");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
-const modelSelect = document.getElementById("model");
-const disableThinking = document.getElementById("disable-thinking");
-const sendCatalogue = document.getElementById("send-catalogue");
-const maxImageEdge = document.getElementById("max-image-edge");
 const photoLightbox = document.getElementById("photo-lightbox");
 const photoLightboxImg = document.getElementById("photo-lightbox-img");
 const photoLightboxClose = document.getElementById("photo-lightbox-close");
@@ -177,6 +151,46 @@ const home = mount(Home, {
     onPlanned: (entry) => newSessionSheet.setPlanned(entry),
   },
 });
+// The header popovers, in their places in the header. Their writes go through
+// the change*/share* functions below; session metadata only ever travels by
+// sync's own metadata writes, never the debounced row push.
+const sharePanelMount = document.getElementById("share-panel-mount");
+const sharePanel = mount(SharePanel, {
+  target: sharePanelMount.parentNode,
+  anchor: sharePanelMount,
+  props: {
+    onVisibility: changeVisibility,
+    onRequestsMode: changeRequestsMode,
+    onWindow: changeRequestsWindow,
+    onShareLink: shareSessionLink,
+    onShareRoomLink: shareRoomLink,
+    onOpenChange: (open) => shareToggle.setAttribute("aria-expanded", String(open)),
+    // Taps on these open the panel, so they mustn't count as "outside".
+    openers: () => [shareToggle, windowChip],
+  },
+});
+const settingsPanelMount = document.getElementById("settings-panel-mount");
+const settingsPanel = mount(SettingsPanel, {
+  target: settingsPanelMount.parentNode,
+  anchor: settingsPanelMount,
+  props: {
+    onName: (name) => setPlayerName(name),
+    // Settings survive a reload like the lists do: losing a toggle you set
+    // last Tuesday reads as a bug at the club.
+    onChange: (key) => {
+      if (key === "showSuggestions") rerender();
+      persist();
+    },
+    // Switching the book mid-session: cache-first swap like any other
+    // re-scope, and an immediate persist() so a cached switch reaches the
+    // session peers even if the background refresh never lands (pub wifi).
+    onEdition: (editionId) => {
+      scopeCatalogueToEdition(editionId);
+      persist();
+    },
+    onOpenChange: (open) => settingsToggle.setAttribute("aria-expanded", String(open)),
+  },
+});
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
 const nameResetName = document.getElementById("name-reset-name");
@@ -189,8 +203,6 @@ settingsToggle.replaceChildren(icon("settings"));
 shareToggle.replaceChildren(icon("share"));
 photoLightboxClose.replaceChildren(icon("close"));
 cameraButton.replaceChildren(...iconLabel("camera", "Snap the board"));
-shareLinkButton.replaceChildren(...iconLabel("share", "Share link"));
-shareRoomLinkButton.replaceChildren(...iconLabel("share", "Share request link"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
@@ -235,17 +247,6 @@ let app = {
   binOpen: false,
 };
 
-showSuggestions.addEventListener("change", () => {
-  rerender();
-  persist();
-});
-
-// Settings survive a reload like the lists do — losing a toggle you set last
-// Tuesday reads as a bug at the club.
-for (const control of [modelSelect, disableThinking, sendCatalogue, includeCrossed, maxImageEdge]) {
-  control.addEventListener("change", persist);
-}
-
 // Remember the name across sessions so provenance survives a reload. In a
 // shared session, also push it to the presence roster so overriding your
 // generated default name shows up for everyone immediately. Two surfaces set
@@ -253,11 +254,10 @@ for (const control of [modelSelect, disableThinking, sendCatalogue, includeCross
 // there) — both funnel through here so neither can leave a stale value.
 function setPlayerName(value) {
   app.name = value;
-  playerName.value = value;
+  settingsPanel.setName(value);
   persist();
   presence.refreshPresence();
 }
-playerName.addEventListener("input", () => setPlayerName(playerName.value));
 
 // Room mode's name, once set, is fire-and-forget: this one quiet line is all
 // that remains of it (the sheet below is where it's actually entered).
@@ -361,24 +361,16 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !requestSheet.hidden) closeRequestSheet();
 });
 
-// Settings live in a panel behind the gear icon; toggle it and close on
-// outside click or Escape so it behaves like a normal popover.
+// Settings live in a panel behind the gear icon (SettingsPanel.svelte, which
+// closes itself on an outside tap or Escape, like a normal popover). The
+// gear's tap stops propagation so it toggles rather than counting as outside.
 function setSettingsOpen(open) {
-  settingsPanel.hidden = !open;
-  settingsToggle.setAttribute("aria-expanded", String(open));
+  settingsPanel.setOpen(open);
 }
 settingsToggle.addEventListener("click", (event) => {
   event.stopPropagation();
   setSharePanelOpen(false); // never leave both header popovers open at once
-  setSettingsOpen(settingsPanel.hidden);
-});
-document.addEventListener("click", (event) => {
-  if (!settingsPanel.hidden && !settingsPanel.contains(event.target)) {
-    setSettingsOpen(false);
-  }
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") setSettingsOpen(false);
+  setSettingsOpen(!settingsPanel.isPanelOpen());
 });
 
 // The UI is a static site (GitHub Pages in production), so the API lives on a
@@ -415,14 +407,7 @@ function persist() {
         // Persist the active session id so a reload silently rejoins (see
         // init()). null when local-only.
         sessionId: sync.getSessionId(),
-        settings: {
-          model: modelSelect.value,
-          disableThinking: disableThinking.checked,
-          sendCatalogue: sendCatalogue.checked,
-          showSuggestions: showSuggestions.checked,
-          includeCrossed: includeCrossed.checked,
-          maxImageEdge: maxImageEdge.value,
-        },
+        settings: settingsPanel.settings(),
       }),
     );
   } catch {
@@ -457,15 +442,7 @@ function restore() {
     if (saved.votes && typeof saved.votes === "object") app.votes = saved.votes;
     if (saved.edition) app.edition = saved.edition;
     if (typeof saved.name === "string") app.name = saved.name;
-    if (saved.settings && typeof saved.settings === "object") {
-      const s = saved.settings;
-      if (typeof s.model === "string") modelSelect.value = s.model;
-      if (typeof s.disableThinking === "boolean") disableThinking.checked = s.disableThinking;
-      if (typeof s.sendCatalogue === "boolean") sendCatalogue.checked = s.sendCatalogue;
-      if (typeof s.showSuggestions === "boolean") showSuggestions.checked = s.showSuggestions;
-      if (typeof s.includeCrossed === "boolean") includeCrossed.checked = s.includeCrossed;
-      if (typeof s.maxImageEdge === "string") maxImageEdge.value = s.maxImageEdge;
-    }
+    settingsPanel.apply(saved.settings);
   } catch {
     /* corrupt payload — start fresh */
   }
@@ -690,7 +667,7 @@ function applyRequestsOpen() {
   if (soonMinutes != null) {
     requestsOpeningSoonNote.textContent = `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
   }
-  shareRequestNote.textContent = requestNoteText(meta, open, reqWindow);
+  sharePanel.setRequestNote(requestNoteText(meta, open, reqWindow));
   renderWindowPills(meta, reqWindow);
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
@@ -722,8 +699,7 @@ function renderWindowPills(meta, reqWindow) {
 }
 
 windowChip.addEventListener("click", () => {
-  setSharePanelOpen(true);
-  shareRequests.closest(".field").scrollIntoView({ block: "nearest" });
+  sharePanel.revealRequests();
 });
 
 function setView(view) {
@@ -741,7 +717,7 @@ function setView(view) {
   editionNote.hidden = home;
   // So is the songbook select now: it edits the session's book, for everyone.
   // On home the choice belongs to the new-session sheet instead.
-  editionSetting.hidden = home;
+  settingsPanel.setEditionVisible(!home);
   if (home) {
     setSharePanelOpen(false);
     shareCountBadge.hidden = true;
@@ -836,8 +812,17 @@ backHomeButton.addEventListener("click", () => {
 
 // --- Share button + session popover ----------------------------------------
 function setSharePanelOpen(open) {
-  sharePanel.hidden = !open;
-  shareToggle.setAttribute("aria-expanded", String(open));
+  sharePanel.setOpen(open);
+}
+
+// Re-render the share panel from sync's current state.
+function refreshSharePanel() {
+  sharePanel.update({
+    id: sync.getSessionId(),
+    label: currentSessionLabel(),
+    meta: sync.getMeta(),
+    createdAt: sync.getCreatedAt(),
+  });
 }
 
 // How many people (including us) presence currently reports in the session.
@@ -856,8 +841,8 @@ function updateShareUi() {
     label = `Sharing session ${id}, ${connectedCount} people here. Tap for options`;
   else label = `Sharing session ${id}. Tap for options`;
   shareToggle.setAttribute("aria-label", label);
-  if (id) shareSessionIdEl.textContent = id;
-  else setSharePanelOpen(false); // no session → nothing to show
+  refreshSharePanel();
+  if (!id) setSharePanelOpen(false); // no session → nothing to show
 }
 
 // What the current session is called: its date, rendered live. Falls back to
@@ -877,14 +862,9 @@ function updateDocumentTitle() {
 // The session's date label and visibility, wherever they're shown: the header
 // title, the share popover (which leads with the label — the id is just the
 // link slug), and the browser tab. Driven by sync.onMetaChange.
-function renderSessionMeta(meta) {
+function renderSessionMeta() {
   if (!sessionView.hidden) headerTitle.textContent = currentSessionLabel();
-  shareSessionNameEl.textContent = currentSessionLabel();
-  shareVisibility.value = meta.listed ? "shared" : "unlisted";
-  shareRequests.value =
-    meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
-  shareRequests.dataset.previous = shareRequests.value;
-  renderRequestWindowFields(meta);
+  refreshSharePanel();
   applyRequestsOpen();
   // The room's empty note changes with the switch, and a room device may be
   // sitting on this session right now.
@@ -892,30 +872,6 @@ function renderSessionMeta(meta) {
   updateDocumentTitle();
 }
 sync.onMetaChange(renderSessionMeta);
-
-// Populates the two override time fields with the CURRENTLY RESOLVED window
-// (an explicit override if one's set, else the smart default) so they never
-// look empty, and shows "Use default" only on the side that actually has an
-// override to clear. Hidden entirely outside auto mode: a forced open/closed
-// override makes the window inert, and showing live-looking fields for a
-// schedule that isn't in effect would be the same lie the empty-state copy
-// already avoids for room mode.
-function renderRequestWindowFields(meta) {
-  const auto = meta.requestsOpen === null;
-  shareRequestsOpenTimeField.hidden = !auto;
-  shareRequestsCloseTimeField.hidden = !auto;
-  shareRequestsOpenReset.hidden = !auto || meta.requestsOpensAt === null;
-  shareRequestsCloseReset.hidden = !auto || meta.requestsClosesAt === null;
-  if (!auto) return;
-  const createdAt = sync.getCreatedAt();
-  const reqWindow = resolveWindow({
-    sessionCreatedAt: createdAt,
-    opensAtOverride: meta.requestsOpensAt,
-    closesAtOverride: meta.requestsClosesAt,
-  });
-  shareRequestsOpenTime.value = reqWindow ? toDateTimeInputValue(reqWindow.opensAt) : "";
-  shareRequestsCloseTime.value = reqWindow ? toDateTimeInputValue(reqWindow.closesAt) : "";
-}
 
 // Render the "who's here" roster into the share panel and the count badge on
 // the share button. Wired to presence.onRoster, so it re-renders whenever a
@@ -927,27 +883,7 @@ function renderPresence(roster) {
   shareCountBadge.hidden = !showBadge;
   shareCountBadge.textContent = showBadge ? String(connectedCount) : "";
 
-  if (!id || !connectedCount) {
-    sharePresence.hidden = true;
-    sharePresenceList.replaceChildren();
-  } else {
-    sharePresence.hidden = false;
-    sharePresenceCount.textContent = String(connectedCount);
-    sharePresenceList.replaceChildren(
-      ...roster.map((peer) => {
-        const li = document.createElement("li");
-        li.className = "share-presence-item";
-        const dot = document.createElement("span");
-        dot.className = "presence-dot";
-        dot.setAttribute("aria-hidden", "true");
-        const name = document.createElement("span");
-        name.className = "presence-name";
-        name.textContent = peer.isSelf ? `${peer.name} (you)` : peer.name;
-        li.append(dot, name);
-        return li;
-      }),
-    );
-  }
+  sharePanel.setRoster(id ? roster : []);
   updateShareUi();
 }
 presence.onRoster(renderPresence);
@@ -989,42 +925,41 @@ function flashButton(button, message) {
 }
 
 // Offer a link: the native share sheet on mobile (the primary target), else
-// copy to clipboard with transient feedback on the button that was tapped.
-async function offerLink(url, title, button) {
+// copy to clipboard. Returns whether it was copied, so the button that was
+// tapped can flash a confirmation (SharePanel.svelte does).
+async function offerLink(url, title) {
   if (navigator.share) {
     try {
       await navigator.share({ title, url });
     } catch {
       /* user dismissed the share sheet, or it rejected the payload — no-op */
     }
-    return;
+    return false;
   }
   await copyToClipboard(url);
-  flashButton(button, "Link copied");
+  return true;
 }
 
 // The full-app link. Carries the night's date label in the share payload, so
 // the recipient sees which session this is, not a generic app title.
 async function shareSessionLink() {
   const id = sync.getSessionId();
-  if (!id) return;
+  if (!id) return false;
   const label = currentSessionLabel();
-  await offerLink(
+  return offerLink(
     sessionUrl(id),
     label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
-    shareLinkButton,
   );
 }
 
 // The room-view link (#86): what goes to the room's WhatsApp group.
 async function shareRoomLink() {
   const id = sync.getSessionId();
-  if (!id) return;
+  if (!id) return false;
   const label = currentSessionLabel();
-  await offerLink(
+  return offerLink(
     roomSessionUrl(id),
     label ? `Requests for ${label} · Ukulele Tuesday` : "Ukulele Tuesday requests",
-    shareRoomLinkButton,
   );
 }
 
@@ -1033,22 +968,19 @@ async function shareRoomLink() {
 function onShareTap(event) {
   event.stopPropagation();
   setSettingsOpen(false);
-  setSharePanelOpen(sharePanel.hidden);
+  setSharePanelOpen(!sharePanel.isPanelOpen());
 }
 
 // Shared / Unlisted. Unlisted removes the row from the club's list only — the
-// link keeps working, which the note under the dropdown says out loud.
-async function onVisibilityChange() {
-  const listed = shareVisibility.value === "shared";
+// link keeps working, which the note under the dropdown says out loud. The
+// panel shows the pick at once and reverts it if this rejects.
+async function changeVisibility(listed) {
   errorBox.hidden = true;
-  shareVisibility.disabled = true;
   try {
     await sync.setSessionListed(listed);
   } catch (err) {
-    shareVisibility.value = listed ? "unlisted" : "shared"; // the write didn't land
     showSessionError(`Couldn’t change the session’s visibility: ${err.message}`);
-  } finally {
-    shareVisibility.disabled = false;
+    throw err;
   }
 }
 
@@ -1057,83 +989,36 @@ async function onVisibilityChange() {
 // onMetaChange) and points them at the whiteboard; forcing it open does the
 // opposite regardless of the schedule; auto hands control back to the window.
 // Same optimistic-then-revert shape as visibility, since all three are one
-// tap that has to survive a flaky pub wifi. The previous value is stashed on
-// the element (rather than derived from the new one) because a 3-way revert
-// can't be inferred from "not this" the way the old binary toggle could.
-async function onRequestsChange() {
-  const mode = shareRequests.value;
-  const previous = shareRequests.dataset.previous || "auto";
+// tap that has to survive a flaky pub wifi.
+async function changeRequestsMode(mode) {
   errorBox.hidden = true;
-  shareRequests.disabled = true;
   try {
     await sync.setRequestsMode(mode);
-    shareRequests.dataset.previous = mode;
-    renderRequestWindowFields(sync.getMeta());
-    applyRequestsOpen();
-    renderRequests();
   } catch (err) {
-    shareRequests.value = previous; // the write didn't land
     showSessionError(`Couldn’t change the request link: ${err.message}`);
-  } finally {
-    shareRequests.disabled = false;
+    throw err;
   }
+  refreshSharePanel();
+  applyRequestsOpen();
+  renderRequests();
 }
 
-// The two override time fields (#NEW). Each writes independently: touching
-// Opens never disturbs whatever Closes currently resolves to, and vice versa
-// — setRequestsWindow always sends both current values so one save can't
-// silently clear the other side.
-async function onRequestsWindowChange(side) {
-  const meta = sync.getMeta();
-  const opensAt =
-    side === "open" ? fromDateTimeInputValue(shareRequestsOpenTime.value) : meta.requestsOpensAt;
-  const closesAt =
-    side === "close" ? fromDateTimeInputValue(shareRequestsCloseTime.value) : meta.requestsClosesAt;
+// The two override time fields (#NEW). The panel always sends both sides'
+// current values, so one save can't silently clear the other.
+async function changeRequestsWindow({ opensAt, closesAt }) {
   errorBox.hidden = true;
   try {
     await sync.setRequestsWindow({ opensAt, closesAt });
-    renderRequestWindowFields(sync.getMeta());
-    applyRequestsOpen();
   } catch (err) {
-    renderRequestWindowFields(sync.getMeta()); // revert the input to what's actually stored
+    refreshSharePanel(); // revert the input to what's actually stored
     showSessionError(`Couldn’t change the request window: ${err.message}`);
+    throw err;
   }
-}
-
-function onRequestsOpenReset() {
-  shareRequestsOpenTime.value = "";
-  onRequestsWindowChange("open");
-}
-
-function onRequestsCloseReset() {
-  shareRequestsCloseTime.value = "";
-  onRequestsWindowChange("close");
+  refreshSharePanel();
+  applyRequestsOpen();
 }
 
 shareToggle.addEventListener("click", onShareTap);
-shareLinkButton.addEventListener("click", shareSessionLink);
-shareRoomLinkButton.addEventListener("click", shareRoomLink);
-shareVisibility.addEventListener("change", onVisibilityChange);
-shareRequests.addEventListener("change", onRequestsChange);
-shareRequestsOpenTime.addEventListener("change", () => onRequestsWindowChange("open"));
-shareRequestsCloseTime.addEventListener("change", () => onRequestsWindowChange("close"));
-shareRequestsOpenReset.addEventListener("click", onRequestsOpenReset);
-shareRequestsCloseReset.addEventListener("click", onRequestsCloseReset);
-
-// Same forgiving dismissal as the settings popover: tap outside or Escape.
-document.addEventListener("click", (event) => {
-  if (
-    !sharePanel.hidden &&
-    !sharePanel.contains(event.target) &&
-    !shareToggle.contains(event.target) &&
-    !windowChip.contains(event.target)
-  ) {
-    setSharePanelOpen(false);
-  }
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") setSharePanelOpen(false);
-});
 
 // The request window's open/opening-soon/closed state (#NEW) can flip with no
 // Firestore snapshot arriving at all — an unattended auto session crossing
@@ -1332,45 +1217,17 @@ let loadedCatalogueEditionId = null;
 // The editions listing only knows ids (real titles live in each edition's
 // manifest), so prettify the slug for display: "wexford-2026" -> "Wexford 2026".
 // A real title is preferred whenever the API sends one.
-function editionLabel(e) {
-  if (e.title && e.title !== e.id) return e.title;
-  return e.id
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 // The fetched editions listing, kept for the new-session sheet and for
 // resolving a picked id back to its {id, title} on create. Empty until (and
 // unless) /api/editions answers — both selects ship a hardcoded "current"
 // option so the default path never depends on this request.
 let editionsList = [];
 
-function populateEditionSelect(select, selectedId) {
-  // A session can name an edition the listing doesn't know (an unlisted book,
-  // or the listing simply failed) — give it an option anyway so the select
-  // shows the truth instead of silently snapping to something else.
-  const known = editionsList.length ? editionsList : [{ id: "current" }];
-  const editions = known.some((e) => e.id === selectedId) ? known : [...known, { id: selectedId }];
-  select.replaceChildren(
-    ...editions.map((e) => {
-      const option = document.createElement("option");
-      option.value = e.id;
-      option.textContent = editionLabel(e);
-      option.selected = e.id === selectedId;
-      return option;
-    }),
-  );
-}
-
-// Point the settings select at the session's book, growing an option for an
-// id it doesn't have yet (editions may still be loading when the doc arrives).
+// Point the settings select at the session's book. The panel grows an option
+// for an id the listing doesn't know (editions may still be loading when the
+// doc arrives).
 function syncEditionSelect(editionId) {
-  if (editionSelect.value === editionId) return;
-  if (![...editionSelect.options].some((o) => o.value === editionId)) {
-    populateEditionSelect(editionSelect, editionId);
-  }
-  editionSelect.value = editionId;
+  settingsPanel.selectEdition(editionId);
 }
 
 async function loadEditions() {
@@ -1383,7 +1240,8 @@ async function loadEditions() {
     /* keep the hardcoded "current" options */
     return;
   }
-  populateEditionSelect(editionSelect, app.edition?.id || "current");
+  settingsPanel.setEditions(editionsList);
+  settingsPanel.selectEdition(app.edition?.id || "current");
   newSessionSheet.setEditions(editionsList.map((e) => ({ id: e.id, label: editionLabel(e) })));
 }
 
@@ -1447,14 +1305,6 @@ function refreshCatalogueIfStale() {
 // not a page load, is when a new night usually starts.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") refreshCatalogueIfStale();
-});
-
-// Switching the book mid-session: cache-first swap like any other re-scope,
-// and an immediate persist() so a cached switch reaches the session peers even
-// if the background refresh never lands (the pub wifi case).
-editionSelect.addEventListener("change", () => {
-  scopeCatalogueToEdition(editionSelect.value);
-  persist();
 });
 
 // The matching rules live in search.ts, shared with the songbook sheet.
@@ -2057,19 +1907,20 @@ photoInput.addEventListener("change", async () => {
   try {
     // The long edge governs the upload now, not just the server's resize — the
     // camera's 3–8MB original would be thrown away server-side anyway (#44).
-    const maxEdge = resolveMaxEdge(maxImageEdge.value);
+    const maxEdge = resolveMaxEdge(settingsPanel.settings().maxImageEdge);
     const upload = await downscaleImage(file, { maxEdge });
 
     const form = new FormData();
     form.append("image", upload);
     // The session's book, not the raw select: app.edition is the source of
     // truth and the two only diverge for the beat before the select syncs.
-    form.append("edition", app.edition?.id || editionSelect.value);
+    form.append("edition", app.edition?.id || settingsPanel.selectedEdition());
     // Tuning knobs from the settings panel — the API clamps/ignores anything out
     // of range and falls back to its configured defaults.
-    if (modelSelect.value) form.append("model", modelSelect.value);
-    form.append("thinking_budget", disableThinking.checked ? "0" : "1024");
-    form.append("catalogue_in_prompt", sendCatalogue.checked ? "true" : "false");
+    const { model, disableThinking, sendCatalogue } = settingsPanel.settings();
+    if (model) form.append("model", model);
+    form.append("thinking_budget", disableThinking ? "0" : "1024");
+    form.append("catalogue_in_prompt", sendCatalogue ? "true" : "false");
     // Sent anyway: a browser that couldn't downscale still gets the size it
     // asked for, and when the shrink worked this is a no-op on a photo that
     // already fits.
@@ -2684,7 +2535,7 @@ function renderRow(row, index, context) {
     }
   }
 
-  if (showSuggestions.checked && row.alternatives?.length && !row.removed) {
+  if (settingsPanel.settings().showSuggestions && row.alternatives?.length && !row.removed) {
     const chips = document.createElement("div");
     chips.className = "chips";
     row.alternatives.forEach((alt) => {
@@ -3119,7 +2970,7 @@ function wireSwipe(li, body, row, context) {
 // still waiting in the pool.
 function exportedRows() {
   return [...app.upNext, ...app.requests].filter(
-    (row) => !row.removed && (includeCrossed.checked || !row.crossed_out),
+    (row) => !row.removed && (settingsPanel.settings().includeCrossed || !row.crossed_out),
   );
 }
 
@@ -3173,8 +3024,8 @@ downloadButton.addEventListener("click", () => {
   // below replaces it (a Cloud Function cold start can take several seconds).
   // Keyed by the edition restore() brought back — joining a session with a
   // different book re-scopes via applyRemoteState.
-  restoreCatalogueCache(app.edition?.id || editionSelect.value);
-  playerName.value = app.name;
+  restoreCatalogueCache(app.edition?.id || settingsPanel.selectedEdition());
+  settingsPanel.setName(app.name);
   renderRoomIdentity();
   mountManualAdd();
   renderUpNext();
@@ -3195,6 +3046,6 @@ downloadButton.addEventListener("click", () => {
   await Promise.all([
     navigateTo(routeId, { replace: true }),
     loadEditions(),
-    loadCatalogue(app.edition?.id || editionSelect.value),
+    loadCatalogue(app.edition?.id || settingsPanel.selectedEdition()),
   ]);
 })();
