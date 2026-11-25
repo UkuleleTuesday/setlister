@@ -15,26 +15,40 @@
 // rows don't block — binning meant "not this one", and a fresh, genuine
 // request later deserves a fresh row.
 //
-// Pure module, no DOM: exported for ui/tests (same precedent as sync.js).
+// Pure module, no DOM: exported for ui/tests (same precedent as sync.ts).
+
+import type { CatalogueEntry, Row } from "./types.js";
+
+export type DuplicateWhere = "played" | "upnext" | "requests";
+
+/** An existing copy of a song on the night's lists. */
+export interface Duplicate {
+  where: DuplicateWhere;
+  row: Row;
+}
 
 /**
  * Accent-insensitive lowercase form, mirroring the backend's matcher.py — so
  * "sara" equals "Sarà" here just like it does in search.
  */
-export function normalizeText(s) {
+export function normalizeText(s: string): string {
   return s
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 
-/** Identity of a catalogue entry (a combobox pick or a row's match). */
-export function matchKey(entry) {
+/**
+ * Identity of a catalogue entry (a combobox pick or a row's match). Both
+ * fields are optional here, unlike CatalogueEntry: legacy rows embed matches
+ * from before entries had ids.
+ */
+export function matchKey(entry: Partial<Pick<CatalogueEntry, "id" | "display">>): string {
   return entry.id || normalizeText(entry.display || "");
 }
 
 /** Identity of a list row: its match if it has one, else what was written. */
-export function rowKey(row) {
+export function rowKey(row: Pick<Row, "match" | "raw_title">): string {
   return row.match ? matchKey(row.match) : normalizeText(row.raw_title || "");
 }
 
@@ -44,12 +58,12 @@ export function rowKey(row) {
  * a played row reports as "played" whichever array it lives in (older clients
  * could sync a played row into Requests).
  */
-export function findDuplicate(upNext, requests, key) {
+export function findDuplicate(upNext: Row[], requests: Row[], key: string): Duplicate | null {
   if (!key) return null;
   for (const [list, where] of [
     [upNext, "upnext"],
     [requests, "requests"],
-  ]) {
+  ] as const) {
     for (const row of list) {
       if (row.binned || rowKey(row) !== key) continue;
       return { where: row.played ? "played" : where, row };
@@ -63,12 +77,12 @@ export function findDuplicate(upNext, requests, key) {
  * findDuplicate(key) would return, built in one pass so a list showing the
  * whole songbook can tag each tune without scanning the lists per entry.
  */
-export function indexTonight(upNext, requests) {
-  const index = new Map();
+export function indexTonight(upNext: Row[], requests: Row[]): Map<string, Duplicate> {
+  const index = new Map<string, Duplicate>();
   for (const [list, where] of [
     [upNext, "upnext"],
     [requests, "requests"],
-  ]) {
+  ] as const) {
     for (const row of list) {
       const key = rowKey(row);
       if (row.binned || !key || index.has(key)) continue;
@@ -79,7 +93,7 @@ export function indexTonight(upNext, requests) {
 }
 
 /** The user-facing wording for each kind of existing copy. */
-export function duplicateLabel(where) {
+export function duplicateLabel(where: DuplicateWhere): string {
   return {
     played: "Already played tonight",
     upnext: "Already in Up next",

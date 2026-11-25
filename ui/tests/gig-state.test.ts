@@ -7,11 +7,16 @@
 
 import { describe, expect, it } from "vitest";
 import { setBinned, setPlayed, stateTime } from "../gig-state.js";
+import type { Row } from "../types.js";
 
 const T1 = Date.UTC(2026, 9, 21, 20, 42, 11);
 const T2 = Date.UTC(2026, 9, 21, 21, 5, 0);
 
-const fresh = () => ({ uid: "a", played: false, binned: false });
+const fresh = (): Pick<Row, "uid" | "played" | "playedAt" | "binned" | "binnedAt"> => ({
+  uid: "a",
+  played: false,
+  binned: false,
+});
 
 describe("setPlayed", () => {
   it("records the moment as an ISO string", () => {
@@ -50,7 +55,7 @@ describe("setPlayed", () => {
     const before = Date.now();
     const row = fresh();
     setPlayed(row, true);
-    expect(stateTime(row.playedAt).getTime()).toBeGreaterThanOrEqual(before);
+    expect(stateTime(row.playedAt)!.getTime()).toBeGreaterThanOrEqual(before);
   });
 });
 
@@ -75,7 +80,7 @@ describe("setBinned", () => {
 
 describe("stateTime", () => {
   it("parses a stored ISO string", () => {
-    expect(stateTime("2026-10-21T20:42:11.000Z").getTime()).toBe(T1);
+    expect(stateTime("2026-10-21T20:42:11.000Z")!.getTime()).toBe(T1);
   });
 
   it("is null for absent or garbage values", () => {

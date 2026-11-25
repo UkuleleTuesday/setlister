@@ -20,7 +20,7 @@ import {
   windowStatus,
 } from "../request-window.js";
 
-const at = (y, m, d, h = 20, min = 0) => new Date(y, m, d, h, min);
+const at = (y: number, m: number, d: number, h = 20, min = 0) => new Date(y, m, d, h, min);
 
 describe("defaultOpensAt", () => {
   it("is exactly 30 minutes before the session's start", () => {
@@ -43,7 +43,7 @@ describe("defaultClosesAt", () => {
 
   it("attributes a session created just after midnight to the PREVIOUS night", () => {
     // 01:15 still belongs to the night that started the evening before (see
-    // startOfNight in session-index.js): that evening's 22:30 has passed, so
+    // startOfNight in session-index.ts): that evening's 22:30 has passed, so
     // it closes at that same night's 04:00, not a whole extra day later.
     expect(defaultClosesAt(at(2026, 7, 5, 1, 15))).toEqual(at(2026, 7, 5, 4, 0));
   });
@@ -62,14 +62,14 @@ describe("resolveWindow", () => {
 
   it("overrides only the open boundary, leaving close at its default", () => {
     const opensAtOverride = at(2026, 7, 4, 18, 0);
-    const window = resolveWindow({ sessionCreatedAt: created, opensAtOverride });
+    const window = resolveWindow({ sessionCreatedAt: created, opensAtOverride })!;
     expect(window.opensAt).toEqual(opensAtOverride);
     expect(window.closesAt).toEqual(defaultClosesAt(created));
   });
 
   it("overrides only the close boundary, leaving open at its default", () => {
     const closesAtOverride = at(2026, 7, 5, 1, 0);
-    const window = resolveWindow({ sessionCreatedAt: created, closesAtOverride });
+    const window = resolveWindow({ sessionCreatedAt: created, closesAtOverride })!;
     expect(window.opensAt).toEqual(defaultOpensAt(created));
     expect(window.closesAt).toEqual(closesAtOverride);
   });
@@ -231,7 +231,7 @@ describe("defaultWindowLabel", () => {
 });
 
 // The <input type="datetime-local"> bridge — local time only, same footgun
-// toDateInputValue/fromDateInputValue in session-index.js already dodge.
+// toDateInputValue/fromDateInputValue in session-index.ts already dodge.
 describe("datetime-local input helpers", () => {
   it("renders the local date and time", () => {
     expect(toDateTimeInputValue(at(2026, 7, 5, 0, 30))).toBe("2026-08-05T00:30");
@@ -239,7 +239,7 @@ describe("datetime-local input helpers", () => {
   });
 
   it("round-trips a picked value", () => {
-    expect(toDateTimeInputValue(fromDateTimeInputValue("2026-08-11T19:30"))).toBe(
+    expect(toDateTimeInputValue(fromDateTimeInputValue("2026-08-11T19:30")!)).toBe(
       "2026-08-11T19:30",
     );
   });

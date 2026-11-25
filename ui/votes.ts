@@ -6,7 +6,7 @@
 //
 // The shape is `{ [rowUid]: { [clientId]: true } }`, living in its own
 // top-level field on the session doc rather than on the row. That is not
-// tidiness — `diff()` in sync.js replaces `rows.<uid>` wholesale on any change,
+// tidiness — `diff()` in sync.ts replaces `rows.<uid>` wholesale on any change,
 // so votes stored on a row would clobber each other in exactly the moment this
 // feature exists for (the room all voting at once). As its own map it is
 // written with nested field paths, which Firestore merges per key, and a row
@@ -19,29 +19,35 @@
 // Cheap to shrug at, since the cost of a miscount is a song played slightly out
 // of order.
 //
-// Pure module, no DOM: exported for ui/tests (the dupes.js precedent).
+// Pure module, no DOM: exported for ui/tests (the dupes.ts precedent).
+
+import type { Row, Votes } from "./types.js";
+
+// Votes arrive from the session doc unvalidated, so every reader takes
+// `unknown` and treats anything that isn't a map as no votes.
+type VoteMap = Record<string, true>;
 
 /** The map for one row, or an empty object — callers never see undefined. */
-function rowVotes(votes, uid) {
-  const entry = votes && typeof votes === "object" ? votes[uid] : null;
-  return entry && typeof entry === "object" ? entry : {};
+function rowVotes(votes: unknown, uid: string): VoteMap {
+  const entry = votes && typeof votes === "object" ? (votes as Record<string, unknown>)[uid] : null;
+  return entry && typeof entry === "object" ? (entry as VoteMap) : {};
 }
 
 /** How many people want this song. */
-export function voteCount(votes, uid) {
+export function voteCount(votes: unknown, uid: string): number {
   return Object.keys(rowVotes(votes, uid)).length;
 }
 
-export function hasVoted(votes, uid, clientId) {
+export function hasVoted(votes: unknown, uid: string, clientId: string): boolean {
   return rowVotes(votes, uid)[clientId] === true;
 }
 
 // Add or remove this client's vote, returning a NEW map — the caller assigns it
 // so the change flows through the usual render/persist path. Copying rather
-// than mutating also keeps sync.js's diff honest: it compares against the last
+// than mutating also keeps sync.ts's diff honest: it compares against the last
 // server state, which must not be edited underneath it.
-export function toggleVote(votes, uid, clientId) {
-  const next = { ...(votes && typeof votes === "object" ? votes : {}) };
+export function toggleVote(votes: unknown, uid: string, clientId: string): Votes {
+  const next: Votes = { ...(votes && typeof votes === "object" ? (votes as Votes) : {}) };
   const row = { ...rowVotes(votes, uid) };
   if (row[clientId] === true) delete row[clientId];
   else row[clientId] = true;
@@ -66,7 +72,7 @@ export function toggleVote(votes, uid, clientId) {
 export const ASKER = "asker";
 
 /** Add `voter`'s vote to a brand-new row, leaving an existing one alone. */
-export function seedAsker(votes, uid, voter) {
+export function seedAsker(votes: Votes, uid: string, voter: string): Votes {
   if (hasVoted(votes, uid, voter)) return votes;
   return toggleVote(votes, uid, voter);
 }
@@ -79,6 +85,6 @@ export function seedAsker(votes, uid, voter) {
 // The sort is stable, which is what makes ties keep arrival order: two songs on
 // three votes each stay in the order they were asked for, rather than shuffling
 // under the MC's thumb every time an unrelated row is voted.
-export function sortForDisplay(rows, votes) {
+export function sortForDisplay<T extends Pick<Row, "uid">>(rows: T[], votes: unknown): T[] {
   return [...rows].sort((a, b) => voteCount(votes, b.uid) - voteCount(votes, a.uid));
 }

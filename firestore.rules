@@ -108,7 +108,7 @@ function isValidSession(id) {
     // its own, beyond the smart default above. Both optional and independent
     // — moving the close time never pins the open time to anything. Written
     // only from the share panel once a session exists, never on create (see
-    // createSession() in ui/sync.js) so a UI bundle running ahead of these
+    // createSession() in ui/sync.ts) so a UI bundle running ahead of these
     // rules can't turn "start a session" into a hasOnly rejection. No bound
     // beyond `is timestamp`: unlike sessionIndex's createdAt, a bogus value
     // here can't pollute a shared list — it only breaks this one session's
@@ -118,7 +118,7 @@ function isValidSession(id) {
     && (!('requestsClosesAt' in d) || d.requestsClosesAt is timestamp)
     // Upvotes on requests (#83): { rowUid: { clientId: true } }. Its own
     // top-level map rather than a field on the row, because `rows.<uid>` writes
-    // replace the whole row (see diff() in ui/sync.js) — votes living there
+    // replace the whole row (see diff() in ui/sync.ts) — votes living there
     // would clobber each other in exactly the moment the room all votes at
     // once. Only `is map`: the contents are as unvalidated as `rows`, and
     // one-vote-per-person is a client-side honour rule, not something rules can

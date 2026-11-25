@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildSessionUrl, resolveMode, sourceLabel } from "../view-mode.js";
 
-const params = (search) => new URLSearchParams(search);
+const params = (search: string) => new URLSearchParams(search);
 
 describe("resolveMode", () => {
   it("enters room mode from a ?mode=request link and makes it sticky", () => {

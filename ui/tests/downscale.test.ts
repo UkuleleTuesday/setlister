@@ -12,7 +12,7 @@ import {
   targetSize,
 } from "../downscale.js";
 
-const photo = (over = {}) => {
+const photo = (over: { size?: number; name?: string; type?: string } = {}) => {
   const { size = 4_000_000, name = "IMG_0042.HEIC", type = "image/jpeg" } = over;
   const file = new File([new Uint8Array(1)], name, { type });
   // File.size follows the bytes; fake the megabytes rather than allocate them.
@@ -22,8 +22,8 @@ const photo = (over = {}) => {
 
 // A stand-in for what createImageBitmap returns, plus the encoder that would
 // draw it — the two browser bits downscaleImage takes as deps.
-const bitmap = (width, height) => ({ width, height, close() {} });
-const deps = (width, height, blobSize) => ({
+const bitmap = (width: number, height: number): ImageBitmap => ({ width, height, close() {} });
+const deps = (width: number, height: number, blobSize: number) => ({
   createBitmap: async () => bitmap(width, height),
   encodeJpeg: async () => {
     const blob = new Blob([new Uint8Array(1)], { type: "image/jpeg" });
@@ -59,7 +59,7 @@ describe("targetSize", () => {
   });
 
   it("never rounds a side down to zero on an extreme panorama", () => {
-    expect(targetSize(20000, 5, 1600).height).toBe(1);
+    expect(targetSize(20000, 5, 1600)!.height).toBe(1);
   });
 
   it("is null for a bitmap with no dimensions", () => {
@@ -90,7 +90,7 @@ describe("downscaleImage", () => {
   });
 
   it("honours a custom max edge from settings", async () => {
-    let asked = null;
+    let asked: unknown = null;
     await downscaleImage(photo(), {
       maxEdge: 1024,
       deps: {

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    // app.js stays JS until the Svelte ports dissolve it (#158); allowJs lets
+    // a .ts module import a .js one in the meantime without checking it.
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+    // Vite transpiles each file on its own, so ban what needs whole-program
+    // emit (const enums, type-only re-exports without `type`).
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["*.ts"]
+}

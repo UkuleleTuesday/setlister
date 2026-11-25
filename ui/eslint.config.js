@@ -1,17 +1,26 @@
 import js from "@eslint/js";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
-export default [
+// Rest-sibling destructuring is how we drop fields from a row:
+// `({ uid, source, ...rest }) => rest`.
+const unusedVars = ["error", { ignoreRestSiblings: true }];
+
+export default tseslint.config(
   { ignores: ["dist/"] },
   js.configs.recommended,
+  tseslint.configs.recommended,
   {
+    // typescript-eslint's version covers .js and .ts alike. The base rule is
+    // off everywhere: it misreads TS (flags parameter names in function
+    // types) and would report every JS hit twice.
     rules: {
-      // `({ a, b, ...rest }) => rest` is how we drop fields from a row.
-      "no-unused-vars": ["error", { ignoreRestSiblings: true }],
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": unusedVars,
     },
   },
   {
-    files: ["*.js"],
+    files: ["*.{js,ts}"],
     languageOptions: { globals: globals.browser },
   },
   {
@@ -20,7 +29,7 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["tests/**/*.js"],
+    files: ["tests/**/*.{js,ts}"],
     languageOptions: { globals: { ...globals.node, ...globals.vitest } },
   },
-];
+);

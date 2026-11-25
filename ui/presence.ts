@@ -19,11 +19,20 @@
 // actually go. The expiresAt lets Firestore's TTL sweep the abandoned doc from
 // storage later (belt-and-braces on top of the client-side staleness filter).
 //
-// Firebase loads lazily through firebase.js — importing this module does NOT
+// Firebase loads lazily through firebase.ts — importing this module does NOT
 // pull the Firestore SDK; only startPresence() does, and only inside an already
 // active session. Kept UI-free: app.js renders the roster from onRoster().
 
-import { getFirestore } from "./firebase.js";
+import type { Firestore, QuerySnapshot, Unsubscribe } from "firebase/firestore";
+import { type Fx, getFirestore } from "./firebase.js";
+
+/** One person in the "Here now" list. */
+export interface RosterEntry {
+  clientId: string;
+  name: string;
+  isSelf: boolean;
+  online: true;
+}
 
 // Rewrite our own heartbeat this often. Comfortably below ONLINE_WINDOW_MS so
 // even a couple of dropped writes don't flap us offline in other people's
@@ -143,12 +152,12 @@ const ANON_ANIMALS = [
   "Mallard",
 ];
 
-function randomIndex(length) {
+function randomIndex(length: number): number {
   const crypto = globalThis.crypto;
   if (crypto && crypto.getRandomValues) {
     const limit = Math.floor(0xffffffff / length) * length;
     const buf = new Uint32Array(1);
-    let n;
+    let n: number;
     do {
       crypto.getRandomValues(buf);
       n = buf[0];
@@ -158,13 +167,13 @@ function randomIndex(length) {
   return Math.floor(Math.random() * length);
 }
 
-function pick(list) {
+function pick<T>(list: readonly T[]): T {
   return list[randomIndex(list.length)];
 }
 
 // Stable per-device id so a reload keeps the same presence doc (no ghosts) and
 // so app.js can tell "you" apart from everyone else in the roster.
-export function getClientId() {
+export function getClientId(): string {
   try {
     let id = localStorage.getItem(CLIENT_ID_KEY);
     if (!id) {
@@ -184,16 +193,16 @@ export function getClientId() {
     return volatileClientId;
   }
 }
-let volatileClientId = null;
+let volatileClientId: string | null = null;
 
 // The default display name for this device when "Your name" is left blank.
 // Generated once and remembered, so you stay the same "Anonymous Bouncy Otter"
 // across reloads until you type a real name to override it.
-function makeAnonName() {
+function makeAnonName(): string {
   return `Anonymous ${pick(ANON_ADJECTIVES)} ${pick(ANON_ANIMALS)}`;
 }
 
-export function getAnonName() {
+export function getAnonName(): string {
   try {
     let name = localStorage.getItem(ANON_NAME_KEY);
     if (!name) {
@@ -208,40 +217,40 @@ export function getAnonName() {
     return volatileAnonName;
   }
 }
-let volatileAnonName = null;
+let volatileAnonName: string | null = null;
 
 // The name this device broadcasts: the user's typed name if they set one, else
 // the stable anonymous default.
-export function displayName(typedName) {
+export function displayName(typedName: string | null | undefined): string {
   const trimmed = (typedName || "").trim();
   return trimmed || getAnonName();
 }
 
 // --- Module state ----------------------------------------------------------
-let sessionId = null;
-let getName = null; // () => current typed name
-let unsubscribe = null;
-let heartbeatTimer = null;
-let rosterCallback = null;
+let sessionId: string | null = null;
+let getName: (() => string) | null = null; // () => current typed name
+let unsubscribe: Unsubscribe | null = null;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let rosterCallback: ((roster: RosterEntry[]) => void) | null = null;
 
-export function onRoster(cb) {
+export function onRoster(cb: (roster: RosterEntry[]) => void): void {
   rosterCallback = cb;
 }
 
-function emitRoster(roster) {
+function emitRoster(roster: RosterEntry[]): void {
   if (rosterCallback) rosterCallback(roster);
 }
 
-function presenceDocRef(fx, db) {
-  return fx.doc(db, "sessions", sessionId, "presence", getClientId());
+function presenceDocRef(fx: Fx, db: Firestore, id: string) {
+  return fx.doc(db, "sessions", id, "presence", getClientId());
 }
 
-async function writeHeartbeat() {
+async function writeHeartbeat(): Promise<void> {
   if (!sessionId) return;
   const { db, fx } = await getFirestore();
   if (!sessionId) return; // left while awaiting the SDK
   try {
-    await fx.setDoc(presenceDocRef(fx, db), {
+    await fx.setDoc(presenceDocRef(fx, db, sessionId), {
       name: displayName(getName?.()).slice(0, 60),
       updatedAt: fx.serverTimestamp(),
       expiresAt: fx.Timestamp.fromMillis(Date.now() + PRESENCE_TTL_MS),
@@ -255,10 +264,10 @@ async function writeHeartbeat() {
 // Turn the presence subcollection snapshot into a roster the UI can render:
 // { clientId, name, isSelf, online }, self first, then alphabetical. Peers
 // whose last heartbeat is older than ONLINE_WINDOW_MS are dropped as ghosts.
-function toRoster(snap) {
+function toRoster(snap: QuerySnapshot): RosterEntry[] {
   const me = getClientId();
   const now = Date.now();
-  const out = [];
+  const out: RosterEntry[] = [];
   snap.forEach((docSnap) => {
     const data = docSnap.data();
     const isSelf = docSnap.id === me;
@@ -286,7 +295,7 @@ function toRoster(snap) {
 // Join the session's presence: write our first heartbeat, listen to the roster,
 // and start the heartbeat loop. Idempotent-ish — call stopPresence() first if a
 // session is already active.
-export async function startPresence(id, nameFn) {
+export async function startPresence(id: string, nameFn: () => string): Promise<void> {
   await stopPresence();
   sessionId = id;
   getName = nameFn;
@@ -300,7 +309,7 @@ export async function startPresence(id, nameFn) {
   // a null segment below.
   if (sessionId !== id) return;
 
-  const colRef = fx.collection(db, "sessions", sessionId, "presence");
+  const colRef = fx.collection(db, "sessions", id, "presence");
   unsubscribe = fx.onSnapshot(
     colRef,
     (snap) => emitRoster(toRoster(snap)),
@@ -314,14 +323,14 @@ export async function startPresence(id, nameFn) {
 
 // Push a fresh heartbeat immediately so a name change (or override) shows up on
 // other rosters without waiting for the next interval tick.
-export function refreshPresence() {
+export function refreshPresence(): void {
   if (sessionId) writeHeartbeat();
 }
 
 // Leave presence: stop the heartbeat, detach the listener, and best-effort
 // delete our own doc so peers see us go immediately (rather than after the
 // staleness window). Safe to call when no session is active.
-export async function stopPresence() {
+export async function stopPresence(): Promise<void> {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
     heartbeatTimer = null;
@@ -348,11 +357,10 @@ export async function stopPresence() {
 // Best-effort removal when the tab is closing. pagehide/beforeunload can't await
 // an async delete, so this fires a delete and lets it race the unload; if it
 // loses, staleness + TTL clean up. app.js wires the event.
-export function removeOnUnload() {
-  if (!sessionId) return;
+export function removeOnUnload(): void {
+  const id = sessionId;
+  if (!id) return;
   getFirestore()
-    .then(({ db, fx }) =>
-      fx.deleteDoc(fx.doc(db, "sessions", sessionId, "presence", getClientId())),
-    )
+    .then(({ db, fx }) => fx.deleteDoc(presenceDocRef(fx, db, id)))
     .catch(() => {});
 }

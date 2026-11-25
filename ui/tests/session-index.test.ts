@@ -1,4 +1,4 @@
-// The date-labelling policy from session-index.js — no Firestore, no emulator.
+// The date-labelling policy from session-index.ts — no Firestore, no emulator.
 //
 // This is what users actually read in the history list, and every branch of it
 // is relative to "now", so every test pins the clock explicitly. A test that
@@ -19,7 +19,7 @@ import {
 
 // Tuesday 4 August 2026, 21:00 — a club night, mid-session.
 const NOW = new Date(2026, 7, 4, 21, 0);
-const at = (y, m, d, h = 20, min = 0) => new Date(y, m, d, h, min);
+const at = (y: number, m: number, d: number, h = 20, min = 0) => new Date(y, m, d, h, min);
 
 describe("sessionDateLabel", () => {
   it("calls an evening session tonight", () => {
@@ -135,13 +135,13 @@ describe("date input helpers", () => {
   });
 
   it("parses to that day's evening in local time", () => {
-    const d = fromDateInputValue("2026-08-05");
+    const d = fromDateInputValue("2026-08-05")!;
     expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 7, 5]);
     expect(d.getHours()).toBe(20);
   });
 
   it("round-trips a picked day", () => {
-    expect(toDateInputValue(fromDateInputValue("2026-08-11"))).toBe("2026-08-11");
+    expect(toDateInputValue(fromDateInputValue("2026-08-11")!)).toBe("2026-08-11");
   });
 
   it("treats a cleared or malformed picker as no date", () => {
@@ -295,7 +295,7 @@ describe("indexEntryData", () => {
   const SERVER_STAMP = Symbol("serverTimestamp");
   const fx = {
     serverTimestamp: () => SERVER_STAMP,
-    Timestamp: { fromDate: (d) => ({ wrapped: d }) },
+    Timestamp: { fromDate: (d: Date) => ({ wrapped: d }) },
   };
 
   it("leaves createdAt to the server when no date is given", () => {

@@ -12,13 +12,18 @@
 // Pure module, no DOM: exported for ui/tests.
 
 import { normalizeText } from "./dupes.js";
+import type { CatalogueEntry } from "./types.js";
 
-export function searchSongs(catalogue, query, { limit = Infinity } = {}) {
+export function searchSongs<T extends Pick<CatalogueEntry, "title" | "artist" | "page">>(
+  catalogue: T[],
+  query: string,
+  { limit = Infinity } = {},
+): T[] {
   const q = normalizeText(query.trim());
   const terms = q.split(/\s+/).filter(Boolean);
   if (!terms.length) return [];
   const page = /^\d+$/.test(q) ? Number(q) : null;
-  const tiers = [[], [], []];
+  const tiers: T[][] = [[], [], []];
   for (const entry of catalogue) {
     if (page !== null && entry.page === page) {
       tiers[0].push(entry);

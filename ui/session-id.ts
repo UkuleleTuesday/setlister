@@ -225,14 +225,14 @@ const NOUNS = [
 // API, fall back to Math.random only where it's genuinely missing. Ids are
 // low-stakes (guessable by design — see firestore.rules), but crypto gives an
 // unbiased, uniform spread across the wordlists.
-function randomIndex(length) {
+function randomIndex(length: number): number {
   const crypto = globalThis.crypto;
   if (crypto && crypto.getRandomValues) {
     // Rejection-sample so the modulo doesn't bias the tail of the list toward
     // the first `2^32 % length` words.
     const limit = Math.floor(0xffffffff / length) * length;
     const buf = new Uint32Array(1);
-    let n;
+    let n: number;
     do {
       crypto.getRandomValues(buf);
       n = buf[0];
@@ -242,7 +242,7 @@ function randomIndex(length) {
   return Math.floor(Math.random() * length);
 }
 
-function pick(list) {
+function pick<T>(list: readonly T[]): T {
   return list[randomIndex(list.length)];
 }
 
@@ -251,10 +251,10 @@ function pick(list) {
 // an older/newer build must still validate as long as it's `word-word`.
 const SESSION_ID_RE = /^[a-z]+-[a-z]+$/;
 
-export function generateSessionId() {
+export function generateSessionId(): string {
   return `${pick(ADJECTIVES)}-${pick(NOUNS)}`;
 }
 
-export function isValidSessionId(s) {
+export function isValidSessionId(s: unknown): s is string {
   return typeof s === "string" && SESSION_ID_RE.test(s);
 }

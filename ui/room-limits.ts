@@ -19,7 +19,11 @@ export const ROOM_ADD_COOLDOWN_MS = 60_000;
 export const LAST_ROOM_ADD_KEY = "setlister.lastRoomAdd.v1";
 
 // Milliseconds left before this device may add again; 0 when it's free to.
-export function cooldownRemaining(lastAddAt, now, window = ROOM_ADD_COOLDOWN_MS) {
+export function cooldownRemaining(
+  lastAddAt: number | null | undefined,
+  now: number,
+  window = ROOM_ADD_COOLDOWN_MS,
+): number {
   if (!lastAddAt) return 0;
   const elapsed = now - lastAddAt;
   // A clock that moved backwards (timezone change, a stored time from the
@@ -32,12 +36,12 @@ export function cooldownRemaining(lastAddAt, now, window = ROOM_ADD_COOLDOWN_MS)
 }
 
 // "a moment" / "42 seconds" — said out loud in a pub, not counted down.
-export function cooldownLabel(ms) {
+export function cooldownLabel(ms: number): string {
   const seconds = Math.ceil(ms / 1000);
   return seconds <= 1 ? "a moment" : `${seconds} seconds`;
 }
 
-export function readLastRoomAdd() {
+export function readLastRoomAdd(): number {
   try {
     const stored = Number(localStorage.getItem(LAST_ROOM_ADD_KEY));
     return Number.isFinite(stored) && stored > 0 ? stored : 0;
@@ -46,7 +50,7 @@ export function readLastRoomAdd() {
   }
 }
 
-export function writeLastRoomAdd(when) {
+export function writeLastRoomAdd(when: number): void {
   try {
     localStorage.setItem(LAST_ROOM_ADD_KEY, String(when));
   } catch {

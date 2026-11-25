@@ -1,0 +1,10 @@
+{
+  // The tests run under Node (Vitest), so they get Node's types; the app
+  // modules they import are still checked, against DOM + Node together. Kept
+  // separate so `process`, `Buffer` and friends never type-check in app code.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

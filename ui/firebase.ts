@@ -9,10 +9,20 @@
 //   const { db, fx } = await getFirestore();
 //   const ref = fx.doc(db, "sessions", sessionId);
 
+import type { Firestore } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config.js";
 
+/** The Firestore helpers callers use instead of importing firebase directly. */
+export type Fx = Awaited<ReturnType<typeof _init>>["fx"];
+
+/** What getFirestore() resolves to. */
+export interface FirestoreHandle {
+  db: Firestore;
+  fx: Fx;
+}
+
 // Memoize the initialisation promise so repeated calls share a single load.
-let _promise = null;
+let _promise: Promise<FirestoreHandle> | null = null;
 
 /**
  * Returns `{ db, fx }` where:
@@ -30,9 +40,9 @@ let _promise = null;
  * emulator: when running on localhost / 127.0.0.1 the Firestore emulator on
  * port 8081 is used instead of production (8080 is the Python API).
  */
-export async function getFirestore() {
+export async function getFirestore(): Promise<FirestoreHandle> {
   if (_promise) return _promise;
-  _promise = _init().catch((err) => {
+  _promise = _init().catch((err: Error) => {
     // Reset so a subsequent call can retry after a transient failure.
     _promise = null;
     throw new Error(`Failed to load Firebase: ${err.message}`);

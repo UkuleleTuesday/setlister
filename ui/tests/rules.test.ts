@@ -16,8 +16,10 @@ import {
   assertFails,
   assertSucceeds,
   initializeTestEnvironment,
+  type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+  type Firestore,
   deleteDoc,
   doc,
   getDoc,
@@ -32,14 +34,21 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const RULES = fileURLToPath(new URL("../../firestore.rules", import.meta.url));
 
-let testEnv;
-let db;
+let testEnv: RulesTestEnvironment;
+let db: Firestore;
+
+// The test contexts are typed as the compat SDK, but the modular functions
+// used throughout accept them at runtime (the library's own recommended use).
+const modular = (compat: unknown) => compat as Firestore;
+
+// Test docs are deliberately loose: many cases ARE the malformed shapes.
+type Doc = Record<string, unknown>;
 
 const NOW = Timestamp.fromMillis(1_770_000_000_000); // fixed, well in the past
 
 // A minimal valid session doc. Spread and override to build the failing cases,
 // so each test states only what it is actually testing.
-function session(overrides = {}) {
+function session(overrides: Doc = {}): Doc {
   return {
     v: 1,
     rows: {},
@@ -59,7 +68,7 @@ function session(overrides = {}) {
   };
 }
 
-function indexEntry(overrides = {}) {
+function indexEntry(overrides: Doc = {}): Doc {
   return { v: 1, createdBy: "Alex", createdAt: NOW, ...overrides };
 }
 
@@ -70,7 +79,7 @@ beforeAll(async () => {
   });
   // Unauthenticated: the app has no auth at all, so this is the only context
   // that matters.
-  db = testEnv.unauthenticatedContext().firestore();
+  db = modular(testEnv.unauthenticatedContext().firestore());
 });
 
 afterAll(async () => {
@@ -82,8 +91,10 @@ beforeEach(async () => {
 });
 
 // Bypasses rules — for seeding the "already exists" state an update test needs.
-function seed(fn) {
-  return testEnv.withSecurityRulesDisabled((ctx) => fn(ctx.firestore()));
+function seed(fn: (adminDb: Firestore) => Promise<unknown>) {
+  return testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await fn(modular(ctx.firestore()));
+  });
 }
 
 describe("sessions/{id}", () => {
@@ -194,18 +205,18 @@ describe("sessions/{id}", () => {
 
     await assertSucceeds(updateDoc(ref, { [`votes.${row}.${a}`]: true }));
     await assertSucceeds(updateDoc(ref, { [`votes.${row}.${b}`]: true }));
-    expect((await getDoc(ref)).data().votes[row]).toEqual({ [a]: true, [b]: true });
+    expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [a]: true, [b]: true });
 
     // Un-voting takes out one leaf and leaves the other standing.
     await assertSucceeds(updateDoc(ref, { [`votes.${row}.${a}`]: deleteField() }));
-    expect((await getDoc(ref)).data().votes[row]).toEqual({ [b]: true });
+    expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [b]: true });
 
     // And a whole-row write can't take votes with it.
     await assertSucceeds(updateDoc(ref, { [`rows.${row}`]: { uid: row } }));
-    expect((await getDoc(ref)).data().votes[row]).toEqual({ [b]: true });
+    expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [b]: true });
   });
 
-  // Row contents are an unvalidated map, so gig-state.js's timestamps need no
+  // Row contents are an unvalidated map, so gig-state.ts's timestamps need no
   // hasOnly entry — pinned here so a future row-schema rule can't quietly
   // break "mark played" for a bundle that already writes them.
   it("accepts a row carrying played/binned times", async () => {
@@ -217,7 +228,7 @@ describe("sessions/{id}", () => {
         "rows.r2": { uid: "r2", binned: true, binnedAt: "2026-10-21T20:45:00.000Z" },
       }),
     );
-    expect((await getDoc(ref)).data().rows.r1.playedAt).toBe("2026-10-21T20:42:11.000Z");
+    expect((await getDoc(ref)).data()!.rows.r1.playedAt).toBe("2026-10-21T20:42:11.000Z");
   });
 
   it("rejects a malformed id", async () => {
@@ -272,7 +283,7 @@ describe("sessionIndex/{id}", () => {
     for (const [days, id] of [
       [7, "misty-banjo"],
       [59, "sunny-kazoo"],
-    ]) {
+    ] as const) {
       await assertSucceeds(
         setDoc(
           doc(db, "sessionIndex", id),
