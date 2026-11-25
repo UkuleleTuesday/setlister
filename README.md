@@ -142,9 +142,10 @@ uv run ruff format .
 
 The `ui/` app is ES modules bundled by [Vite](https://vite.dev/) and managed
 with npm — `index.html` + `app.js` plus focused, strict TypeScript modules
-(sync, presence, session index, dedupe, downscaling) and no framework;
-`firebase` and `lucide` are the only runtime dependencies. Shared shapes live
-in `ui/types.ts`; `app.js` stays JS until it's split up (#158).
+(sync, presence, session index, dedupe, downscaling). Screens are moving into
+[Svelte 5](https://svelte.dev/) components one at a time (#158), mounted from
+`app.js`; `firebase`, `lucide` and `svelte` are the only runtime dependencies.
+Shared shapes live in `ui/types.ts`; `app.js` stays JS until it's split up.
 
 ```bash
 cd ui
@@ -152,7 +153,7 @@ npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
 npm run test:e2e      # mobile Playwright smoke suite, against the emulator
 npm run lint          # ESLint
-npm run typecheck     # tsc, app modules then tests
+npm run typecheck     # tsc (app, tests, e2e) and svelte-check
 npm run format        # Prettier (format:check is the CI gate)
 npm run build         # production bundle into ui/dist
 npm run preview       # serve that build locally

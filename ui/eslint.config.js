@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -10,6 +11,12 @@ export default tseslint.config(
   { ignores: ["dist/"] },
   js.configs.recommended,
   tseslint.configs.recommended,
+  svelte.configs.recommended,
+  {
+    // TypeScript inside <script lang="ts">.
+    files: ["**/*.svelte"],
+    languageOptions: { parserOptions: { parser: tseslint.parser } },
+  },
   {
     // typescript-eslint's version covers .js and .ts alike. The base rule is
     // off everywhere: it misreads TS (flags parameter names in function
@@ -20,7 +27,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["*.{js,ts}"],
+    files: ["*.{js,ts,svelte}"],
     languageOptions: { globals: globals.browser },
   },
   {

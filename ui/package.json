@@ -12,20 +12,25 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tests && tsc --noEmit -p e2e"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests && tsc --noEmit -p e2e && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
     "firebase": "^12.16.0",
-    "lucide": "^1.24.0"
+    "lucide": "^1.24.0",
+    "svelte": "^5.59.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.1",
     "@playwright/test": "^1.63.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.2",
     "@types/node": "^22.20.7",
     "eslint": "^10.15.0",
+    "eslint-plugin-svelte": "^3.24.1",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
+    "prettier-plugin-svelte": "^4.2.0",
+    "svelte-check": "^4.7.8",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.74.0",
     "vite": "^8.1.4",

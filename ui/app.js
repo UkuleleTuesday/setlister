@@ -16,7 +16,9 @@ import { icon, iconLabel } from "./icons.js";
 import { duplicateLabel, findDuplicate, indexTonight, matchKey, rowKey } from "./dupes.js";
 import { searchSongs } from "./search.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
-import { latestEntry, sortedEntries, whatsNewDateLabel } from "./whats-new.js";
+import { mount } from "svelte";
+import WhatsNewSheet from "./WhatsNewSheet.svelte";
+import { latestEntry, sortedEntries } from "./whats-new.js";
 import {
   buildSessionUrl,
   readStoredMode,
@@ -174,9 +176,14 @@ const sheetCancel = document.getElementById("new-session-cancel");
 const whatsNewBanner = document.getElementById("whats-new-banner");
 const whatsNewFooter = document.getElementById("whats-new-footer");
 const whatsNewOpen = document.getElementById("whats-new-open");
-const whatsNewSheet = document.getElementById("whats-new-sheet");
-const whatsNewEntries = document.getElementById("whats-new-entries");
-const whatsNewClose = document.getElementById("whats-new-close");
+// Svelte screens (#158) mount next to the legacy markup they replace; mount()
+// hands back the component's exports (here open()), which is how this file
+// drives them until the rest of it is ported too.
+const whatsNewMount = document.getElementById("whats-new-mount");
+const whatsNewSheet = mount(WhatsNewSheet, {
+  target: whatsNewMount.parentNode,
+  anchor: whatsNewMount,
+});
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
 const nameResetName = document.getElementById("name-reset-name");
@@ -1374,36 +1381,10 @@ function renderWhatsNew() {
   whatsNewBanner.hidden = seen === entry.date;
 }
 
-// One dated block per entry, newest first — the same markup whether the sheet
-// is showing one entry or all of them, so the archive reads as a sequence
-// rather than a different screen.
-function whatsNewEntryBlock(entry) {
-  const block = document.createElement("section");
-  block.className = "whats-new-entry";
-
-  const date = document.createElement("p");
-  date.className = "whats-new-date";
-  date.textContent = whatsNewDateLabel(entry);
-
-  const items = document.createElement("ul");
-  items.className = "whats-new-items";
-  items.replaceChildren(
-    ...entry.items.map((text) => {
-      const li = document.createElement("li");
-      li.textContent = text;
-      return li;
-    }),
-  );
-
-  block.replaceChildren(date, items);
-  return block;
-}
-
+// The sheet itself is WhatsNewSheet.svelte; this keeps the doors (banner and
+// footer link) and the "seen" bookkeeping, which belong to the home screen.
 function openWhatsNewSheet(entries) {
-  whatsNewEntries.replaceChildren(...entries.map(whatsNewEntryBlock));
-  // Long archives open at the top, not wherever the last visit left the scroll.
-  whatsNewEntries.scrollTop = 0;
-  whatsNewSheet.hidden = false;
+  whatsNewSheet.open(entries);
   // Opening is seeing — the banner has done its job for this entry.
   whatsNewBanner.hidden = true;
   try {
@@ -1418,17 +1399,6 @@ whatsNewBanner.addEventListener("click", () => {
   if (entry) openWhatsNewSheet([entry]);
 });
 whatsNewOpen.addEventListener("click", () => openWhatsNewSheet(sortedEntries()));
-// Close is the way out that's always in reach; the backdrop stays forgiving
-// for anyone who taps past the sheet, and Escape is a desktop bonus.
-whatsNewClose.addEventListener("click", () => {
-  whatsNewSheet.hidden = true;
-});
-whatsNewSheet.addEventListener("click", (event) => {
-  if (event.target === whatsNewSheet) whatsNewSheet.hidden = true;
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !whatsNewSheet.hidden) whatsNewSheet.hidden = true;
-});
 
 // --- One-time name reset ----------------------------------------------------
 // The names saved in the full app drifted into jokes, so this build runs a
