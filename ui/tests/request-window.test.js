@@ -54,7 +54,10 @@ describe("resolveWindow", () => {
 
   it("uses both smart defaults when neither boundary is overridden", () => {
     const window = resolveWindow({ sessionCreatedAt: created });
-    expect(window).toEqual({ opensAt: defaultOpensAt(created), closesAt: defaultClosesAt(created) });
+    expect(window).toEqual({
+      opensAt: defaultOpensAt(created),
+      closesAt: defaultClosesAt(created),
+    });
   });
 
   it("overrides only the open boundary, leaving close at its default", () => {
@@ -74,10 +77,12 @@ describe("resolveWindow", () => {
   it("overrides both boundaries independently", () => {
     const opensAtOverride = at(2026, 7, 4, 18, 0);
     const closesAtOverride = at(2026, 7, 5, 1, 0);
-    expect(resolveWindow({ sessionCreatedAt: created, opensAtOverride, closesAtOverride })).toEqual({
-      opensAt: opensAtOverride,
-      closesAt: closesAtOverride,
-    });
+    expect(resolveWindow({ sessionCreatedAt: created, opensAtOverride, closesAtOverride })).toEqual(
+      {
+        opensAt: opensAtOverride,
+        closesAt: closesAtOverride,
+      },
+    );
   });
 
   it("fails OPEN (returns null) when close is at or before open", () => {
@@ -86,14 +91,14 @@ describe("resolveWindow", () => {
         sessionCreatedAt: created,
         opensAtOverride: at(2026, 7, 5, 2, 0),
         closesAtOverride: at(2026, 7, 5, 2, 0),
-      })
+      }),
     ).toBeNull();
     expect(
       resolveWindow({
         sessionCreatedAt: created,
         opensAtOverride: at(2026, 7, 5, 2, 0),
         closesAtOverride: at(2026, 7, 5, 1, 0),
-      })
+      }),
     ).toBeNull();
   });
 
@@ -235,7 +240,7 @@ describe("datetime-local input helpers", () => {
 
   it("round-trips a picked value", () => {
     expect(toDateTimeInputValue(fromDateTimeInputValue("2026-08-11T19:30"))).toBe(
-      "2026-08-11T19:30"
+      "2026-08-11T19:30",
     );
   });
 

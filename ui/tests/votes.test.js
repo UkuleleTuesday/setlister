@@ -114,12 +114,7 @@ describe("seedAsker", () => {
 });
 
 describe("sortForDisplay", () => {
-  const rows = [
-    { uid: "first" },
-    { uid: "second" },
-    { uid: "third" },
-    { uid: "fourth" },
-  ];
+  const rows = [{ uid: "first" }, { uid: "second" }, { uid: "third" }, { uid: "fourth" }];
 
   it("puts the most wanted at the top", () => {
     const votes = {

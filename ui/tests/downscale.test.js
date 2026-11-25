@@ -113,9 +113,9 @@ describe("downscaleImage", () => {
     // Screenshots and already-compressed shots do this: re-encoding would lose
     // detail and buy no upload time.
     const file = photo({ size: 200_000 });
-    expect(
-      await downscaleImage(file, { maxEdge: 1600, deps: deps(4032, 3024, 400_000) })
-    ).toBe(file);
+    expect(await downscaleImage(file, { maxEdge: 1600, deps: deps(4032, 3024, 400_000) })).toBe(
+      file,
+    );
   });
 
   it("keeps the original when the browser can't decode the photo", async () => {

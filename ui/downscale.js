@@ -58,8 +58,7 @@ export function jpegName(name) {
 // EXIF is stripped by the re-encode, so the rotation has to be baked into the
 // pixels here — `from-image` is what makes a portrait photo stay portrait.
 // (The server's exif_transpose can't save us once the tag is gone.)
-const createBitmap = (file) =>
-  createImageBitmap(file, { imageOrientation: "from-image" });
+const createBitmap = (file) => createImageBitmap(file, { imageOrientation: "from-image" });
 
 // OffscreenCanvas where it exists (no layout, no document), <canvas> otherwise
 // — Safari only got OffscreenCanvas recently and phones are the whole point.
@@ -84,7 +83,7 @@ async function encodeJpeg(bitmap, { width, height }, quality) {
  */
 export async function downscaleImage(
   file,
-  { maxEdge = DEFAULT_MAX_EDGE, quality = JPEG_QUALITY, deps = {} } = {}
+  { maxEdge = DEFAULT_MAX_EDGE, quality = JPEG_QUALITY, deps = {} } = {},
 ) {
   const toBitmap = deps.createBitmap || createBitmap;
   const encode = deps.encodeJpeg || encodeJpeg;

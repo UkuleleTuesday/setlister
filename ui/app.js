@@ -294,9 +294,7 @@ function openRequestSheet(entry) {
   requestSheetName.value = app.name;
   // The button says what will actually happen: a request is waiting on this
   // sheet, a rename isn't.
-  requestSheetConfirm.replaceChildren(
-    document.createTextNode(entry ? "Add request" : "Save")
-  );
+  requestSheetConfirm.replaceChildren(document.createTextNode(entry ? "Add request" : "Save"));
   requestSheet.hidden = false;
   // Only raise the keyboard when there's typing to do; a confirm-only sheet
   // puts the thumb on the button instead.
@@ -341,7 +339,7 @@ function onRequestSheetConfirm() {
       addFeedback,
       viewMode === "room"
         ? `Added “${entry.title}”. Next one in a minute.`
-        : `Added “${entry.title}”.`
+        : `Added “${entry.title}”.`,
     );
   }
 }
@@ -426,7 +424,7 @@ function persist() {
           includeCrossed: includeCrossed.checked,
           maxImageEdge: maxImageEdge.value,
         },
-      })
+      }),
     );
   } catch {
     /* storage may be full or blocked (private mode) — non-fatal */
@@ -526,7 +524,7 @@ function saveCatalogueCache() {
         catalogue: app.catalogue,
         generatedAt: app.catalogueGeneratedAt,
       },
-      Date.now()
+      Date.now(),
     );
     localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
   } catch {
@@ -692,8 +690,7 @@ function applyRequestsOpen() {
   sessionView.classList.toggle("requests-closed", !open && soonMinutes == null);
   sessionView.classList.toggle("requests-opening-soon", soonMinutes != null);
   if (soonMinutes != null) {
-    requestsOpeningSoonNote.textContent =
-      `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
+    requestsOpeningSoonNote.textContent = `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
   }
   shareRequestNote.textContent = requestNoteText(meta, open, reqWindow);
   renderWindowPills(meta, reqWindow);
@@ -710,9 +707,14 @@ function applyRequestsOpen() {
 // says what the room can do (it only shows while requests are open), the full
 // app's chip names the link the organiser controls.
 function renderWindowPills(meta, reqWindow) {
-  const { state, at } = windowStatus({ mode: meta.requestsOpen, window: reqWindow, now: new Date() });
+  const { state, at } = windowStatus({
+    mode: meta.requestsOpen,
+    window: reqWindow,
+    now: new Date(),
+  });
   const time = at ? sessionTimeLabel(at) : "";
-  roomWindow.textContent = state === "open" && time ? `Requests open until ${time}` : "Requests open";
+  roomWindow.textContent =
+    state === "open" && time ? `Requests open until ${time}` : "Requests open";
   windowChip.textContent = {
     open: time ? `Request link open until ${time}` : "Request link open",
     later: `Request link opens at ${time}`,
@@ -816,7 +818,7 @@ async function applyRoute(id) {
     showHomeError(
       err?.notFound
         ? "That session wasn’t found. It may have been deleted."
-        : `Couldn’t open that session: ${err.message}`
+        : `Couldn’t open that session: ${err.message}`,
     );
     await navigateTo(null, { replace: true });
   }
@@ -881,7 +883,8 @@ function renderSessionMeta(meta) {
   if (!sessionView.hidden) headerTitle.textContent = currentSessionLabel();
   shareSessionNameEl.textContent = currentSessionLabel();
   shareVisibility.value = meta.listed ? "shared" : "unlisted";
-  shareRequests.value = meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
+  shareRequests.value =
+    meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
   shareRequests.dataset.previous = shareRequests.value;
   renderRequestWindowFields(meta);
   applyRequestsOpen();
@@ -944,7 +947,7 @@ function renderPresence(roster) {
         name.textContent = peer.isSelf ? `${peer.name} (you)` : peer.name;
         li.append(dot, name);
         return li;
-      })
+      }),
     );
   }
   updateShareUi();
@@ -983,7 +986,7 @@ function flashButton(button, message) {
     setTimeout(() => {
       button.innerHTML = button.dataset.originalHtml;
       delete button.dataset.originalHtml;
-    }, 1500)
+    }, 1500),
   );
 }
 
@@ -1011,7 +1014,7 @@ async function shareSessionLink() {
   await offerLink(
     sessionUrl(id),
     label ? `${label} · Ukulele Tuesday` : "Ukulele Tuesday setlist",
-    shareLinkButton
+    shareLinkButton,
   );
 }
 
@@ -1023,7 +1026,7 @@ async function shareRoomLink() {
   await offerLink(
     roomSessionUrl(id),
     label ? `Requests for ${label} · Ukulele Tuesday` : "Ukulele Tuesday requests",
-    shareRoomLinkButton
+    shareRoomLinkButton,
   );
 }
 
@@ -1085,13 +1088,9 @@ async function onRequestsChange() {
 async function onRequestsWindowChange(side) {
   const meta = sync.getMeta();
   const opensAt =
-    side === "open"
-      ? fromDateTimeInputValue(shareRequestsOpenTime.value)
-      : meta.requestsOpensAt;
+    side === "open" ? fromDateTimeInputValue(shareRequestsOpenTime.value) : meta.requestsOpensAt;
   const closesAt =
-    side === "close"
-      ? fromDateTimeInputValue(shareRequestsCloseTime.value)
-      : meta.requestsClosesAt;
+    side === "close" ? fromDateTimeInputValue(shareRequestsCloseTime.value) : meta.requestsClosesAt;
   errorBox.hidden = true;
   try {
     await sync.setRequestsWindow({ opensAt, closesAt });
@@ -1324,9 +1323,7 @@ async function refreshSessionList() {
     const entries = await listSessions();
     renderSessionList(entries);
     sessionListStatus.hidden = entries.length > 0;
-    sessionListStatus.textContent = entries.length
-      ? ""
-      : "No sessions yet. Start one above.";
+    sessionListStatus.textContent = entries.length ? "" : "No sessions yet. Start one above.";
   } catch {
     // A failed query clears the whole layout, hero included: a stale "Next
     // session" card over a "Couldn't load" error would be a lie.
@@ -1395,7 +1392,7 @@ function whatsNewEntryBlock(entry) {
       const li = document.createElement("li");
       li.textContent = text;
       return li;
-    })
+    }),
   );
 
   block.replaceChildren(date, items);
@@ -1566,14 +1563,12 @@ async function onSheetStart() {
         planned = partitionSessions(await listSessions()).upcoming[0];
       } catch {
         throw new Error(
-          "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted"
+          "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted",
         );
       }
       if (planned) {
         plannedUpcoming = planned;
-        throw new Error(
-          `a session is already planned for ${sessionDateLabel(planned.createdAt)}`
-        );
+        throw new Error(`a session is already planned for ${sessionDateLabel(planned.createdAt)}`);
       }
     }
     // The session's songbook, picked on the sheet. Resolved through the
@@ -1591,7 +1586,7 @@ async function onSheetStart() {
     const id = await sync.createSession(
       () => ({ upNext: [], requests: [], edition: chosenEdition }),
       applyRemoteState,
-      { createdBy: presence.displayName(app.name), listed, createdAt }
+      { createdBy: presence.displayName(app.name), listed, createdAt },
     );
     app.edition = chosenEdition;
     scopeCatalogueToEdition(chosenId);
@@ -1674,9 +1669,7 @@ function populateEditionSelect(select, selectedId) {
   // or the listing simply failed) — give it an option anyway so the select
   // shows the truth instead of silently snapping to something else.
   const known = editionsList.length ? editionsList : [{ id: "current" }];
-  const editions = known.some((e) => e.id === selectedId)
-    ? known
-    : [...known, { id: selectedId }];
+  const editions = known.some((e) => e.id === selectedId) ? known : [...known, { id: selectedId }];
   select.replaceChildren(
     ...editions.map((e) => {
       const option = document.createElement("option");
@@ -1684,7 +1677,7 @@ function populateEditionSelect(select, selectedId) {
       option.textContent = editionLabel(e);
       option.selected = e.id === selectedId;
       return option;
-    })
+    }),
   );
 }
 
@@ -1727,9 +1720,7 @@ async function loadCatalogue(edition) {
   catalogueLoadEditionId = edition;
   catalogueLoadAttemptAt = Date.now();
   try {
-    const res = await fetch(
-      `${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`
-    );
+    const res = await fetch(`${API_BASE}/api/catalogue?edition=${encodeURIComponent(edition)}`);
     if (seq !== catalogueLoadSeq) return;
     if (!res.ok) {
       catalogueLoadAttemptAt = 0; // retry on the next foreground, not in 15 min
@@ -1933,7 +1924,7 @@ function makeCombobox({ placeholder, onPick }) {
           pick(entry);
         });
         return li;
-      })
+      }),
     );
     setMenuOpen(true);
     input.setAttribute("aria-expanded", "true");
@@ -2079,7 +2070,7 @@ function renderSongbook() {
   // A live repaint must not throw the reader back to page 1 mid-scroll.
   const scroll = songbookList.scrollTop;
   songbookList.replaceChildren(
-    ...songs.map((entry) => renderSongbookRow(entry, tonight.get(matchKey(entry))))
+    ...songs.map((entry) => renderSongbookRow(entry, tonight.get(matchKey(entry)))),
   );
   songbookList.scrollTop = scroll;
   songbookEmpty.hidden = songs.length > 0;
@@ -2122,7 +2113,10 @@ function renderSongbookRow(entry, existing) {
       const count = voteCount(app.votes, existing.row.uid);
       const mine = hasVoted(app.votes, existing.row.uid, presence.getClientId());
       if (mine) tag.classList.add("voted");
-      tag.append(icon("want"), document.createTextNode(` ${count} · ${tonightTagLabel(existing.where)}`));
+      tag.append(
+        icon("want"),
+        document.createTextNode(` ${count} · ${tonightTagLabel(existing.where)}`),
+      );
       state =
         `, ${existing.where === "upnext" ? "in Up next" : "requested"}, ` +
         `${count} ${count === 1 ? "person wants" : "people want"} it` +
@@ -2179,7 +2173,7 @@ function onSongbookPick(entry) {
       addFeedback,
       already
         ? `You already want “${entry.title}”. Fingers crossed!`
-        : `Your thumbs up is on “${entry.title}”.`
+        : `Your thumbs up is on “${entry.title}”.`,
     );
     return;
   }
@@ -2215,8 +2209,7 @@ function songbookNote(message) {
 // tap (songbookNote). Re-checked once, when the wait runs out.
 function renderSongbookWait() {
   clearTimeout(songbookWaitTimer);
-  const waiting =
-    viewMode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
+  const waiting = viewMode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
   songbookWait.hidden = !waiting || !songbookStatus.hidden;
   if (waiting) songbookWaitTimer = setTimeout(renderSongbookWait, waiting + 50);
 }
@@ -2237,7 +2230,7 @@ songbookList.addEventListener(
   () => {
     if (document.activeElement === songbookSearch) songbookSearch.blur();
   },
-  { passive: true }
+  { passive: true },
 );
 songbookClose.addEventListener("click", closeSongbook);
 songbookSheet.addEventListener("click", (event) => {
@@ -2480,8 +2473,7 @@ photoInput.addEventListener("change", async () => {
       URL.revokeObjectURL(imageUrl);
       previewWrap.hidden = true;
       if (scanEndedBy === "timeout") {
-        errorBox.textContent =
-          "That scan took too long. Check your signal and snap it again.";
+        errorBox.textContent = "That scan took too long. Check your signal and snap it again.";
         errorBox.hidden = false;
       } else {
         showScanResult("Scan cancelled. Nothing was added.");
@@ -2518,7 +2510,7 @@ function flashNote(el, message) {
     el,
     setTimeout(() => {
       el.hidden = true;
-    }, 8000)
+    }, 8000),
   );
 }
 const showScanResult = (message) => flashNote(scanResult, message);
@@ -2539,7 +2531,8 @@ function openReview() {
   } else if (dupes) {
     reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed. These need a look first.`;
   } else {
-    reviewNote.textContent = "Fix any misreads, drop what you don't want, then add them to Requests.";
+    reviewNote.textContent =
+      "Fix any misreads, drop what you don't want, then add them to Requests.";
   }
   // An in-flight scan means songs are coming: leave the fresh state so the
   // review sheet appears in the full layout.
@@ -2587,9 +2580,7 @@ function renderReview() {
   const kept = app.review.entries.filter((e) => !e.removed).length;
   reviewConfirm.replaceChildren(...iconLabel("add", `Add ${kept} to Requests`));
   reviewConfirm.disabled = kept === 0;
-  reviewRows.replaceChildren(
-    ...app.review.entries.map((e, i) => renderRow(e, i, "review"))
-  );
+  reviewRows.replaceChildren(...app.review.entries.map((e, i) => renderRow(e, i, "review")));
 }
 
 reviewConfirm.addEventListener("click", () => {
@@ -2629,10 +2620,7 @@ function updateSessionMode() {
   // Never in room mode: the fresh state is a camera hero, and room mode has no
   // camera — an empty pool there shows the combobox and the empty note.
   const fresh =
-    app.upNext.length === 0 &&
-    app.requests.length === 0 &&
-    !app.review &&
-    viewMode !== "room";
+    app.upNext.length === 0 && app.requests.length === 0 && !app.review && viewMode !== "room";
   sessionView.classList.toggle("fresh", fresh);
 }
 
@@ -2676,7 +2664,7 @@ function renderUpNext() {
   // adding a tune.
   upnextSection.classList.toggle(
     "empty",
-    visible.length === 0 && !app.upNext.some((e) => e.played && !e.binned)
+    visible.length === 0 && !app.upNext.some((e) => e.played && !e.binned),
   );
   // The full app's note points at promote, a control room mode doesn't have.
   upnextEmpty.textContent =
@@ -2693,7 +2681,7 @@ function renderUpNext() {
   upnextRows.replaceChildren(
     ...app.upNext
       .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, rowContext)))
-      .filter(Boolean)
+      .filter(Boolean),
   );
   // The set plays from the top, so the first visible card IS the next tune —
   // mark it so the glance-and-shout moment needs no counting. The tag sits on
@@ -2762,8 +2750,8 @@ function renderRequests() {
   // promote/bin buttons and no swipe.
   requestsRows.replaceChildren(
     ...sortForDisplay(visible, app.votes).map((e, i) =>
-      renderRow(e, i, viewMode === "room" ? "room" : "requests")
-    )
+      renderRow(e, i, viewMode === "room" ? "room" : "requests"),
+    ),
   );
   // The bin group replaces the old standalone Bin section: every binned row
   // from both working lists (they stay in their home arrays so un-binning
@@ -2847,7 +2835,7 @@ function buildVoteButton(row) {
         : `You and ${others} ${others === 1 ? "other want" : "others want"} this one`
       : others === 0
         ? "I want this one, nobody has yet"
-        : `I want this one too, ${others} ${others === 1 ? "person wants" : "people want"} it`
+        : `I want this one too, ${others} ${others === 1 ? "person wants" : "people want"} it`,
   );
   const label = document.createElement("span");
   label.textContent = mine ? "You" : "+1";
@@ -2999,7 +2987,8 @@ function renderRow(row, index, context) {
     // When it was ticked off or binned, in the viewer's own clock. Only in the
     // two groups: on the working lists the row isn't in that state. Rows
     // marked before times were recorded simply show none.
-    const playedAt = context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
+    const playedAt =
+      context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
     if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
     const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
     if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
@@ -3270,9 +3259,7 @@ function wireKeyboardReorder(handle, row) {
     const index = app.upNext.indexOf(row);
     if (index === -1) return;
     moveEntry(index, delta);
-    const moved = upnextRows.querySelector(
-      `[data-uid="${row.uid}"] .drag-handle`
-    );
+    const moved = upnextRows.querySelector(`[data-uid="${row.uid}"] .drag-handle`);
     if (moved) moved.focus();
   });
 }
@@ -3332,9 +3319,7 @@ function wireDrag(handle, li) {
 }
 
 function commitDomOrder() {
-  const order = [...upnextRows.querySelectorAll(".row-card")].map(
-    (el) => el.dataset.uid
-  );
+  const order = [...upnextRows.querySelectorAll(".row-card")].map((el) => el.dataset.uid);
   // Played/binned rows aren't in #upnext-rows, so indexOf gives them -1 and
   // the (stable) sort parks them at the front in their existing order. That's
   // relied on: played songs belong at the top conceptually, and binned rows
@@ -3452,7 +3437,7 @@ function wireSwipe(li, body, row, context) {
 // still waiting in the pool.
 function exportedRows() {
   return [...app.upNext, ...app.requests].filter(
-    (row) => !row.removed && (includeCrossed.checked || !row.crossed_out)
+    (row) => !row.removed && (includeCrossed.checked || !row.crossed_out),
   );
 }
 
@@ -3461,7 +3446,7 @@ function exportText() {
     .map((row) =>
       row.match
         ? `${row.match.display} (p.${row.match.page})`
-        : `?? ${row.raw_title}${row.raw_page ? ` (p.${row.raw_page})` : ""}`
+        : `?? ${row.raw_title}${row.raw_page ? ` (p.${row.raw_page})` : ""}`,
     )
     .join("\n");
 }

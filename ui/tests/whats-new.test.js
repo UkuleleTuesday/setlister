@@ -56,7 +56,7 @@ describe("latestEntry", () => {
       latestEntry([
         { date: "not a date", items: ["x"] },
         { date: "2026-07-13", items: ["y"] },
-      ]).date
+      ]).date,
     ).toBe("2026-07-13");
   });
 
@@ -88,9 +88,7 @@ describe("sortedEntries", () => {
   });
 
   it("drops entries whose date doesn't parse", () => {
-    expect(
-      sortedEntries([{ date: "soon", items: ["x"] }, ...shuffled])
-    ).toHaveLength(3);
+    expect(sortedEntries([{ date: "soon", items: ["x"] }, ...shuffled])).toHaveLength(3);
   });
 
   it("leads with the same entry latestEntry picks", () => {
@@ -106,8 +104,8 @@ describe("whatsNewDateLabel", () => {
   it("renders day and month in the viewer's locale", () => {
     expect(whatsNewDateLabel({ date: "2026-08-05" }, NOW)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(
-        new Date(2026, 7, 5)
-      )
+        new Date(2026, 7, 5),
+      ),
     );
   });
 

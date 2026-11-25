@@ -139,7 +139,12 @@ describe("readMeta", () => {
 });
 
 describe("diff", () => {
-  const base = { rows: { a: row("a", "Wagon Wheel") }, upNextOrder: ["a"], requestsOrder: [], edition: null };
+  const base = {
+    rows: { a: row("a", "Wagon Wheel") },
+    upNextOrder: ["a"],
+    requestsOrder: [],
+    edition: null,
+  };
 
   it("returns null when nothing changed, so the doc isn't churned", () => {
     expect(diff(base, structuredClone(base), fx)).toBeNull();
@@ -189,12 +194,20 @@ describe("diff", () => {
     });
 
     it("deletes just the leaf when someone takes their vote back", () => {
-      const updates = diff(voted({ a: { alex: true, sam: true } }), voted({ a: { sam: true } }), fx);
+      const updates = diff(
+        voted({ a: { alex: true, sam: true } }),
+        voted({ a: { sam: true } }),
+        fx,
+      );
       expect(updates).toEqual({ "votes.a.alex": DELETED });
     });
 
     it("leaves a peer's vote alone while adding your own", () => {
-      const updates = diff(voted({ a: { sam: true } }), voted({ a: { sam: true, alex: true } }), fx);
+      const updates = diff(
+        voted({ a: { sam: true } }),
+        voted({ a: { sam: true, alex: true } }),
+        fx,
+      );
       expect(updates).toEqual({ "votes.a.alex": true });
     });
 

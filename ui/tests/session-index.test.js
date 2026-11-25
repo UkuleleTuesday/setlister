@@ -65,14 +65,14 @@ describe("sessionDateLabel", () => {
     // "Tuesday" alone wouldn't say which one, the date does.
     const sunday = new Date(2026, 7, 9, 21, 0);
     expect(sessionDateLabel(at(2026, 7, 4, 20, 14), sunday)).toBe(
-      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 4))
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 4)),
     );
   });
 
   it("drops to a date once a week has passed", () => {
     // 28 July 2026 is a Tuesday: the club's normal night, so no weekday.
     expect(sessionDateLabel(at(2026, 6, 28), NOW)).toBe(
-      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 6, 28))
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 6, 28)),
     );
   });
 
@@ -103,7 +103,7 @@ describe("sessionDateLabel", () => {
   it("gives next club Tuesday the bare date", () => {
     // 11 Aug 2026 is the next Tuesday — the club's normal night, so no weekday.
     expect(sessionDateLabel(at(2026, 7, 11), NOW)).toBe(
-      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11))
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11)),
     );
   });
 
@@ -179,7 +179,7 @@ describe("disambiguate", () => {
         { createdAt: at(2026, 7, 4, 22, 30) },
         { createdAt: at(2026, 7, 3, 20) },
       ],
-      NOW
+      NOW,
     ).map((e) => e.label);
 
     expect(labels[0]).toMatch(/^Tonight · /);
@@ -195,7 +195,7 @@ describe("disambiguate", () => {
 
   it("doesn't suffix when there's no time to suffix with", () => {
     const labels = disambiguate([{ createdAt: null }, { createdAt: null }], NOW).map(
-      (e) => e.label
+      (e) => e.label,
     );
     expect(labels).toEqual(["", ""]);
   });
@@ -229,10 +229,7 @@ describe("partitionSessions", () => {
     const tomorrow = { createdAt: at(2026, 7, 5) };
     const tonight = { createdAt: at(2026, 7, 4, 20) };
     const yesterday = { createdAt: at(2026, 7, 3) };
-    const { upcoming, past } = partitionSessions(
-      [nextTuesday, tomorrow, tonight, yesterday],
-      NOW
-    );
+    const { upcoming, past } = partitionSessions([nextTuesday, tomorrow, tonight, yesterday], NOW);
     expect(upcoming).toEqual([tonight, tomorrow, nextTuesday]);
     expect(past).toEqual([yesterday]);
   });
@@ -266,7 +263,7 @@ describe("plannedSessionMessage", () => {
   it("names a prepped future club Tuesday by its bare date", () => {
     const msg = plannedSessionMessage({ createdAt: at(2026, 7, 11) }, NOW);
     expect(msg).toContain(
-      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11))
+      new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11)),
     );
   });
 
@@ -279,14 +276,14 @@ describe("plannedSessionMessage", () => {
     // Defensive: a null createdAt files under past and can't normally reach
     // here, but a blank in the message would read as a bug.
     expect(plannedSessionMessage({ createdAt: null }, NOW)).toContain(
-      "already planned for an upcoming night"
+      "already planned for an upcoming night",
     );
   });
 
   it("always offers the Unlisted escape hatch", () => {
     for (const createdAt of [at(2026, 7, 4, 20), at(2026, 7, 11), null]) {
       expect(plannedSessionMessage({ createdAt }, NOW)).toMatch(
-        /set Visibility to Unlisted to start a private session\.$/
+        /set Visibility to Unlisted to start a private session\.$/,
       );
     }
   });

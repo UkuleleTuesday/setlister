@@ -53,14 +53,14 @@ describe("buildSessionUrl", () => {
   it("sets mode=full on the full-app link, overriding the sharer's own mode", () => {
     const url = buildSessionUrl(
       "https://club.example/setlister/?session=old-id&mode=request",
-      "jolly-walrus"
+      "jolly-walrus",
     );
     expect(url).toBe("https://club.example/setlister/?session=jolly-walrus&mode=full");
   });
 
   it("sets mode=request on the room link", () => {
     const url = new URL(
-      buildSessionUrl("https://club.example/setlister/", "jolly-walrus", { room: true })
+      buildSessionUrl("https://club.example/setlister/", "jolly-walrus", { room: true }),
     );
     expect(url.searchParams.get("session")).toBe("jolly-walrus");
     expect(url.searchParams.get("mode")).toBe("request");
@@ -72,9 +72,7 @@ describe("buildSessionUrl", () => {
   });
 
   it("preserves the page's subpath and unrelated params", () => {
-    const url = new URL(
-      buildSessionUrl("https://club.example/setlister/?utm=x", "jolly-walrus")
-    );
+    const url = new URL(buildSessionUrl("https://club.example/setlister/?utm=x", "jolly-walrus"));
     expect(url.pathname).toBe("/setlister/");
     expect(url.searchParams.get("utm")).toBe("x");
   });

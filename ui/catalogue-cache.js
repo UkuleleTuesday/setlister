@@ -46,7 +46,7 @@ export function migrateLegacyCatalogue(store, legacy, now) {
     store,
     id,
     { edition: legacy.edition, catalogue: legacy.catalogue, generatedAt: legacy.generatedAt || "" },
-    now
+    now,
   );
 }
 

@@ -183,7 +183,7 @@ export async function backfillListing() {
     batch.update(fx.doc(db, "sessions", id), { listed: true });
     batch.set(
       indexRef,
-      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx)
+      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx),
     );
     await batch.commit();
   } catch {
@@ -321,7 +321,7 @@ export async function createSession(getState, applyStateFn, sessionMeta) {
         if (next.listed) {
           tx.set(
             fx.doc(db, INDEX_COLLECTION, candidate),
-            indexEntryData({ createdBy: next.createdBy, createdAt: pickedAt }, fx)
+            indexEntryData({ createdBy: next.createdBy, createdAt: pickedAt }, fx),
           );
         }
         id = candidate;
@@ -393,7 +393,7 @@ export async function setSessionListed(listed) {
     // tonight.
     batch.set(
       indexRef,
-      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx)
+      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx),
     );
   } else {
     batch.delete(indexRef);
@@ -507,7 +507,7 @@ function attachListener(db, fx) {
     },
     (err) => {
       emitStatus({ status: "error", error: err });
-    }
+    },
   );
 }
 

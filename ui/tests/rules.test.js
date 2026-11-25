@@ -94,17 +94,15 @@ describe("sessions/{id}", () => {
   it("still accepts a legacy doc carrying expiresAt", async () => {
     // A browser running a cached pre-#77 bundle keeps writing this field. CI
     // deploys rules and UI in parallel, so both shapes must validate at once.
-    await assertSucceeds(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ expiresAt: NOW }))
-    );
+    await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), session({ expiresAt: NOW })));
   });
 
   it("lets a legacy doc drop expiresAt on update", async () => {
     await seed((adminDb) =>
-      setDoc(doc(adminDb, "sessions", "misty-banjo"), session({ expiresAt: NOW }))
+      setDoc(doc(adminDb, "sessions", "misty-banjo"), session({ expiresAt: NOW })),
     );
     await assertSucceeds(
-      updateDoc(doc(db, "sessions", "misty-banjo"), { expiresAt: deleteField() })
+      updateDoc(doc(db, "sessions", "misty-banjo"), { expiresAt: deleteField() }),
     );
   });
 
@@ -120,48 +118,40 @@ describe("sessions/{id}", () => {
   });
 
   it("rejects an unknown field", async () => {
-    await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ sneaky: true }))
-    );
+    await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ sneaky: true })));
   });
 
   it("rejects an over-long name", async () => {
     await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ name: "x".repeat(81) }))
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ name: "x".repeat(81) })),
     );
   });
 
   it("rejects an over-long createdBy", async () => {
     await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ createdBy: "x".repeat(61) }))
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ createdBy: "x".repeat(61) })),
     );
   });
 
   it("rejects a non-boolean listed", async () => {
-    await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ listed: "yes" }))
-    );
+    await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ listed: "yes" })));
   });
 
   it("accepts requestsOpen either way", async () => {
     for (const requestsOpen of [true, false]) {
-      await assertSucceeds(
-        setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen }))
-      );
+      await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen })));
     }
   });
 
   it("rejects a non-boolean requestsOpen", async () => {
     await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen: "closed" }))
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpen: "closed" })),
     );
   });
 
   it("accepts requestsOpensAt/requestsClosesAt as timestamps, and a doc with neither", async () => {
     const ref = doc(db, "sessions", "misty-banjo");
-    await assertSucceeds(
-      setDoc(ref, session({ requestsOpensAt: NOW, requestsClosesAt: NOW }))
-    );
+    await assertSucceeds(setDoc(ref, session({ requestsOpensAt: NOW, requestsClosesAt: NOW })));
     const noWindow = session();
     delete noWindow.requestsOpensAt;
     delete noWindow.requestsClosesAt;
@@ -170,10 +160,10 @@ describe("sessions/{id}", () => {
 
   it("rejects a non-timestamp requestsOpensAt or requestsClosesAt", async () => {
     await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpensAt: "soon" }))
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsOpensAt: "soon" })),
     );
     await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsClosesAt: "late" }))
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ requestsClosesAt: "late" })),
     );
   });
 
@@ -225,7 +215,7 @@ describe("sessions/{id}", () => {
       updateDoc(ref, {
         "rows.r1": { uid: "r1", played: true, playedAt: "2026-10-21T20:42:11.000Z" },
         "rows.r2": { uid: "r2", binned: true, binnedAt: "2026-10-21T20:45:00.000Z" },
-      })
+      }),
     );
     expect((await getDoc(ref)).data().rows.r1.playedAt).toBe("2026-10-21T20:42:11.000Z");
   });
@@ -253,9 +243,7 @@ describe("sessionIndex/{id}", () => {
   });
 
   it("is listable — this is what the home screen does", async () => {
-    await seed((adminDb) =>
-      setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry())
-    );
+    await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     const snap = await assertSucceeds(getDocs(collection(db, "sessionIndex")));
     expect(snap.size).toBe(1);
   });
@@ -267,14 +255,12 @@ describe("sessionIndex/{id}", () => {
   });
 
   it("rejects an unknown field", async () => {
-    await assertFails(
-      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ rows: {} }))
-    );
+    await assertFails(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ rows: {} })));
   });
 
   it("rejects a name — rows have no names any more, the date is the identity", async () => {
     await assertFails(
-      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "Open mic night" }))
+      setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "Open mic night" })),
     );
   });
 
@@ -283,12 +269,15 @@ describe("sessionIndex/{id}", () => {
     // set); these are real wall-clock offsets, since request.time is the
     // emulator's own clock. One id per case — a second write to the same id
     // would be an update, where createdAt is immutable.
-    for (const [days, id] of [[7, "misty-banjo"], [59, "sunny-kazoo"]]) {
+    for (const [days, id] of [
+      [7, "misty-banjo"],
+      [59, "sunny-kazoo"],
+    ]) {
       await assertSucceeds(
         setDoc(
           doc(db, "sessionIndex", id),
-          indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + days * 86_400_000) })
-        )
+          indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + days * 86_400_000) }),
+        ),
       );
     }
   });
@@ -297,30 +286,26 @@ describe("sessionIndex/{id}", () => {
     await assertFails(
       setDoc(
         doc(db, "sessionIndex", "misty-banjo"),
-        indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + 61 * 86_400_000) })
-      )
+        indexEntry({ createdAt: Timestamp.fromMillis(Date.now() + 61 * 86_400_000) }),
+      ),
     );
   });
 
   it("allows a same-provenance rewrite, but not rewriting provenance", async () => {
-    await seed((adminDb) =>
-      setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry())
-    );
+    await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     // Re-listing set()s over any row a racing client already wrote — that full
     // overwrite with unchanged provenance must stay legal.
     await assertSucceeds(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertFails(
-      updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdBy: "Someone else" })
+      updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdBy: "Someone else" }),
     );
     await assertFails(
-      updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdAt: Timestamp.fromMillis(0) })
+      updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdAt: Timestamp.fromMillis(0) }),
     );
   });
 
   it("allows a delete — this is how a session gets un-listed", async () => {
-    await seed((adminDb) =>
-      setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry())
-    );
+    await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "misty-banjo")));
   });
 });
