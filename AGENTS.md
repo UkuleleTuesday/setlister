@@ -24,15 +24,6 @@ how to run it, and every command; this file doesn't repeat them.
 
 - Keep runtime deps minimal and justified; adding one is a decision, not a
   detail.
-- **Svelte 5, one screen per PR (#158).** A ported screen is a `.svelte`
-  component mounted from `app.js` with `mount()`; `app.js` drives it through the
-  component's exported functions until it's ported too. Pure logic stays in its
-  `.ts` module (`WhatsNewSheet.svelte` + `whats-new.ts` is the pattern).
-  - **Runes only**: `$state`, `$derived`, `$props`, `$effect`. No stores, no
-    `export let`.
-  - **Never rename load-bearing ids, classes or accessible names.** `style.css`
-    and `ui/e2e/` select on them.
-  - **No scoped `<style>` for shared classes.** `style.css` stays global.
 - **Don't add a local-only mode, and don't route off anything but
   `?session=<id>`.** The URL being the only source of truth for which view shows
   is what makes the phone's Back button work.
