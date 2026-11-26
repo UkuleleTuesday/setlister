@@ -109,7 +109,9 @@ export const test = base.extend<Fixtures>({
       context.on("console", (msg) => {
         if (msg.type() !== "error") return;
         if (allowConsole.some((pattern) => pattern.test(msg.text()))) return;
-        errors.push(`${label}: ${msg.text()}`);
+        // "Failed to load resource" names no URL; the message's location does.
+        const where = msg.location().url;
+        errors.push(`${label}: ${msg.text()}${where ? ` (${where})` : ""}`);
       });
       context.on("weberror", (err) => errors.push(`${label}: ${err.error().message}`));
       return context.newPage();
