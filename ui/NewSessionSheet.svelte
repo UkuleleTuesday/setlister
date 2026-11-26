@@ -9,8 +9,8 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { untrack } from "svelte";
   import Icon from "./Icon.svelte";
+  import Sheet from "./Sheet.svelte";
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { history } from "./history.svelte.js";
@@ -34,21 +34,24 @@
   }
 
   let {
-    open = $bindable(false),
     onStart,
-  }: { open?: boolean; onStart: (choice: NewSessionChoice) => Promise<void> } = $props();
+    onclose,
+  }: { onStart: (choice: NewSessionChoice) => Promise<void>; onclose: () => void } = $props();
 
   // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
   // earlier so a bad pick fails here, not as a rules error after Start.
   const MAX_AHEAD_DAYS = 59;
 
-  let date = $state("");
-  // What the date picker showed when the sheet OPENED. Start compares against
+  // Each opening mounts the sheet afresh, so these are its opening values.
+  // What the date picker showed when the sheet OPENED: Start compares against
   // this, not a recomputed "today": an untouched picker means "now" (server
   // stamp), and comparing against a fresh today would silently turn a sheet
   // left open across midnight into an explicit yesterday-evening pick.
-  let dateDefault = $state("");
-  let dateMax = $state("");
+  const dateDefault = toDateInputValue(new Date());
+  const dateMax = toDateInputValue(new Date(Date.now() + MAX_AHEAD_DAYS * 86_400_000));
+  let date = $state(dateDefault);
+  // Always the default book, never the device's last-loaded one: a themed
+  // night shouldn't quietly become next Tuesday's songbook too.
   let editionId = $state("current");
   let visibility: "shared" | "unlisted" = $state("shared");
   // Both selects ship a "current" option, so the default path never depends
@@ -80,28 +83,6 @@
       (date && date !== dateDefault ? fromDateInputValue(date) : null) ?? new Date(),
     ),
   );
-
-  // Each opening starts fresh, before the sheet shows. No autofocus: opening
-  // a date picker nobody needs to touch would put the extra tap back. Today
-  // is usually the answer: tap Start and go.
-  $effect.pre(() => {
-    if (!open) return;
-    untrack(() => {
-      error = "";
-      busy = false;
-      dateDefault = toDateInputValue(new Date());
-      date = dateDefault;
-      dateMax = toDateInputValue(new Date(Date.now() + MAX_AHEAD_DAYS * 86_400_000));
-      // Always the default book, never the device's last-loaded one: a themed
-      // night shouldn't quietly become next Tuesday's songbook too.
-      editionId = "current";
-      visibility = "shared";
-    });
-  });
-
-  function close() {
-    open = false;
-  }
 
   async function start() {
     if (blocked || busy) return;
@@ -141,16 +122,6 @@
     }
   }
 
-  // Forgiving dismissal: tap the backdrop (the hint says so). Escape is a
-  // desktop bonus, never the only way out.
-  function onBackdrop(event: MouseEvent) {
-    if (event.target === event.currentTarget) close();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && open) close();
-  }
-
   // Desktop nicety; native mobile date pickers never surface an Enter key.
   // Enter would sail past a disabled Start, so it honours the same gate.
   function onDateKeydown(event: KeyboardEvent) {
@@ -161,70 +132,56 @@
   }
 </script>
 
-<svelte:document onkeydown={onKeydown} />
-
-<!-- The backdrop's click is the tap-outside shortcut, not the accessible way
-     out: Cancel is a real button, and Escape is handled on the document. -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-  id="new-session-sheet"
-  class="sheet-backdrop"
-  hidden={!open}
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="new-session-title"
-  tabindex="-1"
-  onclick={onBackdrop}
->
-  <div class="sheet">
-    <h2 id="new-session-title">New session</h2>
-    <!-- Sessions have no names: the date IS the identity, rendered live in
-         each viewer's locale. Left on today, the server stamps the moment of
-         creation (the happy path); any other day (backfilling a missed night
-         or prepping a future one) stamps that day's evening instead. -->
-    <label class="field">
-      <span>Date</span>
-      <input
-        type="date"
-        id="new-session-date"
-        max={dateMax}
-        bind:value={date}
-        onkeydown={onDateKeydown}
-      />
-    </label>
-    <!-- Editable overrides live in the share panel, once the session exists. -->
-    <p class="note" id="new-session-window-note">{windowNote}</p>
-    <!-- The night's songbook: one book per session is how the club plays. -->
-    <label class="field">
-      <span>Songbook</span>
-      <select id="new-session-edition" bind:value={editionId}>
-        {#each editions as edition (edition.id)}
-          <option value={edition.id}>{edition.label}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="field">
-      <span>Visibility</span>
-      <select id="new-session-visibility" bind:value={visibility}>
-        <option value="shared">Shared</option>
-        <option value="unlisted">Unlisted</option>
-      </select>
-    </label>
-    <p class="note">Anyone with the link can open it either way.</p>
-    <!-- One planned night at a time: while a session is coming up, Start is
-         disabled for Shared and this note says why. -->
-    <div id="new-session-notice" class="note planned-notice" hidden={!blocked}>
-      {planned ? plannedSessionMessage(planned) : ""}
-    </div>
-    <div id="new-session-error" class="error" hidden={!error}>{error}</div>
-    <div class="actions">
-      <!-- Creating loads the Firestore chunk lazily, so the first tap can take
-           a beat: hence the spinner. -->
-      <button id="new-session-start" disabled={blocked || busy} onclick={start}>
-        {#if busy}<Icon name="loader" extraClass="spin" />{:else}Start{/if}
-      </button>
-      <button id="new-session-cancel" class="secondary" onclick={close}>Cancel</button>
-    </div>
-    <p class="sheet-hint">Tap outside to close</p>
+<!-- No autofocus: opening a date picker nobody needs to touch would put the
+     extra tap back. Today is usually the answer: tap Start and go. -->
+<Sheet id="new-session-sheet" labelledby="new-session-title" {onclose}>
+  <h2 id="new-session-title">New session</h2>
+  <!-- Sessions have no names: the date IS the identity, rendered live in
+       each viewer's locale. Left on today, the server stamps the moment of
+       creation (the happy path); any other day (backfilling a missed night
+       or prepping a future one) stamps that day's evening instead. -->
+  <label class="field">
+    <span>Date</span>
+    <input
+      type="date"
+      id="new-session-date"
+      max={dateMax}
+      bind:value={date}
+      onkeydown={onDateKeydown}
+    />
+  </label>
+  <!-- Editable overrides live in the share panel, once the session exists. -->
+  <p class="note" id="new-session-window-note">{windowNote}</p>
+  <!-- The night's songbook: one book per session is how the club plays. -->
+  <label class="field">
+    <span>Songbook</span>
+    <select id="new-session-edition" bind:value={editionId}>
+      {#each editions as edition (edition.id)}
+        <option value={edition.id}>{edition.label}</option>
+      {/each}
+    </select>
+  </label>
+  <label class="field">
+    <span>Visibility</span>
+    <select id="new-session-visibility" bind:value={visibility}>
+      <option value="shared">Shared</option>
+      <option value="unlisted">Unlisted</option>
+    </select>
+  </label>
+  <p class="note">Anyone with the link can open it either way.</p>
+  <!-- One planned night at a time: while a session is coming up, Start is
+       disabled for Shared and this note says why. -->
+  <div id="new-session-notice" class="note planned-notice" hidden={!blocked}>
+    {planned ? plannedSessionMessage(planned) : ""}
   </div>
-</div>
+  <div id="new-session-error" class="error" hidden={!error}>{error}</div>
+  <div class="actions">
+    <!-- Creating loads the Firestore chunk lazily, so the first tap can take
+         a beat: hence the spinner. -->
+    <button id="new-session-start" disabled={blocked || busy} onclick={start}>
+      {#if busy}<Icon name="loader" extraClass="spin" />{:else}Start{/if}
+    </button>
+    <button id="new-session-cancel" class="secondary" onclick={onclose}>Cancel</button>
+  </div>
+  <p class="sheet-hint">Tap outside to close</p>
+</Sheet>

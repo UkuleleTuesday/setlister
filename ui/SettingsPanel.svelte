@@ -20,7 +20,7 @@
     onName,
     onChange,
     onEdition,
-    open = $bindable(false),
+    onclose,
   }: {
     /** The name field changed (every keystroke). */
     onName: (name: string) => void;
@@ -28,7 +28,7 @@
     onChange: (key: keyof Settings) => void;
     /** The session's songbook was switched. */
     onEdition: (editionId: string) => void;
-    open?: boolean;
+    onclose: () => void;
   } = $props();
 
   // The editions listing (empty until /api/editions answers) and the
@@ -56,11 +56,11 @@
   // bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
-    if (open && target && !panel?.contains(target)) open = false;
+    if (target && !panel?.contains(target)) onclose();
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") open = false;
+    if (event.key === "Escape") onclose();
   }
 </script>
 
@@ -71,7 +71,6 @@
   class="settings-panel"
   role="dialog"
   aria-label="Settings"
-  hidden={!open}
   bind:this={panel}
 >
   <label class="field">

@@ -13,19 +13,10 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
 
-  let {
-    src = $bindable(null),
-  }: {
-    /** The photo on show; null closes the viewer. */
-    src?: string | null;
-  } = $props();
-
-  function close() {
-    src = null;
-  }
+  let { src, onclose }: { src: string; onclose: () => void } = $props();
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && src) close();
+    if (event.key === "Escape") onclose();
   }
 </script>
 
@@ -37,12 +28,11 @@
 <div
   id="photo-lightbox"
   class="photo-lightbox"
-  hidden={!src}
   role="dialog"
   aria-modal="true"
   aria-label="Scanned request board"
   tabindex="-1"
-  onclick={close}
+  onclick={onclose}
 >
   <button
     id="photo-lightbox-close"
@@ -52,6 +42,6 @@
   >
     <Icon name="close" />
   </button>
-  <img id="photo-lightbox-img" alt="Scanned request board" src={src ?? undefined} />
+  <img id="photo-lightbox-img" alt="Scanned request board" {src} />
   <p class="photo-lightbox-hint">Tap anywhere to close</p>
 </div>

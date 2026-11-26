@@ -13,7 +13,6 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick } from "svelte";
   import Icon from "./Icon.svelte";
   import Presence from "./Presence.svelte";
   import { fromDateTimeInputValue, requestNote, toDateTimeInputValue } from "./request-window.js";
@@ -26,7 +25,8 @@
     onWindow,
     onShareLink,
     onShareRoomLink,
-    open = $bindable(false),
+    at,
+    onclose,
     openers,
   }: {
     /** Write `listed`; reject if it didn't land (the select reverts). */
@@ -39,7 +39,9 @@
     onShareLink: () => Promise<boolean>;
     /** Offer the room's request link; true when it was copied. */
     onShareRoomLink: () => Promise<boolean>;
-    open?: boolean;
+    /** Where to open: the top, or scrolled to the request link. */
+    at: "top" | "requests";
+    onclose: () => void;
     /** Elements outside the panel that open it: taps on them don't close it. */
     openers: () => Element[];
   } = $props();
@@ -73,12 +75,10 @@
     return meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
   }
 
-  /** Open on the request link's row: the window chip's shortcut. */
-  export async function revealRequests() {
-    open = true;
-    await tick();
-    requestsField?.scrollIntoView({ block: "nearest" });
-  }
+  // The window chip's shortcut: the request link's row, in view.
+  $effect(() => {
+    if (at === "requests") requestsField?.scrollIntoView({ block: "nearest" });
+  });
 
   // Shared / Unlisted. Unlisted removes the row from the club's list only;
   // the link keeps working, which the note under the select says out loud.
@@ -147,13 +147,13 @@
   // buttons that open it. Escape is a desktop bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
-    if (!open || !target || panel?.contains(target)) return;
+    if (!target || panel?.contains(target)) return;
     if (openers().some((el) => el.contains(target))) return;
-    open = false;
+    onclose();
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") open = false;
+    if (event.key === "Escape") onclose();
   }
 </script>
 
@@ -166,7 +166,6 @@
   class="share-panel"
   role="dialog"
   aria-label="Session sharing"
-  hidden={!open}
   bind:this={panel}
 >
   <!-- Lead with what the night is called; the raw id is just the link slug,

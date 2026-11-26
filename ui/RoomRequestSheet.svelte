@@ -15,7 +15,8 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount } from "svelte";
+  import Sheet from "./Sheet.svelte";
   import { night } from "./night.svelte.js";
   import type { CatalogueEntry } from "./types.js";
 
@@ -29,20 +30,21 @@
   }
 
   let {
-    request = $bindable(null),
+    entry,
     onConfirm,
+    onclose,
   }: {
-    /** Open on a picked tune, or (entry null) for a rename; null closes it. */
-    request?: { entry: CatalogueEntry | null } | null;
+    /** The picked tune, or null for a rename (from "change"). */
+    entry: CatalogueEntry | null;
     onConfirm: (answer: RequestAnswer) => void;
+    onclose: () => void;
   } = $props();
 
-  // The request this sheet will submit, or null when opened from "change".
-  const entry = $derived(request?.entry ?? null);
-  // Whether there was a name when the sheet opened: typing one in doesn't
-  // make the field vanish under the thumb.
-  let hasName = $state(false);
-  let name = $state("");
+  // Each opening mounts the sheet afresh, from the saved name. Whether there
+  // was one is fixed at opening: typing a name doesn't make the field vanish
+  // under the thumb. The comment is about this tune, not a sticky preference.
+  const hasName = Boolean(night.name.trim());
+  let name = $state(night.name);
   let comment = $state("");
   let error = $state("");
 
@@ -54,28 +56,9 @@
   let nameInput: HTMLInputElement | undefined = $state();
   let confirmButton: HTMLButtonElement | undefined = $state();
 
-  // Each opening starts from the saved name. The comment is about this tune,
-  // not a sticky preference.
-  $effect.pre(() => {
-    if (!request) return;
-    untrack(() => {
-      hasName = Boolean(night.name.trim());
-      name = night.name;
-      comment = "";
-      error = "";
-    });
-  });
-
   // Only raise the keyboard when there's typing to do; a confirm-only sheet
   // puts the thumb on the button instead.
-  $effect(() => {
-    if (!request) return;
-    untrack(() => (askName ? nameInput : confirmButton)?.focus());
-  });
-
-  function close() {
-    request = null;
-  }
+  onMount(() => (askName ? nameInput : confirmButton)?.focus());
 
   // The name is committed on confirm, not per keystroke, so an abandoned
   // sheet leaves the saved name untouched. The request goes in with the same
@@ -87,86 +70,62 @@
       return;
     }
     const answer = { entry, name: askName ? name : null, comment };
-    close();
+    onclose();
     onConfirm(answer);
   }
 
   function onEnter(event: KeyboardEvent) {
     if (event.key === "Enter") confirm();
   }
-
-  // Same forgiving dismissal as the other sheets: tap the backdrop, or
-  // Escape. Dismissing is a "no": the request simply doesn't happen.
-  function onBackdrop(event: MouseEvent) {
-    if (event.target === event.currentTarget) close();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && request) close();
-  }
 </script>
 
-<svelte:document onkeydown={onKeydown} />
-
-<!-- The backdrop's click is the tap-outside shortcut, not the accessible way
-     out: Cancel is a real button, and Escape is handled on the document. -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-  id="room-request-sheet"
-  class="sheet-backdrop"
-  hidden={!request}
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="room-request-title"
-  tabindex="-1"
-  onclick={onBackdrop}
->
-  <div class="sheet">
-    <h2 id="room-request-title">{title}</h2>
-    <!-- The song is what's being confirmed, so it reads as the sheet's
-         subject rather than as a caption. -->
-    <p id="room-request-song" class="room-request-song" hidden={!entry}>{entry?.display ?? ""}</p>
-    <div id="room-request-name-field" hidden={!askName}>
-      <label class="field">
-        <span>Your name</span>
-        <input
-          type="text"
-          id="room-request-name"
-          autocomplete="name"
-          placeholder="e.g. Alex"
-          bind:value={name}
-          bind:this={nameInput}
-          onkeydown={onEnter}
-        />
-      </label>
-      <p class="note">It goes on your request, so the room knows whose tune it is.</p>
-    </div>
-    <!-- Optional note that rides on the request ("it's Sam's birthday"). Only
-         while a request is being confirmed; a rename has nothing to pin it
-         to. -->
-    <div id="room-request-comment-field" hidden={!entry}>
-      <label class="field">
-        <span>Comment (optional)</span>
-        <input
-          type="text"
-          id="room-request-comment"
-          maxlength="120"
-          autocomplete="off"
-          placeholder="e.g. birthday request!"
-          bind:value={comment}
-          onkeydown={onEnter}
-        />
-      </label>
-    </div>
-    <div id="room-request-error" class="error" hidden={!error}>{error}</div>
-    <div class="actions">
-      <!-- The button says what will happen: a request is waiting on this
-           sheet, a rename isn't. -->
-      <button id="room-request-confirm" bind:this={confirmButton} onclick={confirm}>
-        {entry ? "Add request" : "Save"}
-      </button>
-      <button id="room-request-cancel" class="secondary" onclick={close}>Cancel</button>
-    </div>
-    <p class="sheet-hint">Tap outside to close</p>
+<!-- Dismissing (backdrop, Escape, Cancel) is a "no": the request simply
+     doesn't happen. -->
+<Sheet id="room-request-sheet" labelledby="room-request-title" {onclose}>
+  <h2 id="room-request-title">{title}</h2>
+  <!-- The song is what's being confirmed, so it reads as the sheet's
+       subject rather than as a caption. -->
+  <p id="room-request-song" class="room-request-song" hidden={!entry}>{entry?.display ?? ""}</p>
+  <div id="room-request-name-field" hidden={!askName}>
+    <label class="field">
+      <span>Your name</span>
+      <input
+        type="text"
+        id="room-request-name"
+        autocomplete="name"
+        placeholder="e.g. Alex"
+        bind:value={name}
+        bind:this={nameInput}
+        onkeydown={onEnter}
+      />
+    </label>
+    <p class="note">It goes on your request, so the room knows whose tune it is.</p>
   </div>
-</div>
+  <!-- Optional note that rides on the request ("it's Sam's birthday"). Only
+       while a request is being confirmed; a rename has nothing to pin it
+       to. -->
+  <div id="room-request-comment-field" hidden={!entry}>
+    <label class="field">
+      <span>Comment (optional)</span>
+      <input
+        type="text"
+        id="room-request-comment"
+        maxlength="120"
+        autocomplete="off"
+        placeholder="e.g. birthday request!"
+        bind:value={comment}
+        onkeydown={onEnter}
+      />
+    </label>
+  </div>
+  <div id="room-request-error" class="error" hidden={!error}>{error}</div>
+  <div class="actions">
+    <!-- The button says what will happen: a request is waiting on this
+         sheet, a rename isn't. -->
+    <button id="room-request-confirm" bind:this={confirmButton} onclick={confirm}>
+      {entry ? "Add request" : "Save"}
+    </button>
+    <button id="room-request-cancel" class="secondary" onclick={onclose}>Cancel</button>
+  </div>
+  <p class="sheet-hint">Tap outside to close</p>
+</Sheet>
