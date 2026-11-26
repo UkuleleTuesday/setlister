@@ -1646,8 +1646,8 @@ body.room-mode #edition-note {
 }
 /* On the two working lists, right-align the action buttons so promote/demote
    and played/bin fall into the same columns across both lists. (The drag handle
-   is no longer part of this row — it's a full-height strip down the left edge,
-   see below.) Group rows (played/bin) follow suit so their restore control
+   isn't in this row: it's a full-height strip down the left edge, see below.)
+   Group rows (played/bin) follow suit so their restore control
    lands in the same column; review rows have their own tool set. */
 .row-card.swipeable .row-tools,
 .group-rows .row-tools {
