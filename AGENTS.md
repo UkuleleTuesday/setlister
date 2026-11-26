@@ -37,7 +37,14 @@ The UI is mobile-first.
     the interim states. Lead with the biggest change; three items a day, max.
 - **No em dashes in copy.** Whimsical is fine as long as it stays clear.
 - **Never build anything that destroys other people's work.**
-- Run `npm run test:emulator` after touching `firestore.rules`.
+
+## Data storage and handling
+
+`firestore.rules` only accepts session doc keys it lists (`hasOnly`): one
+unknown key rejects the whole write. So a new field needs its rules entry in
+the same change, and PR previews run new code against production's rules,
+where a field written at session creation breaks "New session". Run
+`npm run test:emulator` after touching the rules.
 
 ## Before you push
 
