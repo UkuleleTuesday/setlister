@@ -1,5 +1,12 @@
 [
   {
+    "date": "2026-11-26",
+    "items": [
+      "When the request link opens or closes on its own schedule, phones on it catch up within a minute: thumbs up switch on and off without a reload.",
+      "Ticking \"Include crossed-out rows\" now wakes the copy and download buttons straight away."
+    ]
+  },
+  {
     "date": "2026-11-17",
     "items": [
       "Page numbers stay right when the songbook gets its weekly refresh: a phone that left the app open since last week now picks up the new book instead of adding tunes with old pages."
