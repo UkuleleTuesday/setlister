@@ -3,14 +3,12 @@
 // Sessions live at `sessions/{id}` in Firestore and travel in share URLs
 // (`?session=`), so the id has to survive being read aloud across a pub table:
 // two lowercase words, dash-separated, e.g. `misty-banjo`. Cardinality is only
-// ~10,000 combos, which is plenty for a small ukulele club — collision
-// handling at create time is the caller's job (#29 retries with a fresh id
-// inside a Firestore transaction).
+// ~10,000 combos, which is plenty for a small ukulele club; collisions are
+// the caller's job (sync.ts's createSession retries inside its transaction,
+// #29).
 //
-// The shape regex below MUST stay in sync with `firestore.rules`
-// (`isValidSession` → `id.matches('^[a-z]+-[a-z]+$')`): the rules are the
-// entire access-control layer, so an id this module can mint but the rules
-// reject would be unwritable.
+// The shape regex below MUST match `firestore.rules` (`isValidSession`): an
+// id this module can mint but the rules reject would be unwritable.
 
 // Curated for saying out loud, not just typing: friendly words, easy to spell,
 // no ambiguous homophones, and nothing embarrassing when two are paired at
@@ -223,7 +221,7 @@ const NOUNS = [
 
 // Same feature-detection posture as `newUid()` in adds.ts: prefer the crypto
 // API, fall back to Math.random only where it's genuinely missing. Ids are
-// low-stakes (guessable by design — see firestore.rules), but crypto gives an
+// low-stakes (guessable by design, see firestore.rules), but crypto gives an
 // unbiased, uniform spread across the wordlists.
 function randomIndex(length: number): number {
   const crypto = globalThis.crypto;
@@ -246,9 +244,9 @@ function pick<T>(list: readonly T[]): T {
   return list[randomIndex(list.length)];
 }
 
-// Matches `firestore.rules` exactly: shape only, no wordlist membership check.
-// Remote sessions can outlive edits to the wordlists above, so an id minted by
-// an older/newer build must still validate as long as it's `word-word`.
+// Shape only, no wordlist membership check: sessions outlive edits to the
+// wordlists above, so an id minted by any build must validate as long as it's
+// `word-word`.
 const SESSION_ID_RE = /^[a-z]+-[a-z]+$/;
 
 export function generateSessionId(): string {

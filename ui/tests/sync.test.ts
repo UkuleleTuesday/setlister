@@ -66,8 +66,8 @@ describe("serialize / deserialize", () => {
 describe("readMeta", () => {
   // A session with no `listed` field predates visibility and should be adopted
   // into the club's history. A session with `listed: false` was deliberately
-  // unlisted and must be left alone. Collapsing the two meant opening an
-  // unlisted session's own share link re-advertised it to everyone.
+  // unlisted and must be left alone. Collapsing the two would make opening an
+  // unlisted session's own share link re-advertise it to everyone.
   it("treats a missing listed field as legacy, not as unlisted-on-purpose", () => {
     const meta = readMeta({ createdBy: "" });
     expect(meta.legacy).toBe(true);
@@ -110,10 +110,10 @@ describe("readMeta", () => {
   });
 
   // requestsOpen is tri-state: true/false are a deliberate override, absent is
-  // AUTO — follow the request window (see request-window.ts), not "always
-  // open". Every session that predates this field reads as auto now rather
-  // than permanently open; the window's own default covers a whole ordinary
-  // night, so that's invisible for anything actually happening tonight.
+  // AUTO: follow the request window (see request-window.ts), not "always
+  // open". Sessions without the field read as auto too; the window's default
+  // covers a whole ordinary night, so that's invisible for anything actually
+  // happening tonight.
   it("treats a missing requestsOpen as auto, not forced either way", () => {
     expect(readMeta({ createdBy: "" }).requestsOpen).toBeNull();
     expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBeNull();

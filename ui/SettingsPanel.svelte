@@ -2,9 +2,9 @@
   The settings popover behind the gear: this device's name, the session's
   songbook, two display toggles, and the scan parser's knobs under Advanced.
 
-  The device settings live in settings.svelte.ts and are edited in place
-  here; every change is reported through the props so App can persist it
-  (and, for the name, tell the session's peers).
+  The device settings (settings.svelte.ts) are edited in place here; every
+  change is reported through the props so App can persist it (and, for the
+  name, tell the session's peers).
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -52,8 +52,8 @@
   }
 
   // Forgiving dismissal: a tap anywhere outside closes it (the gear's own tap
-  // stops propagation in App.svelte, so it toggles instead). Escape is a desktop
-  // bonus.
+  // stops propagation in App.svelte, so it toggles instead). Escape is a
+  // desktop bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
     if (target && !panel?.contains(target)) onclose();
@@ -121,9 +121,9 @@
     />
     <span>Include crossed-out rows in export</span>
   </label>
-  <!-- Everything below is prompt-engineering vocabulary aimed at whoever is
-       tuning the parser, not at a ukulele player: it opens closed so the
-       panel reads as four things a club member might actually want. -->
+  <!-- Everything below is vocabulary for whoever is tuning the parser, not a
+       ukulele player: it starts closed so the panel reads as four things a
+       club member might actually want. -->
   <details class="advanced">
     <summary>Advanced</summary>
     <label class="field">

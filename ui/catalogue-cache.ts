@@ -27,7 +27,7 @@ const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
 export const CATALOGUE_CACHE_LIMIT = 4;
 
 // The cached {edition, catalogue, generatedAt} for an edition, or null.
-// Anything malformed reads as a miss — the network load repopulates it. The
+// Anything malformed reads as a miss; the network load repopulates it. The
 // store is whatever localStorage held, hence `unknown`.
 export function getCachedCatalogue(store: unknown, editionId: string): CachedCatalogue | null {
   const entry = (store as Record<string, Partial<CachedCatalogue> | null> | null)?.[editionId];
@@ -53,9 +53,9 @@ export function putCachedCatalogue(
   return next;
 }
 
-// Fold the pre-split single-slot cache (setlister.catalogue.v1) into the map,
-// once, so the first launch after the update still searches instantly. An
-// edition already in the map wins — it can only be fresher.
+// Fold the legacy single-slot cache (setlister.catalogue.v1) into the map,
+// once, so a device holding only that slot searches instantly. An edition
+// already in the map wins: it can only be fresher.
 export function migrateLegacyCatalogue(
   store: CatalogueStore,
   legacyData: unknown,
@@ -78,10 +78,10 @@ export function migrateLegacyCatalogue(
 }
 
 // How long a fetched catalogue is trusted before it's re-checked. A phone keeps
-// the app's tab alive for days, and the book is regenerated weekly with songs
-// rotated in and out, so every page after a change shifts. Without a re-check
-// a tab opened before the regen keeps adding tonight's songs with last week's
-// pages. Matches the API's own 15-minute catalogue cache.
+// the app's tab alive for days, and the weekly regen rotates songs in and out,
+// shifting every page after a change: without a re-check, a tab opened before
+// the regen adds tonight's songs with last week's pages. Matches the API's
+// own 15-minute catalogue cache.
 export const CATALOGUE_MAX_AGE_MS = 15 * 60 * 1000;
 
 // Whether the catalogue should be re-fetched: never tried, or last tried long

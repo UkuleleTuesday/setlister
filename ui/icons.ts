@@ -52,7 +52,7 @@ export const ICONS = {
   close: X,
   chevron: ChevronDown,
   loader: LoaderCircle,
-  // "Something shipped" — the What's new banner and sheet.
+  // "Something shipped": the What's new banner and sheet.
   news: Sparkles,
   // Session navigation: out to the history list.
   back: ArrowLeft,

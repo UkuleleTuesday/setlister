@@ -32,10 +32,10 @@ export async function shareRoomLink(): Promise<boolean> {
   );
 }
 
-// Each write shows the pick at once and reverts it if this rejects: one tap
-// that has to survive a flaky pub wifi. Shared / Unlisted removes the row
-// from the club's list only: the link keeps working, which the panel says
-// out loud.
+// SharePanel shows each pick at once and reverts it if the write rejects:
+// one tap that has to survive flaky pub wifi. Unlisted removes the row from
+// the club's list only: the link keeps working, which the panel says out
+// loud.
 export async function changeVisibility(listed: boolean) {
   await metadataWrite("the session’s visibility", () => sync.setSessionListed(listed));
 }

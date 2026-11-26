@@ -53,9 +53,9 @@ describe("sessionDateLabel", () => {
   });
 
   it("stamps a night beyond yesterday with its date, weekday kept off-Tuesday", () => {
-    // A bare "Thursday" said when, a bare "Tuesday" said nothing to a club
-    // that meets every Tuesday — so beyond the neighbouring nights it's the
-    // date, with the weekday only where it's the interesting part.
+    // A bare "Tuesday" says nothing to a club that meets every Tuesday, so
+    // beyond the neighbouring nights it's the date, with the weekday only
+    // where it's the interesting part.
     expect(sessionDateLabel(at(2026, 6, 30), NOW)).toMatch(/^Thursday /);
     expect(sessionDateLabel(at(2026, 6, 29), NOW)).toMatch(/^Wednesday /);
   });
@@ -93,9 +93,8 @@ describe("sessionDateLabel", () => {
   });
 
   it("stamps a night beyond tomorrow with its date, never a Next prefix", () => {
-    // "Next Friday" above a past "Tuesday" put two relative weekdays on one
-    // screen; ahead of tomorrow the concrete date is the label, weekday kept
-    // for any night that isn't the club's Tuesday.
+    // Ahead of tomorrow the concrete date is the label, with the weekday for
+    // any night that isn't the club's Tuesday.
     expect(sessionDateLabel(at(2026, 7, 7), NOW)).toMatch(/^Friday /); // Fri 7 Aug
     expect(sessionDateLabel(at(2026, 7, 10), NOW)).toMatch(/^Monday /); // Mon 10 Aug
   });

@@ -11,10 +11,10 @@ class History {
 export const history = new History();
 
 /**
- * Load the history. What's on screen stays put while loading. A failed query
- * clears the whole list: a stale "Next session" card over a "Couldn't load"
- * error would be a lie, and the new-session sheet's gate then fails closed
- * (its Start re-checks against Firestore).
+ * Load the history, leaving what's on screen in place meanwhile. A failed
+ * query clears the list: a stale "Next session" card over a "Couldn't load"
+ * error would be a lie. The new-session sheet's gate then opens, but its
+ * Start re-checks against Firestore and fails closed.
  */
 export async function loadHistory() {
   history.status = "loading";

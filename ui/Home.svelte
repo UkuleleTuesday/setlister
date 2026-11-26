@@ -2,12 +2,12 @@
   The home view's session history: "New session", the next night as a big
   card, any further prepped nights, and the club's history below. Mounted
   inside <section id="home"> between the What's new banner and footer, which
-  App.svelte keeps (they're the release notes' doors, not the history).
+  App.svelte owns (they're the release notes' doors, not the history).
 
-  It lays out history.svelte.ts (which routing loads) with session-index.ts:
-  labelling, disambiguation and the upcoming/past split all stay pure there.
-  Its error line is notices.home (why a route bounced back here); taps go out
-  through the props.
+  It lays out history.svelte.ts (which routing loads) with session-index.ts,
+  where labelling, disambiguation and the upcoming/past split are pure
+  functions. Its error line is notices.home (why a route bounced back here);
+  taps go out through the props.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -33,7 +33,7 @@
   // page.
   const PAST_VISIBLE = 5;
 
-  // Survives a reload of the history so a background refresh doesn't slam it
+  // Survives a reload of the history, so a background refresh doesn't slam it
   // shut under someone's thumb.
   let pastOlderOpen = $state(false);
 
@@ -66,9 +66,9 @@
 </script>
 
 <!-- `label` is the session's date in this viewer's locale (see
-     disambiguate()/sessionDateLabel()). A just-created doc can still be
-     waiting on its server timestamp, which labels as "": name the state
-     rather than render a blank card. -->
+     disambiguate()/sessionDateLabel()). A just-created doc can be waiting on
+     its server timestamp, which labels as "": name the state rather than
+     render a blank card. -->
 {#snippet item(entry: SessionEntry & { label: string }, extraClass = "")}
   <li>
     <button

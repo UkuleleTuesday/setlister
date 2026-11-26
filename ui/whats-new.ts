@@ -1,11 +1,11 @@
 // "What's new": the app's changelog and the logic that picks what the home
-// screen shows. The entries live in whats-new.json — pure data, so the
-// "document this feature" PR convention (see AGENTS.md) touches no code — and
-// this module stays UI-free like session-index.ts: App.svelte draws it.
+// screen shows. The entries live in whats-new.json (pure data, so the
+// "document this feature" convention in AGENTS.md touches no code); this
+// module is UI-free, and App.svelte / WhatsNewSheet.svelte draw it.
 //
-// Entry dates are ISO YYYY-MM-DD strings. That's data, not a stored formatted
-// label: the visible date still renders through Intl in the viewer's locale at
-// view time, same rule as session names.
+// Entry dates are ISO YYYY-MM-DD strings, never a stored formatted label: the
+// visible date renders through Intl in the viewer's locale at view time, the
+// same rule as session dates.
 
 import whatsNew from "./whats-new.json";
 
@@ -22,7 +22,7 @@ const WHATS_NEW: WhatsNewEntry[] = whatsNew;
 export { WHATS_NEW };
 
 // new Date("2026-08-05") parses as UTC midnight, which renders as August 4th
-// on phones west of Greenwich — so split the string and build a LOCAL date.
+// on phones west of Greenwich, so split the string and build a LOCAL date.
 export function entryDate(entry: Partial<WhatsNewEntry> | null | undefined): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(entry?.date || "");
   if (!m) return null;
@@ -59,10 +59,10 @@ export function sortedEntries<T extends Partial<WhatsNewEntry>>(
 }
 
 // Release notes want a plain date ("5 August"), not the session list's
-// "Tonight/Yesterday" register — news doesn't age the way a running night
-// does — so this keeps its own formatters rather than importing
-// session-index.ts. Viewer's locale, year only once it's a different one.
-// `now` is injectable so tests can pin the clock.
+// "Tonight/Yesterday" register (news doesn't age the way a running night
+// does), so this has its own formatters rather than session-index.ts's.
+// Viewer's locale, year only once it's a different one. `now` is injectable
+// so tests can pin the clock.
 const DAY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   month: "long",
@@ -84,9 +84,9 @@ export function whatsNewDateLabel(
 }
 
 // The ISO date of the last entry this device has seen: what retires the home
-// banner. Its own key, outside setlister.v1, so the saved lists' schema stays
-// untouched, and data rather than a label, so shipping a newer entry revives
-// the banner with nothing to migrate.
+// banner. Its own key, outside setlister.v1 (the saved night), and data
+// rather than a label, so shipping a newer entry revives the banner with
+// nothing to migrate.
 export const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
 
 // Forgiving like name-reset.ts's wrappers: in private mode the banner simply

@@ -23,10 +23,9 @@ class Lists {
   room = $derived(view.mode === "room");
   /** The room view's request link is taking tunes. */
   roomOpen = $derived(this.room && session.link.open);
-  // A room device on a View-only link doesn't vote either: the share panel
-  // promises those people can "open tonight's pool and watch it", and a live
-  // control would make that a lie. The full app always votes: closing the
-  // link is about the link.
+  // A room device on a View-only link doesn't vote: the share panel promises
+  // those people can only watch, and a live control would make that a lie.
+  // The full app always votes: closing the link is about the link.
   votingEnabled = $derived(!this.room || session.link.open);
   // The export pair covers both lists; with nothing to export, copying an
   // empty string and downloading `{rows: []}` are traps, not actions.

@@ -17,12 +17,8 @@ export function setPlayerName(value: string) {
   presence.refreshPresence();
 }
 
-// The names saved in the full app drifted into jokes, so this build runs a
-// name amnesty: once per device, the typed name is cleared and a sheet asks
-// for a real one. The rules and the copy live in name-reset.ts, including why
-// room devices are exempt and why a first-ever visitor never sees it. Runs at
-// boot, after the view mode is known and before presence can broadcast the
-// name anywhere.
+// The one-time name amnesty (rules and copy in name-reset.ts). Runs at boot,
+// after the view mode is known and before presence can broadcast the name.
 export function maybeResetName() {
   const plan = resolveNameReset({
     mode: view.mode,

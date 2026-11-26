@@ -1,10 +1,6 @@
 // The night as it leaves the app: the plain-text setlist the copy button puts
 // on the clipboard, and the JSON the download button saves. Both cover both
-// lists, running order first: Up next, then the requests still in the pool.
-//
-// (There is deliberately no "Start over": every set belongs to a shared
-// session, so wiping both lists meant wiping the night for everyone in the
-// room, with no undo. A fresh start is a new session.)
+// lists, running order first: Up next, then the requests in the pool.
 
 import type { Edition, Row } from "./types.js";
 
@@ -30,8 +26,8 @@ export function exportText(rows: Row[]): string {
 export type ExportedRow = Omit<Row, "uid" | "source" | "addedBy" | "removed" | "played" | "binned">;
 
 // `played` and `binned` are live gig-tracking state, not part of the setlist
-// payload; the times they were set (`playedAt` / `binnedAt`) stay, as the
-// night's record of what got played when. A row carrying `playedAt` is a
+// payload; the times they were set (`playedAt` / `binnedAt`) are exported as
+// the night's record of what got played when. A row carrying `playedAt` is a
 // played row.
 function stripInternal(row: Row): ExportedRow {
   const { uid, source, addedBy, removed, played, binned, ...rest } = row;

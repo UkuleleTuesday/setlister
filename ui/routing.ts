@@ -67,7 +67,7 @@ async function applyRoute(id: string | null): Promise<void> {
   if (!id) {
     // ORDER MATTERS. leaveSession() first: clearing the lists before detaching
     // would push the empty lists through persist() -> notifyLocalChange() and
-    // wipe the session for everyone still in it. Once sync has torn down, its
+    // wipe the session for everyone in it. Once sync has torn down, its
     // pending push is cleared and flushPush early-returns, so nothing escapes.
     sync.leaveSession(); // also clears the session's createdAt
     night.upNext = [];
@@ -92,9 +92,9 @@ async function applyRoute(id: string | null): Promise<void> {
     readSync();
     persist();
     setView("session");
-    // Sessions predating visibility have no listing row; give them one so they
-    // stop being invisible. A no-op for everything else, crucially including a
-    // session someone deliberately unlisted. Best-effort, never blocks opening.
+    // Sessions predating visibility have no listing row: give them one. A
+    // no-op for everything else, crucially a session someone deliberately
+    // unlisted. Best-effort, never blocks opening.
     sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
@@ -126,10 +126,10 @@ export function openSession(id: string) {
 // Starting a night: NewSessionSheet.svelte owns the fields, the planned-night
 // gate and Start's states; this creates the session and goes there.
 export async function startSession({ createdAt, listed, editionId }: NewSessionChoice) {
-  // The session's songbook, picked on the sheet. Resolved through the editions
-  // listing so the doc carries a real {id, title}; when the listing never
-  // loaded the id alone is enough (loadCatalogue enriches it). Never null:
-  // every session names its book explicitly.
+  // The songbook picked on the sheet, resolved through the editions listing
+  // so the doc carries a real {id, title}; if the listing never loaded, the
+  // id alone is enough (loadCatalogue enriches it). Never null: every session
+  // names its book explicitly.
   const chosenEdition = catalogue.editions.find((e) => e.id === editionId) || {
     id: editionId,
     title: "",

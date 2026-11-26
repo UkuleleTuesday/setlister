@@ -85,12 +85,10 @@
     swipeDx === null || !li ? null : Math.min(1, Math.abs(swipeDx) / (COMMIT * li.clientWidth)),
   );
 
-  // The working lists get one quiet line: provenance, plus only the facts
-  // that still need saying. Repeating the matched title and page as
-  // `wrote: …` under every row said nothing on the happy path; the board text
-  // earns its place only when it differs from the match. The page leads the
-  // line: beside the title it took the width the thumbs pill and the row
-  // tools need.
+  // The working lists get one quiet line: provenance plus only the facts
+  // worth saying. The board text shows only where it differs from the match.
+  // The page leads the line: beside the title it would take the width the
+  // thumbs pill and the row tools need.
   const metaText = $derived.by(() => {
     const parts: string[] = [];
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
@@ -111,7 +109,7 @@
     if (row.crossed_out) parts.push("crossed out");
     // When it was ticked off or binned, in the viewer's own clock. Only in
     // the two groups: on the working lists the row isn't in that state. Rows
-    // marked before times were recorded simply show none.
+    // marked before times were recorded show none.
     const playedAt =
       context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
     if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
@@ -162,7 +160,7 @@
   // Horizontal-swipe sibling of drag (pointer events, so touch works). The
   // body tracks the finger; committing past the threshold fires the list's
   // action. Vertical intent goes back to the page (touch-action: pan-y), so
-  // the list still scrolls.
+  // the list scrolls.
   function onPointerdown(event: PointerEvent) {
     if (!swipeable || !li) return;
     // Buttons and the drag handle own their own gestures.
@@ -276,9 +274,9 @@
       </span>
     </div>
   {/if}
-  <!-- The text lives in its own column so the action buttons sit beside it,
-       vertically centred: a whole row of card given over to two icons was
-       most of what made each card tall. -->
+  <!-- The text has its own column so the action buttons sit beside it,
+       vertically centred, rather than in a row of their own that would
+       roughly double each card's height. -->
   <div
     class="row-body compact"
     class:has-handle={context === "upnext"}
@@ -286,9 +284,8 @@
     style:transition={tracking ? "none" : undefined}
   >
     {#if context === "upnext"}
-      <!-- A full-height grab strip down the card's left edge, not a button in
-           the tools row: a big thumb target for reordering. Drag is the
-           primary gesture; the arrow keys are its keyboard equivalent. -->
+      <!-- A full-height grab strip (see .drag-handle in style.css). Drag is
+           the primary gesture; the arrow keys are its keyboard equivalent. -->
       <button
         bind:this={handle}
         class="drag-handle"
@@ -325,7 +322,7 @@
     </div>
     <div class="row-tools">
       <!-- "I want this one" (#83), first in the row so the buttons after it
-           stay where the thumb expects. Up next is deliberately NOT re-sorted
+           sit where the thumb expects. Up next is deliberately NOT re-sorted
            by it like the pool is: the set plays from the top. -->
       {#if vote}
         <button
@@ -383,9 +380,8 @@
           <Icon name="restore" />
         </button>
       {/if}
-      <!-- Each working list shows only the action matching its swipe, so the
-           buttons and the gestures stay in lockstep: Up next ticks a tune off,
-           Requests bins one. -->
+      <!-- Each working list's buttons mirror its two swipes: Up next demotes
+           and ticks off, Requests promotes and bins. -->
       {#if context === "upnext"}
         <button
           type="button"

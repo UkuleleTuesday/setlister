@@ -4,8 +4,8 @@
 
   Mobile-first dismissal: there's no Escape key on a phone and "tap the
   backdrop but not the photo" is a fiddly target, so tapping ANYWHERE on the
-  overlay closes it. The ✕ stays as the obvious, thumb-sized way out; Escape
-  is a harmless desktop bonus.
+  overlay closes it. The ✕ is the obvious, thumb-sized and keyboard-reachable
+  way out (its click bubbles to the overlay); Escape is a desktop bonus.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -22,8 +22,6 @@
 
 <svelte:document onkeydown={onKeydown} />
 
-<!-- The whole overlay is the tap-to-close target; the ✕ button is the
-     keyboard-reachable way out, and Escape is handled on the document. -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   id="photo-lightbox"

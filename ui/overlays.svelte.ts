@@ -1,8 +1,6 @@
-// Which sheet or popover is up. App.svelte mounts each one only while it's
-// set here, so every opening starts fresh; the actions open and close them
-// by setting them: a pick closes the songbook and opens the confirm sheet,
-// starting a night closes its sheet, leaving a session closes the share
-// panel.
+// Which sheet or popover is up. App.svelte mounts each only while it's set
+// here; the actions open and close them by setting these (a pick swaps the
+// songbook for the confirm sheet, leaving a session closes the share panel).
 
 import type { CatalogueEntry } from "./types.js";
 import type { WhatsNewEntry } from "./whats-new.js";

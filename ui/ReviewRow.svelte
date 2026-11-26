@@ -3,10 +3,10 @@
   shows what the board said next to what it was matched to, with the means to
   fix it (the correct-song picker, the alternatives) or drop it.
 
-  Review rows keep the stacked layout (their tools row carries a full-width
+  Review rows use the stacked layout (their tools row carries a full-width
   picker) and never swipe, so they're their own component rather than a mode
   of the working lists' rows. Every change goes up through the props; the
-  parent owns the rows.
+  parent (ScanFlow.svelte) owns the rows.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -45,15 +45,14 @@
   } = $props();
 
   // The correct-song picker. A confident match rarely needs correcting, and
-  // the picker is a full-width field that roughly doubles a row's height: on
-  // a 25-row board that buries the two rows that do need attention. So
-  // confirmed rows collapse it behind a button, and only flagged ones open
-  // expanded. The button swaps in the picker in place, focused, and a
-  // correction (which makes the row confirmed) collapses it again.
+  // the picker roughly doubles a row's height, burying the few rows that do
+  // need attention. So confirmed rows collapse it behind a button (which
+  // swaps in the picker, focused), flagged ones show it, and a correction
+  // (which confirms the row) collapses it again.
   let pickerExpanded = $state(false);
-  // The dropdown has to escape its card, but `.row-body` carries a z-index
-  // for the swipe layer, which makes every card its own stacking context: the
-  // NEXT card would paint over the menu. Lift the whole card while it's open.
+  // The dropdown has to escape its card, but `.row-body`'s z-index (for the
+  // swipe layer) makes every card its own stacking context, so the NEXT card
+  // would paint over the menu. Lift the whole card while it's open.
   let menuOpen = $state(false);
 
   // A match the parser wasn't sure of gets a warning that opens the photo.

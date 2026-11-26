@@ -2,17 +2,17 @@
 //
 // The phone shoots 3–8MB; the API immediately resizes to a 1600px long edge
 // before the vision call (utrequests/preprocess.py), so every megabyte past
-// that is a megabyte the user waits for on pub Wi-Fi and 4G for nothing.
-// Shrinking here makes the upload 10–20× smaller — the single biggest win
-// available on the scan flow's wall-clock.
+// that is one the user waits for on pub Wi-Fi and 4G for nothing. Shrinking
+// here makes the upload 10–20× smaller: the single biggest win on the scan
+// flow's wall-clock.
 //
 // Guiding rule: this is an optimisation, never a gate. Every failure path
 // (no `createImageBitmap`, a canvas the browser won't read back, a re-encode
-// that comes out bigger) returns the ORIGINAL file, and the server resizes as
-// it always did. A scan must never fail because the shrink did.
+// that comes out bigger) returns the ORIGINAL file for the server to resize.
+// A scan must never fail because the shrink did.
 //
-// Pure-ish module, no DOM ids and no app state: the browser bits are injected
-// so ui/tests can exercise the decisions (same precedent as dupes.ts).
+// No DOM ids and no app state: the browser bits are injectable so ui/tests
+// can exercise the decisions.
 
 /** Matches the API's own default and the settings field's placeholder. */
 export const DEFAULT_MAX_EDGE = 1600;
@@ -59,9 +59,6 @@ export function jpegName(name: string | null | undefined): string {
   return `${base || "photo"}.jpg`;
 }
 
-// EXIF is stripped by the re-encode, so the rotation has to be baked into the
-// pixels here — `from-image` is what makes a portrait photo stay portrait.
-// (The server's exif_transpose can't save us once the tag is gone.)
 type Size = { width: number; height: number };
 
 /** The browser bits downscaleImage() uses, swappable for the tests. */
@@ -70,10 +67,13 @@ export interface DownscaleDeps {
   encodeJpeg?: (bitmap: ImageBitmap, size: Size, quality: number) => Promise<Blob | null>;
 }
 
+// EXIF is stripped by the re-encode, so the rotation has to be baked into the
+// pixels here: `from-image` is what keeps a portrait photo portrait (the
+// server's exif_transpose can't help once the tag is gone).
 const createBitmap = (file: File) => createImageBitmap(file, { imageOrientation: "from-image" });
 
-// OffscreenCanvas where it exists (no layout, no document), <canvas> otherwise
-// — Safari only got OffscreenCanvas recently and phones are the whole point.
+// OffscreenCanvas where it exists (no layout, no document), <canvas> otherwise:
+// older Safari lacks OffscreenCanvas, and phones are the whole point.
 // A missing 2D context throws on the `!`, which downscaleImage() turns into
 // "send the original", like every other failure here.
 async function encodeJpeg(

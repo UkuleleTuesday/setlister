@@ -1,12 +1,12 @@
 // This device's copy of the night, so a reload or an accidental close loses
 // nothing: both lists (rows carry their matched entry inline, so they render
 // and export before the catalogue reloads), the votes, the session's book, the
-// player's name, the session to rejoin and the settings.
+// player's name, the session id and the settings.
 //
 // What comes back is whatever an older build (or a full disk) left, so it's
 // read field by field: a field of the wrong kind is dropped. What's inside the
 // lists, votes and edition is taken on trust, like the session doc's in
-// sync.ts (#157 is about real checks for both).
+// sync.ts (#157 tracks real checks for both).
 
 import type { Edition, Row, Votes } from "./types.js";
 
@@ -20,7 +20,7 @@ export interface SavedState {
   name: string;
   /** null when no session is active. */
   sessionId: string | null;
-  /** SettingsPanel.svelte validates its own fields. */
+  /** applySettings() in settings.svelte.ts validates its own fields. */
   settings: unknown;
 }
 

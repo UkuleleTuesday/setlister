@@ -4,14 +4,13 @@
   blank type-ahead asks for recall they don't have; a list lets them
   recognise the tune instead, in the printed book's page order. Every row
   carries tonight's state, so "already asked for" becomes a thumbs up rather
-  than a refusal after the tap. Same pinned-chrome layout as What's new: it
-  runs several screens long, so Close stays under the thumb.
+  than a refusal after the tap. Pinned chrome like What's new: it runs
+  several screens long, so Close is always under the thumb.
 
-  It shows the catalogue tagged with the night as it stands, and reports picks
-  through `onPick`; what a pick DOES (thumbs up, played note, cool-down, the
-  confirm sheet) is adds.ts's, which answers with a note (notices.songbook) or
-  by closing the sheet. Matching is search.ts, tonight's state dupes.ts and
-  votes.ts, the brake room-limits.ts.
+  It reports picks through `onPick`; what a pick DOES (thumbs up, played
+  note, cool-down, the confirm sheet) is adds.ts's pickSong, which answers
+  with a note (notices.songbook) or by closing the sheet. Matching is
+  search.ts, tonight's state dupes.ts and votes.ts, the brake room-limits.ts.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -72,7 +71,7 @@
   // Focus goes to Close, not the search field: focusing that raises the
   // keyboard over the list, and browsing is the point. Typing is one tap
   // away at the top. However it closes (Close, or a pick that moved on to
-  // the confirm sheet), any note still up goes with it, and the wait's timer.
+  // the confirm sheet), any note on show goes with it, and the wait's timer.
   onMount(() => {
     notices.songbook.clear();
     refreshWait();

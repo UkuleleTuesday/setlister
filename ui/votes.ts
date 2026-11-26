@@ -4,14 +4,14 @@
 // as a vote against the person who asked, and it doubles the UI for a signal
 // nobody wanted.
 //
-// The shape is `{ [rowUid]: { [clientId]: true } }`, living in its own
-// top-level field on the session doc rather than on the row. That is not
-// tidiness — `diff()` in sync.ts replaces `rows.<uid>` wholesale on any change,
-// so votes stored on a row would clobber each other in exactly the moment this
+// The shape is `{ [rowUid]: { [clientId]: true } }`, in its own top-level
+// field on the session doc rather than on the row. That is not tidiness:
+// `diff()` in sync.ts replaces `rows.<uid>` wholesale on any change, so votes
+// stored on a row would clobber each other in exactly the moment this
 // feature exists for (the room all voting at once). As its own map it is
 // written with nested field paths, which Firestore merges per key, and a row
-// edit can never carry votes away with it. ui/tests/rules.test.js pins that
-// behaviour down against the emulator.
+// edit can never carry votes away with it. tests/rules.test.ts pins that down
+// against the emulator.
 //
 // One vote per person is keyed on presence's client id, the only opaque stable
 // id the app has. It is honour-system, like room mode's brakes: private
@@ -27,7 +27,7 @@ import type { Row, Votes } from "./types.js";
 // `unknown` and treats anything that isn't a map as no votes.
 type VoteMap = Record<string, true>;
 
-/** The map for one row, or an empty object — callers never see undefined. */
+/** The map for one row, or an empty object: callers never see undefined. */
 function rowVotes(votes: unknown, uid: string): VoteMap {
   const entry = votes && typeof votes === "object" ? (votes as Record<string, unknown>)[uid] : null;
   return entry && typeof entry === "object" ? (entry as VoteMap) : {};
@@ -42,7 +42,7 @@ export function hasVoted(votes: unknown, uid: string, clientId: string): boolean
   return rowVotes(votes, uid)[clientId] === true;
 }
 
-// Add or remove this client's vote, returning a NEW map — the caller assigns it
+// Add or remove this client's vote, returning a NEW map: the caller assigns it
 // so the change flows through the usual render/persist path. Copying rather
 // than mutating also keeps sync.ts's diff honest: it compares against the last
 // server state, which must not be edited underneath it.
@@ -58,12 +58,12 @@ export function toggleVote(votes: unknown, uid: string, clientId: string): Votes
   return next;
 }
 
-// A row's asker always counts as one, which is what keeps the two ways of
-// requesting on equal footing. Someone using the app can add a song and then
-// thumb it up — two taps — while whoever wrote on the whiteboard isn't in the
-// app to do either, so without this the pool quietly sorts app requests above
-// board ones. Seeding the vote also spends the requester's own tap, so adding
-// then upvoting stops being a free extra.
+// A row's asker always counts as one, which keeps the two ways of requesting
+// on equal footing. Someone using the app can add a song and then thumb it up
+// (two taps), while whoever wrote on the whiteboard isn't in the app to do
+// either, so without this the pool quietly sorts app requests above board
+// ones. Seeding the vote also spends the requester's own tap, so adding then
+// upvoting isn't a free extra.
 //
 // Scanned rows use this reserved voter instead of a client id: one photo makes
 // twenty rows and the person holding the camera didn't ask for any of them.
@@ -77,14 +77,13 @@ export function seedAsker(votes: Votes, uid: string, voter: string): Votes {
   return toggleVote(votes, uid, voter);
 }
 
-// Most-wanted first, for rendering only — `requestsOrder` stays arrival order.
+// Most-wanted first, for rendering only: `requestsOrder` is arrival order.
 // Sorting the real array would rewrite that order array on every vote, and it
 // is whole-array last-writer-wins, so vote churn would fight every concurrent
 // edit in the room.
 //
-// The sort is stable, which is what makes ties keep arrival order: two songs on
-// three votes each stay in the order they were asked for, rather than shuffling
-// under the MC's thumb every time an unrelated row is voted.
+// The sort is stable, which is what makes ties keep arrival order rather than
+// shuffling under the MC's thumb every time an unrelated row is voted.
 export function sortForDisplay<T extends Pick<Row, "uid">>(rows: T[], votes: unknown): T[] {
   return [...rows].sort((a, b) => voteCount(votes, b.uid) - voteCount(votes, a.uid));
 }
