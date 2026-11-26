@@ -62,7 +62,7 @@ describe("serialize / deserialize", () => {
     expect(deserialize({ rows: "nope", upNextOrder: 3, votes: "nope" })).toEqual(empty);
   });
 
-  // #157: one bad row must cost that row, not the night for every phone.
+  // #157: a bad row costs that row, not the night.
   it("skips rows that aren't objects filed under their own uid", () => {
     const back = deserialize({
       rows: {
@@ -87,8 +87,7 @@ describe("serialize / deserialize", () => {
   });
 
   it("deletes skipped rows and a bad edition on the next push", () => {
-    // sync.ts diffs against the doc as stored, so what deserialize skipped is
-    // missing from local state and goes out as a delete.
+    // diff()'s base is the doc as stored, so skipped entries go out as deletes.
     const doc = {
       rows: { a: row("a", "Wagon Wheel"), gone: null as unknown as Row },
       upNextOrder: ["a"],

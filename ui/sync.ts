@@ -6,8 +6,8 @@
 //
 // It is also the parse boundary for the session doc: Firestore data enters as
 // `unknown` through parseSyncFields() / readMeta() / readCreatedAt(), and
-// leaves as the shapes in types.ts. Nothing past them reads raw doc fields,
-// bar diff()'s base (see rawSyncFields).
+// leaves as the shapes in types.ts. Only diff()'s base reads raw doc fields
+// (see rawSyncFields).
 //
 // firestore.rules (#26) validates the doc's schema: adding a field here means
 // adding it to the rules' hasOnly list in the same change:
@@ -277,11 +277,9 @@ export function deserialize(remote: unknown): ListState {
   return { upNext, requests, edition, votes };
 }
 
-// The synced content as stored: the diff ignores v, timestamps and metadata.
-// Each field falls back to empty when it's the wrong kind of value, but the
-// casts take the contents on trust. Only diff() reads this, as its base: it
-// compares and never renders, and keeping what parseSyncFields() skips is what
-// lets the next push delete it from the doc.
+// The synced content as stored (no v, timestamps or metadata), contents
+// unchecked. Only diff()'s base: keeping what parseSyncFields() skips lets the
+// next push delete it.
 function rawSyncFields(data: unknown): SyncFields {
   const doc = asDoc(data);
   const map = (value: unknown) => (value && typeof value === "object" ? value : {});
@@ -294,10 +292,8 @@ function rawSyncFields(data: unknown): SyncFields {
   };
 }
 
-// What the app runs on (#157): a row must be an object filed under its own uid,
-// as every row this app writes is, and an edition needs a string id. A bad one
-// is skipped, not repaired: it costs that entry, never the night. Votes need
-// nothing here (votes.ts reads them defensively).
+// What the app runs on (#157): rows filed under their own uid, an edition with
+// a string id. Bad entries are skipped, not repaired. votes.ts checks votes.
 function parseSyncFields(data: unknown): SyncFields {
   const raw = rawSyncFields(data);
   const rows: Record<string, Row> = {};

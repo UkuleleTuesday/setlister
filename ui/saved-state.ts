@@ -4,9 +4,8 @@
 // player's name, the session id and the settings.
 //
 // What comes back is whatever an older build (or a full disk) left, so it's
-// read field by field: a field of the wrong kind is dropped, and so is a list
-// entry that isn't a row or an edition without an id, as for the session doc
-// in sync.ts (#157). Votes are read defensively by votes.ts.
+// read field by field: a field of the wrong kind is dropped, as are non-row
+// list entries and an edition without an id (#157).
 
 import { parseEdition } from "./editions.js";
 import { isRow } from "./row-shape.js";

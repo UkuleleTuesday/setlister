@@ -32,7 +32,7 @@ export interface Duplicate {
  * "sara" equals "Sarà" here just like it does in search.
  */
 export function normalizeText(s: unknown): string {
-  // Coerced: titles come from synced rows, whose contents aren't checked.
+  // Coerced: synced titles aren't type-checked.
   return String(s ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")

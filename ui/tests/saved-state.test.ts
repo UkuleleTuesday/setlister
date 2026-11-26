@@ -1,6 +1,4 @@
-// What a reload restores: whatever an older build left is read field by
-// field, and a bad row or edition is skipped rather than crashing the page
-// (#157).
+// What a reload restores: bad rows and editions are skipped (#157).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEY, readSavedState } from "../saved-state.js";
 import { row } from "./fixtures.js";

@@ -12,7 +12,7 @@ export function editionLabel(e: Pick<Edition, "id"> & Partial<Pick<Edition, "tit
     .join(" ");
 }
 
-/** An edition from storage or the session doc: no string id reads as none. */
+/** No string id reads as no edition. */
 export function parseEdition(value: unknown): Edition | null {
   return !!value && typeof value === "object" && typeof (value as Edition).id === "string"
     ? (value as Edition)
