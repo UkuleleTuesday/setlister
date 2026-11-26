@@ -2,7 +2,7 @@
 // go straight into Requests, flagged ones wait in the review sheet.
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
-import { expect, test } from "./fixtures.js";
+import { expect, storedRowCount, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
 // A 1x1 PNG: small enough that downscale.ts sends it as is.
@@ -35,7 +35,7 @@ test("a scan adds confident rows and reviews the rest", async ({ phone, parseRow
     },
   ];
   const page = await phone();
-  await startSession(page);
+  const id = await startSession(page);
 
   // The camera button opens the OS picker; hand the hidden input a file instead.
   await page.locator("#photo-input").setInputFiles({
@@ -48,6 +48,9 @@ test("a scan adds confident rows and reviews the rest", async ({ phone, parseRow
   await expect(review).toBeVisible();
   await expect(page.locator("#review-rows").getByRole("listitem")).toHaveCount(1);
   await expect(page.locator("#review-confirm")).toHaveText("Add 1 to Requests");
+  // Wait for the confident row's push to land: confirming between that push
+  // and its snapshot loses the reviewed row (#153). Drop once that's fixed.
+  await expect.poll(() => storedRowCount(id)).toBe(1);
   await page.locator("#review-confirm").tap();
   await expect(review).toBeHidden();
 

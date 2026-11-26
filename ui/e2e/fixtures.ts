@@ -38,6 +38,21 @@ async function clearFirestore() {
   if (!res.ok) throw new Error(`Couldn't clear the Firestore emulator (${res.status})`);
 }
 
+// How many rows the emulator holds for a session: proof a push has landed,
+// for tests that must not act inside sync's push debounce (#153). "owner"
+// is the emulator's rules bypass; like the wipe, it only exists locally.
+export async function storedRowCount(sessionId: string): Promise<number> {
+  const res = await fetch(
+    `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents/sessions/${sessionId}`,
+    { headers: { Authorization: "Bearer owner" } },
+  );
+  if (!res.ok) return 0;
+  const doc = (await res.json()) as {
+    fields?: { rows?: { mapValue?: { fields?: Record<string, unknown> } } };
+  };
+  return Object.keys(doc.fields?.rows?.mapValue?.fields ?? {}).length;
+}
+
 export const test = base.extend<Fixtures>({
   // Playwright reads a fixture's dependencies off a destructured first
   // argument, so a fixture with none must still destructure.
