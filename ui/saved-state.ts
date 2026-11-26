@@ -32,15 +32,6 @@ export function writeSavedState(state: SavedState): void {
   }
 }
 
-/** Whether this device has saved anything at all (the name amnesty asks). */
-export function hasSavedState(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) !== null;
-  } catch {
-    return false;
-  }
-}
-
 /** The usable parts of what's saved; a corrupt payload reads as nothing. */
 export function readSavedState(): Partial<SavedState> {
   let saved: unknown;

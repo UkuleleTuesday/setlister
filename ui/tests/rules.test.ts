@@ -28,6 +28,7 @@ import {
   setDoc,
   updateDoc,
   deleteField,
+  serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -318,6 +319,97 @@ describe("sessionIndex/{id}", () => {
   it("allows a delete — this is how a session gets un-listed", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "misty-banjo")));
+  });
+});
+
+// Organiser registration (#151): writing the key into your own row proves you hold it.
+describe("organisers/{uid}", () => {
+  const KEY = "0123456789abcdef0123456789abcdef";
+  const OLD_KEY = "ffffffffffffffffffffffffffffffff";
+
+  const as = (uid: string) => modular(testEnv.authenticatedContext(uid).firestore());
+
+  const row = (overrides: Doc = {}): Doc => ({
+    name: "Alex",
+    createdAt: serverTimestamp(),
+    key: KEY,
+    ...overrides,
+  });
+
+  const setKey = (key: string) =>
+    seed((adminDb) => setDoc(doc(adminDb, "clubConfig", "organiserKey"), { key }));
+
+  beforeEach(() => setKey(KEY));
+
+  it("lets a phone register its own row with the current key", async () => {
+    await assertSucceeds(setDoc(doc(as("alex"), "organisers", "alex"), row()));
+  });
+
+  it("rejects a wrong key", async () => {
+    await assertFails(setDoc(doc(as("alex"), "organisers", "alex"), row({ key: OLD_KEY })));
+  });
+
+  it("rejects writing someone else's row", async () => {
+    await assertFails(setDoc(doc(as("alex"), "organisers", "sam"), row()));
+  });
+
+  it("rejects an unauthenticated write, even with the right key", async () => {
+    await assertFails(setDoc(doc(db, "organisers", "alex"), row()));
+  });
+
+  it("rejects extra keys", async () => {
+    await assertFails(setDoc(doc(as("alex"), "organisers", "alex"), row({ admin: true })));
+  });
+
+  it("rejects a createdAt other than the server's time", async () => {
+    await assertFails(setDoc(doc(as("alex"), "organisers", "alex"), row({ createdAt: NOW })));
+  });
+
+  it("rejects a missing, non-string or over-long name", async () => {
+    const ref = doc(as("alex"), "organisers", "alex");
+    const { name: _name, ...noName } = row();
+    await assertFails(setDoc(ref, noName));
+    await assertFails(setDoc(ref, row({ name: 42 })));
+    await assertFails(setDoc(ref, row({ name: "x".repeat(61) })));
+    await assertSucceeds(setDoc(ref, row({ name: "x".repeat(60) })));
+  });
+
+  it("denies every registration while no key is set", async () => {
+    await seed((adminDb) => deleteDoc(doc(adminDb, "clubConfig", "organiserKey")));
+    await assertFails(setDoc(doc(as("alex"), "organisers", "alex"), row()));
+  });
+
+  it("re-registers after a key change with the new key, never the old one", async () => {
+    const ref = doc(as("alex"), "organisers", "alex");
+    await assertSucceeds(setDoc(ref, row()));
+    await setKey(OLD_KEY.replace(/f/g, "e"));
+    await assertFails(setDoc(ref, row()));
+    await assertSucceeds(setDoc(ref, row({ key: OLD_KEY.replace(/f/g, "e") })));
+  });
+
+  it("lets a phone read its own row, and only its own", async () => {
+    await seed((adminDb) => setDoc(doc(adminDb, "organisers", "sam"), row({ createdAt: NOW })));
+    await assertSucceeds(setDoc(doc(as("alex"), "organisers", "alex"), row()));
+    await assertSucceeds(getDoc(doc(as("alex"), "organisers", "alex")));
+    await assertFails(getDoc(doc(as("alex"), "organisers", "sam")));
+    await assertFails(getDoc(doc(db, "organisers", "sam")));
+    await assertFails(getDocs(collection(as("alex"), "organisers")));
+  });
+
+  it("never allows a delete: rows go from the console, and rotating the key is what removes anyone", async () => {
+    await assertSucceeds(setDoc(doc(as("alex"), "organisers", "alex"), row()));
+    await assertFails(deleteDoc(doc(as("alex"), "organisers", "alex")));
+  });
+});
+
+describe("clubConfig/{doc}", () => {
+  it("is closed to every client, signed in or not", async () => {
+    await seed((adminDb) => setDoc(doc(adminDb, "clubConfig", "organiserKey"), { key: "k" }));
+    const signedIn = modular(testEnv.authenticatedContext("alex").firestore());
+    for (const client of [db, signedIn]) {
+      await assertFails(getDoc(doc(client, "clubConfig", "organiserKey")));
+      await assertFails(setDoc(doc(client, "clubConfig", "organiserKey"), { key: "mine" }));
+    }
   });
 });
 

@@ -53,6 +53,30 @@ export async function storedRowCount(sessionId: string): Promise<number> {
   return Object.keys(doc.fields?.rows?.mapValue?.fields ?? {}).length;
 }
 
+const DOCS = `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
+
+// Console-only in production; seeded via the emulator's owner bypass.
+export async function setOrganiserKey(key: string): Promise<void> {
+  const res = await fetch(`${DOCS}/clubConfig/organiserKey`, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { key: { stringValue: key } } }),
+  });
+  if (!res.ok) throw new Error(`Couldn't set the organiser key (${res.status})`);
+}
+
+export async function organiserRows(): Promise<{ name?: string; key?: string }[]> {
+  const res = await fetch(`${DOCS}/organisers`, { headers: { Authorization: "Bearer owner" } });
+  if (!res.ok) return [];
+  const body = (await res.json()) as {
+    documents?: { fields: Record<string, { stringValue?: string }> }[];
+  };
+  return (body.documents ?? []).map(({ fields }) => ({
+    name: fields.name?.stringValue,
+    key: fields.key?.stringValue,
+  }));
+}
+
 export const test = base.extend<Fixtures>({
   // Playwright reads a fixture's dependencies off a destructured first
   // argument, so a fixture with none must still destructure.
@@ -83,7 +107,9 @@ export const test = base.extend<Fixtures>({
       context.on("console", (msg) => {
         if (msg.type() !== "error") return;
         if (allowConsole.some((pattern) => pattern.test(msg.text()))) return;
-        errors.push(`${label}: ${msg.text()}`);
+        // "Failed to load resource" names no URL; its location does.
+        const where = msg.location().url;
+        errors.push(`${label}: ${msg.text()}${where ? ` (${where})` : ""}`);
       });
       context.on("weberror", (err) => errors.push(`${label}: ${err.error().message}`));
       return context.newPage();

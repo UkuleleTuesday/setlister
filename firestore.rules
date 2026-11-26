@@ -7,7 +7,8 @@ rules_version = '2';
 // Deliberately unauthenticated (see the epic's "accepted risks"): anyone can
 // read any session, and anyone who knows/guesses an id can write it. The
 // defence is a closed schema (hasOnly locks the key set) + deny-by-default
-// everywhere else.
+// everywhere else. Organiser phones sign in anonymously to register
+// (`organisers`); sessions don't check that until #152.
 //
 // Sessions are now KEPT FOREVER (#77): the app opens on the club's session
 // history, so a night that disappears after 30 days is a bug, not a feature.
@@ -63,6 +64,40 @@ service cloud.firestore {
       // weaker: the session doc itself is `delete: if false`, so only the
       // listing can be lost here, never the setlist.
       allow delete: if true;
+    }
+
+    // The key in the write is the credential (#151). update = re-registering
+    // after a key change.
+    match /organisers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'createdAt', 'key'])
+        && request.resource.data.key == currentKey()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.createdAt == request.time;
+      allow delete: if false;   // console only
+    }
+
+    // Holds the organiser key: console only.
+    match /clubConfig/{doc} {
+      allow read, write: if false;
+    }
+
+    // Inside this block: $(database) is undefined at file level.
+    function currentKey() {
+      return get(/databases/$(database)/documents/clubConfig/organiserKey).data.key;
+    }
+
+    // A row counts only while its key is current, so changing the key
+    // de-registers everyone. Used from #152.
+    function isOrganiser() {
+      return request.auth != null && hasCurrentRow(request.auth.uid);
+    }
+
+    function hasCurrentRow(uid) {
+      let path = /databases/$(database)/documents/organisers/$(uid);
+      return exists(path) && get(path).data.key == currentKey();
     }
 
     // Deny-by-default: everything not matched above is closed.

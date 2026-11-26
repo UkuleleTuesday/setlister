@@ -2,7 +2,6 @@
 // The fixture fails on any console error.
 import type { Page } from "@playwright/test";
 import { firebaseConfig } from "../firebase-config.js";
-import { NAME_RESET_KEY, NAME_RESET_ROUND } from "../name-reset.js";
 import { bySong } from "./api.js";
 import { expect, storedRowCount, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
@@ -59,12 +58,8 @@ async function stored(id: string) {
   return { rows: Object.keys(doc.fields.rows.mapValue.fields ?? {}), edition: doc.fields.edition };
 }
 
-// Bad saved state, suggestions on so the chips render, name amnesty done.
+// Bad saved state, suggestions on so the chips render.
 async function withBadSavedState(page: Page) {
-  await page.addInitScript(
-    ([key, round]) => localStorage.setItem(key, round),
-    [NAME_RESET_KEY, NAME_RESET_ROUND],
-  );
   await page.addInitScript(() => {
     localStorage.setItem(
       "setlister.v1",
