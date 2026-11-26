@@ -6,7 +6,10 @@ import { icon, iconLabel } from "./icons.js";
 import { duplicateLabel, findDuplicate, matchKey } from "./dupes.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { mount } from "svelte";
+import BinGroup from "./BinGroup.svelte";
 import Home from "./Home.svelte";
+import RequestsSection from "./RequestsSection.svelte";
+import UpNextSection from "./UpNextSection.svelte";
 import PhotoLightbox from "./PhotoLightbox.svelte";
 import ScanFlow from "./ScanFlow.svelte";
 import { planScan, requestParse } from "./scan.js";
@@ -18,13 +21,7 @@ import { editionLabel } from "./editions.js";
 import NewSessionSheet from "./NewSessionSheet.svelte";
 import WhatsNewSheet from "./WhatsNewSheet.svelte";
 import { latestEntry, sortedEntries } from "./whats-new.js";
-import {
-  buildSessionUrl,
-  readStoredMode,
-  resolveMode,
-  sourceLabel,
-  writeStoredMode,
-} from "./view-mode.js";
+import { buildSessionUrl, readStoredMode, resolveMode, writeStoredMode } from "./view-mode.js";
 import {
   NAME_RESET_MESSAGE,
   readNameResetDone,
@@ -37,8 +34,8 @@ import {
   readLastRoomAdd,
   writeLastRoomAdd,
 } from "./room-limits.js";
-import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "./votes.js";
-import { setBinned, setPlayed, stateTime } from "./gig-state.js";
+import { ASKER, hasVoted, seedAsker, toggleVote } from "./votes.js";
+import { setBinned, setPlayed } from "./gig-state.js";
 import {
   effectiveRequestsOpen,
   minutesUntilOpen,
@@ -55,33 +52,16 @@ import {
   putCachedCatalogue,
 } from "./catalogue-cache.js";
 
-const manualAddHost = document.getElementById("manual-add");
-const upnextRows = document.getElementById("upnext-rows");
-const upnextEmpty = document.getElementById("upnext-empty");
-const upnextCount = document.getElementById("upnext-count");
-const requestsRows = document.getElementById("requests-rows");
-const requestsEmpty = document.getElementById("requests-empty");
-const requestsCount = document.getElementById("requests-count");
-const copyButton = document.getElementById("copy");
-const downloadButton = document.getElementById("download");
-const playedGroup = document.getElementById("played-group");
-const binGroup = document.getElementById("bin-group");
-const addFeedback = document.getElementById("add-feedback");
 const editionNote = document.getElementById("edition-note");
 const settingsToggle = document.getElementById("settings-toggle");
 const shareToggle = document.getElementById("share-toggle");
-const requestsOpeningSoonNote = document.getElementById("requests-opening-soon-note");
 const shareCountBadge = document.getElementById("share-count-badge");
 const roomIdentity = document.getElementById("room-identity");
 const roomAddHost = document.getElementById("room-add");
 const roomWindow = document.getElementById("room-window");
 const windowChip = document.getElementById("window-chip");
-const upnextSection = document.getElementById("upnext");
-const upnextHint = document.getElementById("upnext-hint");
-const requestsHint = document.getElementById("requests-hint");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
-const cameraButton = document.getElementById("camera-button");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const backHomeButton = document.getElementById("back-home");
@@ -194,6 +174,50 @@ const photoLightbox = mount(PhotoLightbox, {
   target: photoLightboxMount.parentNode,
   anchor: photoLightboxMount,
 });
+// The two lists and the bin. Every row change comes back here, by uid, and
+// follows the mutate -> render -> persist pattern below.
+const rowActions = {
+  togglePlayed: (uid) => withRow(uid, togglePlayed),
+  toggleBinned: (uid) => withRow(uid, toggleBinned),
+  promote,
+  demote,
+  vote: toggleRowVote,
+  setMatch: (uid, entry) => withRow(uid, (row) => setMatch(row, entry)),
+  moveBy: (uid, delta) => {
+    // Re-look-up the live index each time: the list shifts as it moves.
+    const index = app.upNext.findIndex((e) => e.uid === uid);
+    if (index !== -1) moveEntry(index, delta);
+  },
+  // Hold remote snapshots while a finger is on a row (see sync.ts).
+  gesture: (active) => sync.setGestureActive(active),
+};
+const upNextMount = document.getElementById("upnext-mount");
+const upNextSection = mount(UpNextSection, {
+  target: upNextMount.parentNode,
+  anchor: upNextMount,
+  props: {
+    actions: rowActions,
+    onReorder: commitOrder,
+    onCopy: copySetlist,
+    onDownload: downloadSetlist,
+  },
+});
+const requestsMount = document.getElementById("requests-mount");
+const requestsSection = mount(RequestsSection, {
+  target: requestsMount.parentNode,
+  anchor: requestsMount,
+  props: {
+    actions: rowActions,
+    onAddTune: () => openSongbook(),
+    onSnap: () => scanFlow.pickPhoto(),
+  },
+});
+const binGroupMount = document.getElementById("bin-group-mount");
+const binGroup = mount(BinGroup, {
+  target: binGroupMount.parentNode,
+  anchor: binGroupMount,
+  props: { actions: rowActions },
+});
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
 const nameResetName = document.getElementById("name-reset-name");
@@ -204,12 +228,9 @@ const nameResetLater = document.getElementById("name-reset-later");
 // the module runs (index.html ships text-only fallbacks).
 settingsToggle.replaceChildren(icon("settings"));
 shareToggle.replaceChildren(icon("share"));
-cameraButton.replaceChildren(...iconLabel("camera", "Snap the board"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
 // heading row, where a text label would crowd the heading at 320px.
-copyButton.replaceChildren(icon("copy"));
-downloadButton.replaceChildren(icon("download"));
 
 const STORAGE_KEY = "setlister.v1";
 // The catalogues are cached separately from the lists: ~20KB of derived data
@@ -244,8 +265,6 @@ let app = {
   // Whether the collapsed played/bin groups are expanded. Pure UI state: not
   // persisted (a reload starts collapsed) and not synced (each peer keeps
   // their own view).
-  playedOpen: false,
-  binOpen: false,
 };
 
 // Remember the name across sessions so provenance survives a reload. In a
@@ -288,7 +307,7 @@ function onRequestSheetConfirm({ entry, name, comment }) {
   // applyRequestsOpen() dismisses it when that happens, but a tap racing the
   // change gets here.
   if (entry && viewMode === "room" && !requestsState().open) {
-    flashNote(addFeedback, "Requests just closed. Try the whiteboard of wishes!");
+    requestsSection.flash("Requests just closed. Try the whiteboard of wishes!");
     return;
   }
   // addManualEntry re-runs the duplicate guard (the pool may have moved while
@@ -296,8 +315,7 @@ function onRequestSheetConfirm({ entry, name, comment }) {
   // so — the sheet just covered the pool where the row landed — and set the
   // expectation for the cool-down before it bites.
   if (entry && addManualEntry(entry, comment)) {
-    flashNote(
-      addFeedback,
+    requestsSection.flash(
       viewMode === "room"
         ? `Added “${entry.title}”. Next one in a minute.`
         : `Added “${entry.title}”.`,
@@ -604,13 +622,16 @@ function requestNoteText(meta, open, reqWindow) {
 // landing live), and the request-window timer (a schedule boundary passing
 // with no snapshot at all) — so there is no path where a room phone keeps the
 // add field after the door shuts, or misses it opening.
+// The room's "opening soon" line; kept between ticks like the note it was.
+let openingSoonText = "";
 function applyRequestsOpen() {
   const meta = sync.getMeta();
   const { open, soonMinutes, window: reqWindow } = requestsState();
   sessionView.classList.toggle("requests-closed", !open && soonMinutes == null);
   sessionView.classList.toggle("requests-opening-soon", soonMinutes != null);
   if (soonMinutes != null) {
-    requestsOpeningSoonNote.textContent = `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
+    openingSoonText = `Requests open in ${openingSoonLabel(soonMinutes)}. Pop your tune on the whiteboard of wishes for now.`;
+    refreshLists();
   }
   sharePanel.setRequestNote(requestNoteText(meta, open, reqWindow));
   renderWindowPills(meta, reqWindow);
@@ -846,27 +867,6 @@ async function copyToClipboard(text) {
     document.execCommand("copy");
     textarea.remove();
   }
-}
-
-// Transient confirmation swap: the button shows a check + message, then
-// restores its original icon+label content (stashed as markup so the SVG
-// icon survives the round-trip).
-function flashButton(button, message) {
-  clearTimeout(Number(button.dataset.flashTimer));
-  if (!("originalHtml" in button.dataset)) {
-    button.dataset.originalHtml = button.innerHTML;
-  }
-  // Match the button's own shape: a labelled button flashes the word, but an
-  // icon-only one (the export pair in the "Up next" heading) would grow mid-tap
-  // and shove the heading sideways, so it flashes just the tick.
-  const labelled = button.querySelector(".btn-label");
-  button.replaceChildren(...(labelled ? iconLabel("check", message) : [icon("check")]));
-  button.dataset.flashTimer = String(
-    setTimeout(() => {
-      button.innerHTML = button.dataset.originalHtml;
-      delete button.dataset.originalHtml;
-    }, 1500),
-  );
 }
 
 // Offer a link: the native share sheet on mobile (the primary target), else
@@ -1267,7 +1267,6 @@ function refreshPickers() {
 // the board's behalf.
 function mountManualAdd() {
   roomAddHost.replaceChildren(buildSongbookTrigger("Request a tune"));
-  manualAddHost.prepend(buildSongbookTrigger("Add a tune"));
 }
 
 function buildSongbookTrigger(label) {
@@ -1321,7 +1320,7 @@ function onSongbookPick(entry) {
   // shuts, but a tap can race the change.
   if (room && !requestsState().open) {
     closeSongbook();
-    flashNote(addFeedback, "Requests are closed. Try the whiteboard of wishes!");
+    requestsSection.flash("Requests are closed. Try the whiteboard of wishes!");
     return;
   }
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
@@ -1342,8 +1341,7 @@ function onSongbookPick(entry) {
       persist();
     }
     closeSongbook();
-    flashNote(
-      addFeedback,
+    requestsSection.flash(
       already
         ? `You already want “${entry.title}”. Fingers crossed!`
         : `Your thumbs up is on “${entry.title}”.`,
@@ -1370,7 +1368,7 @@ function addManualEntry(entry, comment) {
   // quietly doubling it. Binned copies don't block — see dupes.ts.
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
   if (existing) {
-    flashNote(addFeedback, duplicateLabel(existing.where));
+    requestsSection.flash(duplicateLabel(existing.where));
     return false;
   }
   const uid = newUid();
@@ -1430,10 +1428,6 @@ function rowToEntry(row) {
     binned: false,
   };
 }
-
-// The camera control is a real <button> for keyboard/switch access; it opens
-// the scan flow's hidden file input.
-cameraButton.addEventListener("click", () => scanFlow.pickPhoto());
 
 // One photo, start to finish: shrink it, send it, take the catalogue it
 // brings back, and add the confident rows straight to Requests. Returns what's
@@ -1514,22 +1508,6 @@ function scanContext() {
   };
 }
 
-// Transient inline feedback ("Already in Up next", "Added “Jolene”").
-// Self-retiring per element: long enough to read across the room, gone before
-// it reads as a permanent fixture.
-const flashTimers = new Map();
-function flashNote(el, message) {
-  el.textContent = message;
-  el.hidden = false;
-  clearTimeout(flashTimers.get(el));
-  flashTimers.set(
-    el,
-    setTimeout(() => {
-      el.hidden = true;
-    }, 8000),
-  );
-}
-
 // --- Rendering -------------------------------------------------------------
 function rerender() {
   renderUpNext();
@@ -1551,21 +1529,6 @@ function updateSessionMode() {
   sessionView.classList.toggle("fresh", fresh);
 }
 
-// The export pair covers both lists; with nothing to export, copying an empty
-// string and downloading `{rows: []}` are traps, not actions.
-function updateExportButtons() {
-  const empty = exportedRows().length === 0;
-  copyButton.disabled = empty;
-  downloadButton.disabled = empty;
-}
-
-// Heading counts: how deep is the set / the pool, visible without counting
-// cards. Hidden at zero — the empty-state notes own that moment.
-function renderCount(el, count) {
-  el.textContent = `· ${count}`;
-  el.hidden = count === 0;
-}
-
 function renderEditionNote() {
   if (app.edition) {
     editionNote.textContent =
@@ -1576,156 +1539,48 @@ function renderEditionNote() {
   }
 }
 
+// The two lists and the bin render from one snapshot of the night. Rows go
+// over as fresh copies, so a row edited in place (played, binned, a
+// correction) still reads as changed.
+function listsData() {
+  const room = viewMode === "room";
+  return {
+    upNext: app.upNext.map((row) => ({ ...row })),
+    requests: app.requests.map((row) => ({ ...row })),
+    votes: app.votes,
+    clientId: presence.getClientId(),
+    room,
+    votingEnabled: votingEnabled(),
+    roomOpen: room && requestsState().open,
+    showSuggestions: settingsPanel.settings().showSuggestions,
+    // The export pair covers both lists; with nothing to export, copying an
+    // empty string and downloading `{rows: []}` are traps, not actions.
+    exportEmpty: exportedRows().length === 0,
+    openingSoon: openingSoonText,
+  };
+}
+
+function refreshLists() {
+  const data = listsData();
+  upNextSection.setData(data);
+  requestsSection.setData(data);
+  binGroup.setData(data);
+}
+
+// Every mutation path (local edits, remote snapshots, review confirm)
+// funnels through these two, which keep the session's mode, the songbook's
+// tags and the edition footnote current alongside the lists.
 function renderUpNext() {
   renderEditionNote();
   updateSessionMode();
-  updateExportButtons();
   refreshSongbook();
-  // Played and binned rows are lifted out into their collapsed groups, so the
-  // empty note keys off the rows still *visible* in the running order.
-  const visible = app.upNext.filter((e) => !e.binned && !e.played);
-  upnextEmpty.hidden = visible.length > 0;
-  upnextHint.hidden = visible.length === 0;
-  // Nothing queued and nothing played: the room CSS shrinks the section to a
-  // one-line bar, so an empty box doesn't take the top of a page whose job is
-  // adding a tune.
-  upnextSection.classList.toggle(
-    "empty",
-    visible.length === 0 && !app.upNext.some((e) => e.played && !e.binned),
-  );
-  // The full app's note points at promote, a control room mode doesn't have.
-  upnextEmpty.textContent =
-    viewMode === "room"
-      ? "Nothing queued yet"
-      : "Nothing queued yet. Promote a request from below.";
-  renderCount(upnextCount, visible.length);
-  // Room mode watches the set and can want a tune, nothing else: "room-upnext"
-  // matches none of renderRow's control branches, so no handle, no buttons, no
-  // swipe — the pool's "room" trick, thumb included.
-  const rowContext = viewMode === "room" ? "room-upnext" : "upnext";
-  // Map over the full list (skipping lifted-out rows) so the index handed to
-  // renderRow still points at app.upNext — the reorder controls rely on it.
-  upnextRows.replaceChildren(
-    ...app.upNext
-      .map((e, i) => (e.binned || e.played ? null : renderRow(e, i, rowContext)))
-      .filter(Boolean),
-  );
-  // The set plays from the top, so the first visible card IS the next tune —
-  // mark it so the glance-and-shout moment needs no counting. The tag sits on
-  // its own micro-line above the title (inside the title it forced mid-name
-  // wraps), and is real text (not CSS content) so assistive tech reads it too.
-  // Re-rendering after any reorder/play re-marks the right card.
-  const nextCard = upnextRows.querySelector(".row-card");
-  if (nextCard) {
-    nextCard.classList.add("next-up");
-    const tag = document.createElement("span");
-    tag.className = "next-tag";
-    tag.textContent = "Next";
-    nextCard.querySelector(".row-main").prepend(tag);
-  }
-  // The set plays from the top, so played songs collapse into a one-line count
-  // *above* the list and Up next always starts at the next tune. Expanding
-  // shows the night's history (each row dated with when it was ticked off)
-  // and the un-play control that rescues a stray swipe-right. Room mode gets the same
-  // disclosure (expanding is view state, not an edit) but a read-only context,
-  // so no un-play button on a room phone.
-  renderGroup(playedGroup, {
-    iconName: "played",
-    noun: "played",
-    rows: app.upNext.filter((e) => e.played),
-    open: app.playedOpen,
-    onToggle: () => {
-      app.playedOpen = !app.playedOpen;
-      renderUpNext();
-    },
-    context: viewMode === "room" ? "room-played" : "played",
-  });
+  refreshLists();
 }
 
 function renderRequests() {
   updateSessionMode();
-  updateExportButtons();
   refreshSongbook();
-  const visible = app.requests.filter((e) => !e.binned);
-  requestsEmpty.hidden = visible.length > 0;
-  // The empty note mentions snapping the board, but room mode has no camera —
-  // there, adding by name is the only door, and once requests are closed (#86)
-  // there is no door at all, so pointing at one above would be a lie.
-  const roomOpen = viewMode === "room" && requestsState().open;
-  requestsEmpty.textContent =
-    viewMode === "room"
-      ? roomOpen
-        ? "No requests yet. Be the first: tap Request a tune."
-        : "No requests yet."
-      : "No requests yet. Snap the board, or add one above.";
-  // Players vote, organisers promote. A closed room can't vote (see
-  // votingEnabled), so it gets no hint about thumbs.
-  requestsHint.textContent =
-    viewMode === "room"
-      ? "Thumbs up the ones you want to hear."
-      : "Most wanted first. Move one up when it's time.";
-  requestsHint.hidden = visible.length === 0 || (viewMode === "room" && !roomOpen);
-  renderCount(requestsCount, visible.length);
-  // Most-wanted first (#83). Display only: `requestsOrder` stays arrival order,
-  // because reordering the real array would rewrite that whole-array
-  // last-writer-wins field on every vote and fight every concurrent edit in the
-  // room. The sort is stable, so a tie keeps arrival order rather than
-  // reshuffling the pool under the MC's thumb.
-  //
-  // Room mode gets read-only rows apart from the want button: the "room"
-  // context matches none of renderRow's other control branches, so no
-  // promote/bin buttons and no swipe.
-  requestsRows.replaceChildren(
-    ...sortForDisplay(visible, app.votes).map((e, i) =>
-      renderRow(e, i, viewMode === "room" ? "room" : "requests"),
-    ),
-  );
-  // The bin group replaces the old standalone Bin section: every binned row
-  // from both working lists (they stay in their home arrays so un-binning
-  // restores them in place), collapsed to one line at the foot of the session
-  // view — the discard pile sits below everything still in play.
-  renderGroup(binGroup, {
-    iconName: "bin",
-    noun: "binned",
-    rows: [...app.upNext, ...app.requests].filter((e) => e.binned),
-    open: app.binOpen,
-    onToggle: () => {
-      app.binOpen = !app.binOpen;
-      renderRequests();
-    },
-    context: "bin",
-  });
-}
-
-// A collapsed one-line disclosure ("3 played" / "2 binned") instead of another
-// stacked section: on a phone the count is always visible but the rows only on
-// demand, so the group costs one row of screen no matter how long the night
-// gets. Hidden entirely while empty.
-function renderGroup(container, { iconName, noun, rows, open, onToggle, context }) {
-  container.replaceChildren();
-  container.hidden = rows.length === 0;
-  if (container.hidden) return;
-
-  const listId = `${container.id}-rows`;
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "group-toggle";
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.setAttribute("aria-controls", listId);
-  const label = document.createElement("span");
-  label.className = "group-label";
-  label.textContent = `${rows.length} ${noun}`;
-  toggle.append(icon(iconName), label, icon("chevron", "group-chevron"));
-  toggle.onclick = onToggle;
-  container.appendChild(toggle);
-
-  if (open) {
-    const list = document.createElement("ul");
-    list.id = listId;
-    list.className = "group-rows";
-    list.append(...rows.map((e, i) => renderRow(e, i, context)));
-    container.appendChild(list);
-  }
+  refreshLists();
 }
 
 // A room device on a View-only link doesn't vote either: the share panel
@@ -1734,47 +1589,6 @@ function renderGroup(container, { iconName, noun, rows, open, onToggle, context 
 // link is about the link.
 function votingEnabled() {
   return viewMode !== "room" || requestsState().open;
-}
-
-// The want button says whose vote it is: "You" (filled) once this device
-// wants the tune, which includes every request it added (seedAsker), and "+1"
-// (outlined) while it doesn't, so it reads as a button to press rather than a
-// tally someone else already ran up. The count follows only when it adds
-// something: others besides you, or anyone at all on a "+1". The aria-label
-// says it in words, since "+1 · 2" doesn't say what it counts.
-function buildVoteButton(row) {
-  const clientId = presence.getClientId();
-  const count = voteCount(app.votes, row.uid);
-  const mine = hasVoted(app.votes, row.uid, clientId);
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "vote-button";
-  if (mine) button.classList.add("voted");
-  button.setAttribute("aria-pressed", mine ? "true" : "false");
-  button.title = mine ? "You want this one" : "I want this one";
-  const others = mine ? count - 1 : count;
-  button.setAttribute(
-    "aria-label",
-    mine
-      ? others === 0
-        ? "You want this one"
-        : `You and ${others} ${others === 1 ? "other want" : "others want"} this one`
-      : others === 0
-        ? "I want this one, nobody has yet"
-        : `I want this one too, ${others} ${others === 1 ? "person wants" : "people want"} it`,
-  );
-  const label = document.createElement("span");
-  label.textContent = mine ? "You" : "+1";
-  button.append(icon("want"), label);
-  if (mine ? count > 1 : count > 0) {
-    const tally = document.createElement("span");
-    tally.className = "vote-count";
-    tally.textContent = `· ${count}`;
-    button.append(tally);
-  }
-  button.onclick = () => toggleRowVote(row.uid);
-  return button;
 }
 
 // Optimistic like every other row mutation: flip it locally, re-render, and let
@@ -1789,239 +1603,10 @@ function toggleRowVote(uid) {
   persist();
 }
 
-function pageBadge(page) {
-  const badge = document.createElement("span");
-  badge.className = "page-badge";
-  badge.textContent = `p.${page}`;
-  return badge;
-}
-
-function renderRow(row, index, context) {
-  const li = document.createElement("li");
-  li.className = `row-card ${row.status}`;
-  li.dataset.uid = row.uid;
-  if (row.crossed_out) li.classList.add("crossed");
-  if (row.removed) li.classList.add("removed");
-  // Live gig-tracking state (Up next / Requests): played fades the row out,
-  // binned crosses it out. Both survive a reload via the persisted lists.
-  if (row.played) li.classList.add("played");
-  if (row.binned) li.classList.add("binned");
-
-  // The visible card surface lives in `.row-body`; it slides horizontally on a
-  // swipe to reveal the `.swipe-hint` layer behind it. The <li> itself is the
-  // clipping frame (see wireSwipe / the CSS).
-  const body = document.createElement("div");
-  body.className = "row-body";
-  // The text content lives in its own column so the action buttons can sit
-  // beside it, vertically centred — a whole row of card given over to two
-  // icons was most of what made each card tall. (Review rows keep the stacked
-  // layout; they're ReviewRow.svelte.)
-  body.classList.add("compact");
-  const main = document.createElement("div");
-  main.className = "row-main";
-  body.appendChild(main);
-
-  const top = document.createElement("div");
-  top.className = "row-top";
-  const title = document.createElement("span");
-  title.className = "match-title";
-  title.textContent = row.match ? row.match.display : `“${row.raw_title}”`;
-  top.appendChild(title);
-  main.appendChild(top);
-
-  // One quiet line: provenance, plus only the facts that still need saying.
-  // Repeating the matched title and page as `wrote: …` under every row said
-  // nothing on the happy path — the board text earns its place only when it
-  // differs from the match. The page leads the line: beside the title it took
-  // the width the thumbs pill and the row tools need.
-  const parts = [];
-  if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
-  if (row.source !== "manual") parts.push(sourceLabel(row.source));
-  else if (!row.addedBy) parts.push("added manually");
-  if (row.match) {
-    if (row.raw_title && row.raw_title !== row.match.display) {
-      parts.push(`wrote “${row.raw_title}”`);
-    }
-    if (row.raw_page && row.raw_page !== row.match.page) {
-      parts.push(`board says p.${row.raw_page}`);
-    }
-  } else {
-    // No stripe colour out here (see style.css) — say it in words instead.
-    parts.push("not in the songbook");
-  }
-  if (row.notes) parts.push(row.notes);
-  if (row.crossed_out) parts.push("crossed out");
-  // When it was ticked off or binned, in the viewer's own clock. Only in the
-  // two groups: on the working lists the row isn't in that state. Rows
-  // marked before times were recorded simply show none.
-  const playedAt =
-    context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
-  if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
-  const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
-  if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
-  if (parts.length || row.match) {
-    const meta = document.createElement("div");
-    meta.className = "row-meta";
-    if (row.match) meta.appendChild(pageBadge(row.match.page));
-    const text = parts.join(" · ");
-    meta.append(text.charAt(0).toUpperCase() + text.slice(1));
-    main.appendChild(meta);
-  }
-
-  if (settingsPanel.settings().showSuggestions && row.alternatives?.length && !row.removed) {
-    const chips = document.createElement("div");
-    chips.className = "chips";
-    row.alternatives.forEach((alt) => {
-      const chip = document.createElement("button");
-      chip.textContent = `${alt.entry.title} (p.${alt.entry.page})`;
-      chip.onclick = () => setMatch(row, alt.entry);
-      chips.appendChild(chip);
-    });
-    main.appendChild(chips);
-  }
-
-  const tools = document.createElement("div");
-  tools.className = "row-tools";
-
-  // "I want this one" (#83), on every list a song can still be played from, and
-  // first in the row so the buttons after it stay where the thumb expects. Up
-  // next is deliberately NOT re-sorted by the count like the pool is: the set
-  // plays from the top, so that would move the next tune out from under the MC.
-  // No confirm sheet or cool-down, unlike a room request (room-limits.ts): a
-  // second tap takes a vote back.
-  const votable =
-    context === "requests" ||
-    context === "room" ||
-    context === "upnext" ||
-    context === "room-upnext";
-  if (votable && votingEnabled()) {
-    tools.append(buildVoteButton(row));
-  }
-
-  // Reorder controls only make sense on Up next (the running order), not in the
-  // Requests pool or the review sheet where rows are still being validated.
-  if (context === "upnext") {
-    // Drag is the primary reorder gesture (pointer/touch); arrow keys on the
-    // focused handle are the keyboard-accessible equivalent, so we no longer
-    // need the separate move-up/move-down buttons — which read as a third and
-    // fourth arrow next to the demote arrow and invited confusion.
-    const handle = document.createElement("button");
-    handle.className = "drag-handle";
-    handle.type = "button";
-    handle.appendChild(icon("drag"));
-    handle.title = "Drag or press ↑/↓ to reorder";
-    handle.setAttribute("aria-label", "Reorder: drag, or press the up and down arrow keys");
-    wireDrag(handle, li);
-    wireKeyboardReorder(handle, row);
-    // The handle is a full-height grab strip down the card's left edge, not a
-    // button in the tools row: a big thumb target for reordering on mobile. It
-    // lives as the body's first child so it can be absolutely positioned over
-    // the left gutter that `has-handle` opens up.
-    body.classList.add("has-handle");
-    body.insertBefore(handle, body.firstChild);
-
-    // Send a queued tune back to the Requests pool without deleting it.
-    const demoteButton = document.createElement("button");
-    demoteButton.appendChild(icon("demote"));
-    demoteButton.title = "Move to Requests";
-    demoteButton.setAttribute("aria-label", "Move to Requests");
-    demoteButton.onclick = () => demote(row.uid);
-
-    tools.append(demoteButton);
-  }
-
-  // A request is promoted into the running order; no reorder in the pool.
-  if (context === "requests") {
-    const promoteButton = document.createElement("button");
-    promoteButton.appendChild(icon("promote"));
-    promoteButton.title = "Move to Up next";
-    promoteButton.setAttribute("aria-label", "Move to Up next");
-    promoteButton.onclick = () => promote(row.uid);
-    tools.append(promoteButton);
-  }
-
-  // In the bin group, the only action is to lift a song back out — un-binning
-  // flips the flag and the row reappears in its home list at its original spot.
-  if (context === "bin") {
-    const unbinButton = document.createElement("button");
-    unbinButton.type = "button";
-    unbinButton.appendChild(icon("restore"));
-    unbinButton.title = "Un-bin";
-    unbinButton.setAttribute("aria-label", "Un-bin");
-    unbinButton.onclick = () => toggleBinned(row);
-    tools.append(unbinButton);
-  }
-
-  // Likewise in the played group: un-play is the rescue for a stray
-  // swipe-right, popping the row back into the running order.
-  if (context === "played") {
-    const unplayButton = document.createElement("button");
-    unplayButton.type = "button";
-    unplayButton.appendChild(icon("restore"));
-    unplayButton.title = "Mark not played";
-    unplayButton.setAttribute("aria-label", "Mark not played");
-    unplayButton.onclick = () => togglePlayed(row);
-    tools.append(unplayButton);
-  }
-
-  // Live tracking lives on the two working lists, but each shows only the
-  // action that matches its swipe, so the tap buttons stay in lockstep with the
-  // gestures: Up next checks a tune off as played (swipe-right); Requests bins
-  // one you don't want (swipe-left). "Skip a queued song" therefore funnels
-  // through Requests (demote, then bin) rather than duplicating both actions on
-  // both lists. The review sheet has no gig to track, so it keeps remove/restore.
-  if (context === "upnext") {
-    const playedButton = document.createElement("button");
-    playedButton.type = "button";
-    playedButton.appendChild(icon("played"));
-    playedButton.className = "check-button" + (row.played ? " active" : "");
-    playedButton.title = row.played ? "Mark not played" : "Mark played";
-    playedButton.setAttribute("aria-label", playedButton.title);
-    playedButton.setAttribute("aria-pressed", String(!!row.played));
-    playedButton.onclick = () => togglePlayed(row);
-
-    tools.append(playedButton);
-  } else if (context === "requests") {
-    // The trash icon reads as "bin" — reuse it for the bin action here (cross
-    // out, kept in the export) rather than the review sheet's hard removal.
-    const binButton = document.createElement("button");
-    binButton.type = "button";
-    binButton.appendChild(icon("bin"));
-    binButton.className = "bin-button" + (row.binned ? " active" : "");
-    binButton.title = row.binned ? "Un-bin" : "Bin";
-    binButton.setAttribute("aria-label", binButton.title);
-    binButton.setAttribute("aria-pressed", String(!!row.binned));
-    binButton.onclick = () => toggleBinned(row);
-
-    tools.append(binButton);
-  }
-  body.appendChild(tools);
-  li.appendChild(body);
-
-  // Swipe is the fast one-thumb path on a phone. The action depends on the list:
-  // in Requests, swipe right promotes to Up next (else bins); in Up next, swipe
-  // left demotes back to Requests (else marks played). The hint sits behind the
-  // body and is revealed as the body slides, so its icons follow suit.
-  // `swipeable` gates the clipping/relative styles so it can't clip the review
-  // sheet's song-picker dropdown (that context is never swipeable).
-  if (context === "upnext" || context === "requests") {
-    li.classList.add("swipeable");
-    const hint = document.createElement("div");
-    hint.className = "swipe-hint";
-    hint.setAttribute("aria-hidden", "true");
-    // hintLeft shows on swipe right; hintRight shows on swipe left.
-    const hintLeft = document.createElement("span");
-    hintLeft.className = "swipe-hint-left";
-    hintLeft.appendChild(icon(context === "requests" ? "promote" : "played"));
-    const hintRight = document.createElement("span");
-    hintRight.className = "swipe-hint-right";
-    hintRight.appendChild(icon(context === "upnext" ? "demote" : "bin"));
-    hint.append(hintLeft, hintRight);
-    li.insertBefore(hint, body);
-    wireSwipe(li, body, row, context);
-  }
-
-  return li;
+// The row behind a uid from the lists, for actions that take the row itself.
+function withRow(uid, fn) {
+  const row = [...app.upNext, ...app.requests].find((e) => e.uid === uid);
+  if (row) fn(row);
 }
 
 // Played and binned are mutually exclusive: a tune can't be both "done" and
@@ -2077,200 +1662,15 @@ function moveEntry(index, delta) {
   persist();
 }
 
-function dragAfterElement(container, y) {
-  const els = [...container.querySelectorAll(".row-card:not(.dragging)")];
-  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
-  for (const child of els) {
-    const box = child.getBoundingClientRect();
-    const offset = y - box.top - box.height / 2;
-    if (offset < 0 && offset > closest.offset) {
-      closest = { offset, element: child };
-    }
-  }
-  return closest.element;
-}
-
-// Keyboard-accessible sibling of wireDrag: with the drag handle focused, the
-// up/down arrow keys nudge the row one slot, mirroring what drag does with a
-// pointer. We re-look-up the row's live index each keypress (the list shifts
-// as it moves) and return focus to the same row's handle after the re-render,
-// so a keyboard user can move a song several slots without losing their place.
-function wireKeyboardReorder(handle, row) {
-  handle.addEventListener("keydown", (ev) => {
-    let delta;
-    if (ev.key === "ArrowUp") delta = -1;
-    else if (ev.key === "ArrowDown") delta = 1;
-    else return;
-    ev.preventDefault();
-    const index = app.upNext.indexOf(row);
-    if (index === -1) return;
-    moveEntry(index, delta);
-    const moved = upnextRows.querySelector(`[data-uid="${row.uid}"] .drag-handle`);
-    if (moved) moved.focus();
-  });
-}
-
-// Pointer-events drag so touch works on the mobile browsers this app targets
-// (HTML5 drag-and-drop is desktop-only on touch). We reorder the DOM live and
-// read the final order back into the array on drop.
-function wireDrag(handle, li) {
-  handle.addEventListener("pointerdown", (ev) => {
-    ev.preventDefault();
-    // Hold off applying remote snapshots while dragging so a peer's change
-    // can't yank the row out from under the finger; sync applies it on release.
-    sync.setGestureActive(true);
-    li.classList.add("dragging");
-    // Where within the row the finger landed, so we can keep that exact point
-    // pinned under the pointer as it moves (no jump on the first move).
-    const grabY = ev.clientY - li.getBoundingClientRect().top;
-    // Capture keeps touch from scrolling the page; move/up listen on the
-    // document so events keep flowing even as we reorder the row in the DOM.
-    try {
-      handle.setPointerCapture(ev.pointerId);
-    } catch {
-      /* capture unsupported — document listeners still work */
-    }
-
-    const onMove = (e) => {
-      // Reorder the DOM as the row crosses its neighbours' midpoints. The
-      // dragging row is excluded from dragAfterElement's measurements, so its
-      // lifted transform never confuses the hit-testing.
-      const after = dragAfterElement(upnextRows, e.clientY);
-      if (after == null) upnextRows.appendChild(li);
-      else if (after !== li) upnextRows.insertBefore(li, after);
-      // Lift the row to follow the finger 1:1. We clear the transform to read
-      // the row's true in-flow position (getBoundingClientRect includes the
-      // current transform), then translate it back under the grab point. This
-      // makes the drag obviously "live" from the first pixel, and the gap it
-      // leaves in the list marks where it will land.
-      li.style.transform = "none";
-      const top = li.getBoundingClientRect().top;
-      li.style.transform = `translateY(${e.clientY - grabY - top}px)`;
-    };
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onUp);
-      li.classList.remove("dragging");
-      li.style.transform = "";
-      commitDomOrder();
-      // Order committed + pushed; now let any deferred snapshot apply.
-      sync.setGestureActive(false);
-    };
-
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
-  });
-}
-
-function commitDomOrder() {
-  const order = [...upnextRows.querySelectorAll(".row-card")].map((el) => el.dataset.uid);
-  // Played/binned rows aren't in #upnext-rows, so indexOf gives them -1 and
-  // the (stable) sort parks them at the front in their existing order. That's
-  // relied on: played songs belong at the top conceptually, and binned rows
-  // are position-agnostic until un-binned.
-  app.upNext.sort((a, b) => order.indexOf(a.uid) - order.indexOf(b.uid));
+// A drag ended (UpNextSection.svelte): the visible rows' uids in their new
+// order. Played/binned rows aren't among them, so indexOf gives them -1 and
+// the (stable) sort parks them at the front in their existing order. That's
+// relied on: played songs belong at the top conceptually, and binned rows are
+// position-agnostic until un-binned.
+function commitOrder(uids) {
+  app.upNext.sort((a, b) => uids.indexOf(a.uid) - uids.indexOf(b.uid));
   renderUpNext();
   persist();
-}
-
-// --- Swipe to move / mark played / bin -------------------------------------
-// Horizontal-swipe sibling of wireDrag (pointer events so touch works). The
-// `body` (.row-body) tracks the finger; committing past a threshold fires the
-// context's action (see settle). Vertical intent is handed back to the page
-// (touch-action: pan-y) so the list still scrolls.
-function wireSwipe(li, body, row, context) {
-  const ACTIVATE = 8; // px of travel before we decide it's a swipe, not a tap
-  li.addEventListener("pointerdown", (ev) => {
-    // Buttons and the drag handle own their own gestures — don't hijack them.
-    if (ev.target.closest("button")) return;
-    if (ev.button != null && ev.button !== 0) return; // ignore right/middle click
-
-    // Defer remote snapshots for the duration of the touch (a swipe that
-    // commits, or even a plain tap) so a peer's change can't re-render the row
-    // mid-gesture; sync applies any stashed snapshot when we release below.
-    sync.setGestureActive(true);
-
-    const startX = ev.clientX;
-    const startY = ev.clientY;
-    let engaged = false;
-    let decided = false; // once we know it's a vertical scroll, we bow out
-
-    const finish = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onCancel);
-      // Local toggle (if any) has already been applied + pushed by settle();
-      // now let a deferred snapshot land.
-      sync.setGestureActive(false);
-    };
-
-    const settle = (dx) => {
-      const commit = 0.35 * li.clientWidth;
-      // A committed action re-renders both lists, so this li is discarded — no
-      // snap-back needed. Otherwise animate the body back to rest. Right in
-      // Requests promotes to Up next; left in Up next demotes back; the other
-      // direction in each list keeps the played/bin toggle.
-      if (dx >= commit) {
-        return context === "requests" ? promote(row.uid) : togglePlayed(row);
-      }
-      if (dx <= -commit) {
-        return context === "upnext" ? demote(row.uid) : toggleBinned(row);
-      }
-      body.style.transition = "";
-      body.style.transform = "";
-      li.classList.remove("swiping", "swipe-right", "swipe-left");
-      li.style.removeProperty("--swipe-progress");
-    };
-
-    const onMove = (e) => {
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (!engaged) {
-        if (decided) return;
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > ACTIVATE) {
-          // Vertical intent: let the page scroll, stop tracking this gesture.
-          decided = true;
-          finish();
-          return;
-        }
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > ACTIVATE) {
-          engaged = true;
-          li.classList.add("swiping");
-          body.style.transition = "none"; // follow the finger 1:1 while dragging
-          try {
-            li.setPointerCapture(e.pointerId);
-          } catch {
-            /* capture unsupported — document listeners still work */
-          }
-        } else {
-          return;
-        }
-      }
-      e.preventDefault();
-      body.style.transform = `translateX(${dx}px)`;
-      li.classList.toggle("swipe-right", dx > 0);
-      li.classList.toggle("swipe-left", dx < 0);
-      const progress = Math.min(1, Math.abs(dx) / (0.35 * li.clientWidth));
-      li.style.setProperty("--swipe-progress", progress.toFixed(3));
-    };
-
-    const onUp = (e) => {
-      // Settle before finish() so the local toggle is committed + pushed
-      // before any deferred remote snapshot is applied — the two then converge.
-      if (engaged) settle(e.clientX - startX);
-      finish();
-    };
-    const onCancel = () => {
-      if (engaged) settle(0); // treat a cancelled gesture as a snap-back
-      finish();
-    };
-
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onCancel);
-  });
 }
 
 // --- Export ----------------------------------------------------------------
@@ -2305,12 +1705,11 @@ function stripInternal({ uid, source, addedBy, removed, played, binned, ...rest 
   return rest;
 }
 
-copyButton.addEventListener("click", async () => {
+async function copySetlist() {
   await copyToClipboard(exportText());
-  flashButton(copyButton, "Copied!");
-});
+}
 
-downloadButton.addEventListener("click", () => {
+function downloadSetlist() {
   const payload = {
     edition: app.edition,
     catalogue_generated_at: app.catalogueGeneratedAt,
@@ -2322,7 +1721,7 @@ downloadButton.addEventListener("click", () => {
   a.download = "requests.json";
   a.click();
   URL.revokeObjectURL(a.href);
-});
+}
 
 // --- Init ------------------------------------------------------------------
 (async function init() {
