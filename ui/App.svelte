@@ -173,7 +173,7 @@
     class:active={shell.shareActive}
     type="button"
     aria-label={shell.shareLabel}
-    aria-expanded={shareOpen ? "true" : "false"}
+    aria-expanded={shareOpen}
     aria-controls="share-panel"
     hidden={!inSession}
     bind:this={shareToggle}
@@ -196,7 +196,7 @@
     class="settings-toggle"
     type="button"
     aria-label="Settings"
-    aria-expanded={settingsOpen ? "true" : "false"}
+    aria-expanded={settingsOpen}
     aria-controls="settings-panel"
     onclick={onSettingsTap}
   >
@@ -287,9 +287,9 @@
     class:requests-closed={shell.requestsClosed}
     class:requests-opening-soon={shell.requestsOpeningSoon}
   >
-    <!-- Session-level navigation: just the way out. Leaving replaces "Start
-         over": you stop working on a set by walking away from it, never by
-         wiping it for everyone else in the room. -->
+    <!-- Session-level navigation: just the way out. You stop working on a set
+         by walking away from it, never by wiping it for everyone else in the
+         room (there is no "Start over"). -->
     <div class="session-bar">
       <button id="back-home" class="link-button" type="button" onclick={handlers.onBack}>
         <Icon name="back" /><span class="btn-label">All sessions</span>

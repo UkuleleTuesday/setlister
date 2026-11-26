@@ -33,7 +33,7 @@ export type ExportedRow = Omit<Row, "uid" | "source" | "addedBy" | "removed" | "
 // payload; the times they were set (`playedAt` / `binnedAt`) stay, as the
 // night's record of what got played when. A row carrying `playedAt` is a
 // played row.
-export function stripInternal(row: Row): ExportedRow {
+function stripInternal(row: Row): ExportedRow {
   const { uid, source, addedBy, removed, played, binned, ...rest } = row;
   return rest;
 }

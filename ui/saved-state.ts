@@ -4,7 +4,9 @@
 // player's name, the session to rejoin and the settings.
 //
 // What comes back is whatever an older build (or a full disk) left, so it's
-// read field by field: anything of the wrong shape is dropped, never cast.
+// read field by field: a field of the wrong kind is dropped. What's inside the
+// lists, votes and edition is taken on trust, like the session doc's in
+// sync.ts (#157 is about real checks for both).
 
 import type { Edition, Row, Votes } from "./types.js";
 

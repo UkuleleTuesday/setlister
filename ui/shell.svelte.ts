@@ -1,9 +1,6 @@
 // The page chrome's state: which view shows, the header's title and share
 // button, the session view's mode classes, the request link's pills and the
 // footnote. main.ts writes it, App.svelte draws it; nothing else lives here.
-//
-// The lists, sheets and panels keep their own state behind their exports
-// (setData(), open(), ...): this is only what used to be DOM poked by hand.
 
 import type { WindowState } from "./request-window.js";
 

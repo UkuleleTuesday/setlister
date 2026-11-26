@@ -22,7 +22,7 @@ import {
 } from "./catalogue-cache.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { duplicateLabel, findDuplicate, matchKey } from "./dupes.js";
-import { editionLabel } from "./editions.js";
+import { editionLabel, parseEditions } from "./editions.js";
 import { exportPayload, exportText, exportedRows } from "./export.js";
 import { setBinned, setPlayed } from "./gig-state.js";
 import type { ListsData } from "./lists.js";
@@ -238,9 +238,8 @@ function persist() {
   });
   // Every mutation already funnels through persist(), so this single choke
   // point pushes local changes to every session peer. Through sessionState()
-  // rather than a second literal: this listed the synced fields by hand and
-  // drifted the moment one was added, pushing everything except the new field
-  // and making it look like sync was dropping writes.
+  // rather than a second literal, which would drift the moment a synced field
+  // is added and look like sync dropping writes.
   if (sync.getSessionId()) sync.notifyLocalChange(sessionState());
 }
 
@@ -333,9 +332,9 @@ function scopeCatalogueToEdition(editionId: string) {
 async function loadEditions() {
   try {
     const res = await fetch(`${API_BASE}/api/editions`);
-    const data: { editions?: unknown } = await res.json();
-    if (!Array.isArray(data.editions) || !data.editions.length) return;
-    editionsList = data.editions;
+    const editions = parseEditions(await res.json());
+    if (!editions.length) return;
+    editionsList = editions;
   } catch {
     /* keep the hardcoded "current" options */
     return;

@@ -39,7 +39,7 @@ export function normalizeText(s: string): string {
 }
 
 /**
- * Identity of a catalogue entry (a combobox pick or a row's match). Both
+ * Identity of a catalogue entry (a songbook pick or a row's match). Both
  * fields are optional here, unlike CatalogueEntry: legacy rows embed matches
  * from before entries had ids.
  */

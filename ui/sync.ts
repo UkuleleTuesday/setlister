@@ -17,7 +17,7 @@
 //     requestsOpensAt, requestsClosesAt, createdAt, updatedAt }
 //
 // `createdBy` / `listed` / `requestsOpen` / `requestsOpensAt` /
-// `requestsClosesAt` are session METADATA (#77, #86, #NEW), not list state:
+// `requestsClosesAt` are session METADATA (#77, #86, #127), not list state:
 // they're deliberately outside serialize()/syncFields()/diff() so the
 // debounced row push never touches them, and they're written by their own
 // small helpers instead. A listed session also has a `sessionIndex/{id}` row
@@ -98,7 +98,7 @@ let metaCallback: ((meta: SessionMeta) => void) | null = null;
 const EMPTY_META: SessionMeta = {
   createdBy: "",
   listed: false,
-  // Tri-state (#NEW): true = forced open, false = forced closed, null = auto
+  // Tri-state (#127): true = forced open, false = forced closed, null = auto
   // (follow requestsOpensAt/requestsClosesAt below, see request-window.ts).
   requestsOpen: null,
   requestsOpensAt: null,
@@ -160,15 +160,11 @@ export function readMeta(data: unknown): SessionMeta {
   return {
     createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
     listed: doc.listed === true,
-    // Tri-state (#NEW): true/false are a deliberate override (forced open or
-    // closed, regardless of the window); absent is AUTO, not "always open"
-    // any more — see request-window.ts for how auto resolves against
-    // requestsOpensAt/requestsClosesAt (or their smart defaults). This is a
-    // real behaviour change for every session that predates this field: they
-    // move from permanently open to auto-per-window. The default window
-    // covers a whole ordinary night, so a session happening right now is
-    // unaffected; an old, already-finished session will now correctly read
-    // as closed instead of perpetually open.
+    // Tri-state (#127): true/false are a deliberate override (forced open or
+    // closed, regardless of the window); absent is AUTO: see
+    // request-window.ts for how auto resolves against requestsOpensAt /
+    // requestsClosesAt (or their smart defaults). Sessions that predate the
+    // field read as auto too, so a finished night reads as closed.
     requestsOpen: doc.requestsOpen === true ? true : doc.requestsOpen === false ? false : null,
     requestsOpensAt: timestampToDate(doc.requestsOpensAt),
     requestsClosesAt: timestampToDate(doc.requestsClosesAt),
@@ -279,7 +275,7 @@ export function deserialize(remote: unknown): ListState {
 // about the mutable content, so pull just those fields. Each one falls back to
 // empty when it's the wrong kind of value; the casts below take the contents
 // on trust, which is what #157 replaces with real checks.
-export function parseSyncFields(data: unknown): SyncFields {
+function parseSyncFields(data: unknown): SyncFields {
   const doc = asDoc(data);
   const map = (value: unknown) => (value && typeof value === "object" ? value : {});
   return {
@@ -381,9 +377,9 @@ export async function createSession(
   return id;
 }
 
-// Error thrown by joinSession when the doc is missing (never created or since
-// deleted — sessions are kept forever, so nothing expires any more). Flagged so
-// main.ts can show its "not found" copy instead of a raw error.
+// Error thrown by joinSession when the doc is missing (never created, or since
+// deleted). Flagged so main.ts can show its "not found" copy instead of a raw
+// error.
 export class SessionNotFoundError extends Error {
   readonly notFound = true;
   readonly sessionId: string;
@@ -442,7 +438,7 @@ export async function setSessionListed(listed: boolean): Promise<void> {
 }
 
 // Force open / force closed / back to auto for the room's request link (#86,
-// #NEW). Unlike `listed` there is no sessionIndex row to keep in step, so a
+// #127). Unlike `listed` there is no sessionIndex row to keep in step, so a
 // plain update does — but like `listed` it rides outside the debounced row
 // push, and the snapshot listener is what carries the flip to every room
 // phone already on the session.
@@ -466,7 +462,7 @@ export async function setRequestsMode(mode: "open" | "closed" | "auto"): Promise
   meta = { ...meta, requestsOpen: mode === "open" ? true : mode === "closed" ? false : null };
 }
 
-// Overrides the request window's smart default (#NEW, see request-window.ts).
+// Overrides the request window's smart default (#127, see request-window.ts).
 // Either boundary may be omitted/null to clear it back to its derived
 // default — the two resolve independently, so clearing one never disturbs
 // the other. Called only from the share panel, once a session already
@@ -524,9 +520,9 @@ function attachListener(db: Firestore, fx: Fx): void {
       if (snap.metadata.hasPendingWrites) return;
 
       if (!snap.exists()) {
-        // The doc was deleted remotely. With the TTL gone and client deletes
-        // denied by the rules this should be unreachable, but a session that
-        // silently stops syncing is far worse than one that says so.
+        // The doc was deleted remotely. With client deletes denied by the
+        // rules this should be unreachable, but a session that silently stops
+        // syncing is far worse than one that says so.
         const goneId = sessionId;
         teardown();
         emitStatus({ status: "expired", id: goneId });

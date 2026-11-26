@@ -67,10 +67,10 @@
     onReviewChange: (reviewing: boolean) => void;
   } = $props();
 
-  // A hung request used to sweep the beam forever with no way out but a
-  // reload (#44). Two escapes: this ceiling (generous, because a cold Cloud
-  // Function plus a thinking model legitimately takes tens of seconds) and
-  // the overlay's Cancel.
+  // A hung request would sweep the beam forever with no way out but a reload
+  // (#44). Two escapes: this ceiling (generous, because a cold Cloud Function
+  // plus a thinking model legitimately takes tens of seconds) and the
+  // overlay's Cancel.
   const SCAN_TIMEOUT_MS = 90_000;
   // Long waits feel shorter with signs of life. The copy advances rather than
   // cycling, and stops on the last message.
@@ -130,10 +130,6 @@
   /** Fresh lists or catalogue from main.ts. */
   export function refresh(next: ScanContext) {
     context = next;
-  }
-
-  export function isReviewing() {
-    return phase.kind === "reviewing";
   }
 
   /** Drop the review (and its photo), back to idle. */

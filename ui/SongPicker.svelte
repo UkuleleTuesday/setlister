@@ -8,8 +8,6 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script module lang="ts">
-  let pickerSeq = 0;
-
   // A tap handled at pointerdown still leaves the browser to synthesize a
   // trailing click from the same gesture, tens to hundreds of milliseconds
   // later. By then onPick may have put something new under that point, and
@@ -61,8 +59,8 @@
   // already squeezing.
   const LIMIT = 8;
 
-  pickerSeq += 1;
-  const menuId = `song-picker-menu-${pickerSeq}`;
+  const uid = $props.id();
+  const menuId = `song-picker-menu-${uid}`;
   let query = $state("");
   // Opened by typing, closed by a pick, Escape or leaving the field. While
   // open, the matches follow the catalogue: text typed during a slow load
@@ -133,7 +131,7 @@
     autocomplete="off"
     role="combobox"
     aria-autocomplete="list"
-    aria-expanded={menuOpen ? "true" : "false"}
+    aria-expanded={menuOpen}
     aria-controls={menuId}
     aria-activedescendant={menuOpen && matches.length && active >= 0
       ? `${menuId}-opt-${active}`

@@ -2,7 +2,7 @@
   A collapsed one-line disclosure ("3 played" / "2 binned") instead of another
   stacked section: on a phone the count is always visible but the rows only
   on demand, so the group costs one row of screen however long the night
-  gets. Hidden entirely while empty. Whether it's open is this phone's view
+  gets. Not rendered while empty. Whether it's open is this phone's view
   state: not persisted, not synced.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
@@ -35,12 +35,12 @@
   let open = $state(false);
 </script>
 
-<div {id} class="row-group" hidden={rows.length === 0}>
-  {#if rows.length}
+{#if rows.length}
+  <div {id} class="row-group">
     <button
       type="button"
       class="group-toggle"
-      aria-expanded={open ? "true" : "false"}
+      aria-expanded={open}
       aria-controls={`${id}-rows`}
       onclick={() => (open = !open)}
     >
@@ -56,5 +56,5 @@
         {/each}
       </ul>
     {/if}
-  {/if}
-</div>
+  </div>
+{/if}

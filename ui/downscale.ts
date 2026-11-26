@@ -17,10 +17,10 @@
 /** Matches the API's own default and the settings field's placeholder. */
 export const DEFAULT_MAX_EDGE = 1600;
 /** Matches `image.save(..., quality=85)` in utrequests/preprocess.py. */
-export const JPEG_QUALITY = 0.85;
+const JPEG_QUALITY = 0.85;
 /** The bounds the API clamps `max_image_edge` to (utrequests/api.py). */
-export const MIN_EDGE = 256;
-export const MAX_EDGE = 4096;
+const MIN_EDGE = 256;
+const MAX_EDGE = 4096;
 
 /**
  * The "Max image edge (px)" setting as a usable number: blank/garbage falls

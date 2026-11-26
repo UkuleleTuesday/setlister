@@ -93,7 +93,7 @@ function isValidSession(id) {
     && (!('name' in d) || (d.name is string && d.name.size() <= 80))
     && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
     && (!('listed' in d) || d.listed is bool)
-    // Whether the room's request link still accepts tunes (#86, #NEW). Like
+    // Whether the room's request link still accepts tunes (#86, #127). Like
     // room mode itself this is a VIEW, not a permission: `rows` below is an
     // unvalidated map and anyone with the id can write, so closing requests
     // stops the ordinary case (a link still circulating in the WhatsApp
@@ -104,7 +104,7 @@ function isValidSession(id) {
     // unchanged from #86: only the client's reading of "absent" changed, so
     // no schema migration is needed here.
     && (!('requestsOpen' in d) || d.requestsOpen is bool)
-    // Overrides for the request window (#NEW): when the link opens/closes on
+    // Overrides for the request window (#127): when the link opens/closes on
     // its own, beyond the smart default above. Both optional and independent
     // — moving the close time never pins the open time to anything. Written
     // only from the share panel once a session exists, never on create (see
