@@ -50,7 +50,7 @@ export function buildSessionUrl(href: string, id: string, { room = false } = {})
   return url.toString();
 }
 
-// Provenance wording for a row's `source`, shared by every renderRow branch so
+// Provenance wording for a row's `source`, shared by every row context so
 // a new source value can't silently fall into the whiteboard bucket.
 export function sourceLabel(source: RowSource | undefined): string {
   if (source === "manual") return "added manually";

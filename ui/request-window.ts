@@ -1,5 +1,5 @@
 // The request time window: when the room's request link takes tunes on its
-// own, with no organiser action (#NEW). Pure and DOM-free like
+// own, with no organiser action (#127). Pure and DOM-free like
 // session-index.ts and room-limits.ts: this module only answers "what does
 // the schedule say right now".
 //

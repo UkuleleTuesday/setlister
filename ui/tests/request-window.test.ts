@@ -1,4 +1,4 @@
-// The request window's pure decision logic (#NEW) — no Firestore, no DOM.
+// The request window's pure decision logic (#127) — no Firestore, no DOM.
 //
 // Every branch here is relative to "now" or to a session's own createdAt, so
 // every test pins the clock explicitly, same discipline as

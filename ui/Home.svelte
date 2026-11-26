@@ -188,7 +188,7 @@
     <button
       type="button"
       class="group-toggle"
-      aria-expanded={pastOlderOpen ? "true" : "false"}
+      aria-expanded={pastOlderOpen}
       aria-controls="past-older-rows"
       onclick={() => (pastOlderOpen = !pastOlderOpen)}
     >

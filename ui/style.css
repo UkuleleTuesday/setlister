@@ -84,9 +84,8 @@ header h1 {
   font-size: 0.9rem;
   max-width: calc(100% - 6rem);
 }
-/* In a session main.ts swaps the h1's text for the night's date: one title
-   bar — share, date, settings — instead of a vestigial brand row stacked on a
-   separate session row. The tagline gets out of the way. The min-height keeps
+/* In a session the h1 is the night's date: one title bar (share, date,
+   settings) rather than a brand row stacked on a session row. The tagline gets out of the way. The min-height keeps
    the header at least as tall as the absolutely-pinned corner buttons (their
    top offset + the 2.4rem card) — without it, a short date would let the
    Share button overhang "All sessions" just below. */
@@ -463,7 +462,7 @@ footer#edition-note:empty {
 }
 
 /* Scanning overlay: a sci-fi document-scanner sweep on top of the photo
-   while the board is being read, replacing the old spinner. */
+   while the board is being read. */
 .scan-overlay {
   position: absolute;
   inset: 0;
@@ -986,7 +985,8 @@ h2#past-heading {
 }
 /* Transient inline feedback — "Added 7 from the board" after a clean scan
    (#80), "Already in Up next" under the quick-add (#52). Accent-tinted like
-   the What's new banner: news, not chrome. Shown/retired by flashNote(). */
+   the What's new banner: news, not chrome. Shown and retired by the component that
+   shows it. */
 .flash-note {
   margin: 0.8rem 0 0;
   padding: 0.6rem 0.8rem;
@@ -1151,8 +1151,8 @@ button.window-pill::after {
 }
 
 /* --- Room mode: the requests view (#86) ------------------------------------
-   A device that arrived through a `?mode=request` link gets the add-by-name
-   combobox, the (read-only) Requests pool, and a read-only look at the set:
+   A device that arrived through a `?mode=request` link gets the "Request a
+   tune" button (the songbook), the (read-only) Requests pool, and a read-only look at the set:
    Up next plus the collapsed played group, so the room can follow the night —
    no camera, no reorder, no export, no header chrome. Like `fresh`, the
    classes (`#session-view.room`, `body.room-mode`) are kept current by
@@ -1241,7 +1241,7 @@ body.room-mode #edition-note {
   margin: 0 0 0.8rem;
 }
 
-/* The "opening soon" state (#NEW): 30 minutes out from an auto window's open
+/* The "opening soon" state (#127): 30 minutes out from an auto window's open
    time, room devices get this note in place of the closed one above — same
    swap, one more state. */
 .requests-opening-soon-note {
@@ -1345,8 +1345,8 @@ body.room-mode #edition-note {
   border: 1px solid var(--border);
 }
 /* The first card in Up next IS the next tune — the one thing the screen must
-   answer at a glance. One accented card, so the edge is a signal (unlike the
-   old all-green stripes). The tag is real text, prepended by renderUpNext. */
+   answer at a glance. One accented card, so the edge is a signal. The tag is
+   real text (Row.svelte). */
 .row-card.next-up {
   box-shadow: var(--shadow-next);
 }
@@ -1368,8 +1368,7 @@ body.room-mode #edition-note {
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
-/* Raised while this row's song-picker dropdown is open (toggled in
-   makeCombobox). .row-body's z-index makes each card a stacking context, so
+/* Raised while this row's song-picker dropdown is open (ReviewRow.svelte). .row-body's z-index makes each card a stacking context, so
    without this the following card paints over the open menu and swallows the
    taps meant for it. */
 .row-card.picker-open {
@@ -1442,7 +1441,7 @@ body.room-mode #edition-note {
 
 /* Swipe reveal: the left icon shows on swipe right (promote in Requests, else
    played), the right icon on swipe left (demote in Up next, else bin). Icons are
-   picked per-list in renderRow. Opacity ramps with --swipe-progress. */
+   picked per list in Row.svelte. Opacity ramps with --swipe-progress. */
 .swipe-hint {
   position: absolute;
   inset: 0;
@@ -1495,7 +1494,7 @@ body.room-mode #edition-note {
   cursor: zoom-in;
   vertical-align: baseline;
   position: relative;
-  /* Amber replaces the emoji's built-in colour now the glyph is an SVG. */
+  /* The SVG takes its amber from here. */
   color: var(--review);
 }
 /* The icon glyph is tiny but it's the key "check this match" affordance —
@@ -1587,8 +1586,8 @@ body.room-mode #edition-note {
   padding: 0.1rem 0.45rem;
   font-size: 0.9rem;
 }
-/* #6b6b6b (not the old #777) keeps this small text above the 4.5:1 AA
-   contrast minimum on the white card. */
+/* #6b6b6b keeps this small text above the 4.5:1 AA contrast minimum on the
+   white card. */
 .raw {
   color: #6b6b6b;
   font-size: 0.82rem;
@@ -1791,7 +1790,7 @@ body.room-mode #edition-note {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* ≥3:1 non-text contrast for an interactive control (was #999). */
+  /* ≥3:1 non-text contrast for an interactive control. */
   color: #767676;
   cursor: grab;
   touch-action: none;
@@ -1834,8 +1833,8 @@ body.room-mode #edition-note {
   will-change: transform;
 }
 
-/* Custom song-picker combobox (replaces the native <datalist>, which is
-   unreliable on the mobile browsers this app targets). */
+/* Custom song-picker combobox: the native <datalist> is unreliable on the
+   mobile browsers this app targets. */
 .song-picker {
   position: relative;
   flex: 1;

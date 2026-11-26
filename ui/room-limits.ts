@@ -1,8 +1,7 @@
 // Room mode's brake on adding (#88): a **cool-down** between one device's
 // requests, so a keen participant can't fill the pool in a minute. #88's "rate
 // over volume" reading: ten requests across an evening is ordinary, ten in
-// ninety seconds is a flood. (The confirmation before a request lands applies
-// in both modes now; see openRequestSheet in main.ts.)
+// ninety seconds is a flood.
 //
 // Client-side and per-device. The only identity the app has is a
 // free-text name, so anyone determined clears storage and carries on — which
@@ -16,7 +15,7 @@ export const ROOM_ADD_COOLDOWN_MS = 60_000;
 // Its own key, outside setlister.v1, so persist()/restore()'s schema stays
 // untouched (the What's-new / room-mode key precedent). Persisted rather than
 // held in memory so a reload isn't a way around the wait.
-export const LAST_ROOM_ADD_KEY = "setlister.lastRoomAdd.v1";
+const LAST_ROOM_ADD_KEY = "setlister.lastRoomAdd.v1";
 
 // Milliseconds left before this device may add again; 0 when it's free to.
 export function cooldownRemaining(

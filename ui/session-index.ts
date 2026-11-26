@@ -52,9 +52,8 @@ const DEFAULT_MAX = 60;
 const LIST_TIMEOUT_MS = 8000;
 
 // `Intl` is the whole date dependency. Formatters are built against the
-// VIEWER's locale at render time and nothing formatted is ever stored — which
-// is the point: storing the formatted string (as this module used to) left one
-// list mixing "Tuesday, August 4, 2026" from a US phone with
+// VIEWER's locale at render time and nothing formatted is ever stored, or one
+// list would mix "Tuesday, August 4, 2026" from a US phone with
 // "Tuesday 4 August 2026" from a UK one.
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
@@ -283,7 +282,6 @@ export async function listSessions({ max = DEFAULT_MAX } = {}): Promise<SessionE
 
 // This module deliberately READS the index and nothing else. Every write to a
 // listing row belongs in sync.ts, batched with the matching `listed` flag on the
-// session document — the two must move together. A standalone "just write the
-// index row" helper used to live here, and it is exactly how a session ended up
-// listed in the club's history while its own share panel insisted it was
-// unlisted. See backfillListing() / setSessionListed() in sync.ts.
+// session document: the two must move together, or a session ends up listed
+// in the club's history while its own share panel says it's unlisted. See
+// backfillListing() / setSessionListed() in sync.ts.

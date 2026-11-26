@@ -1,8 +1,6 @@
-// Per-edition catalogue cache. Sessions each carry their own songbook now, so
-// a device can bounce between a "current" Tuesday and a themed night without
-// re-downloading (or worse, searching) the wrong book. The old cache was one
-// slot — fine when the edition was a device setting, thrashing the moment two
-// sessions disagree.
+// Per-edition catalogue cache. Each session carries its own songbook, so a
+// device can bounce between a "current" Tuesday and a themed night without
+// re-downloading (or worse, searching) the wrong book.
 //
 // The helpers are pure (store in, store out), with the localStorage I/O in
 // two thin wrappers at the bottom, same split as room-limits.ts.
@@ -21,8 +19,8 @@ export interface CachedCatalogue {
 /** The localStorage map, keyed by edition id. */
 export type CatalogueStore = Record<string, CachedCatalogue>;
 
-export const CATALOGUES_CACHE_KEY = "setlister.catalogues.v2";
-export const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
+const CATALOGUES_CACHE_KEY = "setlister.catalogues.v2";
+const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
 
 // Enough for the club's realistic rotation (current + a themed night or two)
 // without hoarding: each entry is ~20KB and localStorage is a shared 5MB.

@@ -158,9 +158,8 @@
       }}
     />
   </label>
-  <!-- The name travels further than it used to: song attribution, the "Here
-       now" roster, and "Started by" on the home list. Say so, since the field
-       predates all three. -->
+  <!-- The name shows in three places a player might not expect: song
+       attribution, the "Here now" roster and "Started by" on the home list. -->
   <p class="note">Shown on songs you add, in “Here now”, and on sessions you start.</p>
   <!-- Session control, not a device setting: it changes THIS session's
        songbook for everyone in it, so it's hidden on the home screen (the
@@ -265,9 +264,9 @@
         }}
       />
     </label>
-    <!-- Since #44 this knob governs the upload, not just the server's resize:
-         worth saying, because it used to do the opposite of what a reader
-         would assume (full-size upload, shrunk on arrival). -->
+    <!-- This knob governs the upload, not just the server's resize (#44):
+         worth saying, because a reader would assume a full-size upload
+         shrunk on arrival. -->
     <p class="note">Photos are shrunk to this on your phone before uploading.</p>
   </details>
 </div>

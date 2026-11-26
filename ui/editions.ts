@@ -1,5 +1,5 @@
-// Songbook editions: how one is named in a select. Pure, so main.ts and the
-// Svelte panels label them the same way.
+// Songbook editions: how one is named in a select, and the listing the API
+// returns. Pure, so main.ts and the Svelte panels agree.
 
 import type { Edition } from "./types.js";
 
@@ -10,4 +10,11 @@ export function editionLabel(e: Pick<Edition, "id"> & Partial<Pick<Edition, "tit
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/** `/api/editions`: the books on offer. Entries without an id are dropped. */
+export function parseEditions(data: unknown): Edition[] {
+  const list = (data as { editions?: unknown } | null)?.editions;
+  if (!Array.isArray(list)) return [];
+  return list.filter((e): e is Edition => !!e && typeof e === "object" && typeof e.id === "string");
 }
