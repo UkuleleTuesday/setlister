@@ -14,69 +14,39 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
+  import Sheet from "./Sheet.svelte";
   import { NAME_RESET_MESSAGE } from "./name-reset.js";
 
-  let { open = $bindable(false), onSave }: { open?: boolean; onSave: (name: string) => void } =
-    $props();
+  let { onSave, onclose }: { onSave: (name: string) => void; onclose: () => void } = $props();
 
   let name = $state("");
-
-  function close() {
-    open = false;
-  }
 
   function save() {
     const trimmed = name.trim();
     if (trimmed) onSave(trimmed);
-    close();
-  }
-
-  // Forgiving dismissal: a tap on the backdrop itself closes, a tap inside
-  // the card doesn't.
-  function onBackdrop(event: MouseEvent) {
-    if (event.target === event.currentTarget) close();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && open) close();
+    onclose();
   }
 </script>
 
-<svelte:document onkeydown={onKeydown} />
-
-<!-- The backdrop's click is the tap-outside shortcut, not the accessible way
-     out: Later is a real button, and Escape is handled on the document. -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-  id="name-reset-sheet"
-  class="sheet-backdrop"
-  hidden={!open}
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="name-reset-title"
-  tabindex="-1"
-  onclick={onBackdrop}
->
-  <div class="sheet">
-    <h2 id="name-reset-title">Names, please</h2>
-    <p id="name-reset-message" class="note">{NAME_RESET_MESSAGE}</p>
-    <label class="field">
-      <span>Your name</span>
-      <input
-        type="text"
-        id="name-reset-name"
-        autocomplete="name"
-        placeholder="e.g. Alex"
-        bind:value={name}
-        onkeydown={(event) => {
-          if (event.key === "Enter") save();
-        }}
-      />
-    </label>
-    <div class="actions">
-      <button id="name-reset-save" onclick={save}>Save</button>
-      <button id="name-reset-later" class="secondary" onclick={close}>Later</button>
-    </div>
-    <p class="sheet-hint">Tap outside to close</p>
+<Sheet id="name-reset-sheet" labelledby="name-reset-title" {onclose}>
+  <h2 id="name-reset-title">Names, please</h2>
+  <p id="name-reset-message" class="note">{NAME_RESET_MESSAGE}</p>
+  <label class="field">
+    <span>Your name</span>
+    <input
+      type="text"
+      id="name-reset-name"
+      autocomplete="name"
+      placeholder="e.g. Alex"
+      bind:value={name}
+      onkeydown={(event) => {
+        if (event.key === "Enter") save();
+      }}
+    />
+  </label>
+  <div class="actions">
+    <button id="name-reset-save" onclick={save}>Save</button>
+    <button id="name-reset-later" class="secondary" onclick={onclose}>Later</button>
   </div>
-</div>
+  <p class="sheet-hint">Tap outside to close</p>
+</Sheet>

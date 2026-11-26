@@ -54,14 +54,12 @@
 
   const BRAND_TITLE = "🎶 Setlister";
 
-  // The two calls into a part that stay imperative: a file input's click()
-  // has to run inside the tap itself (scanFlow.pickPhoto), and scrolling the
-  // share panel to a row is a one-off DOM nudge (sharePanel.revealRequests).
-  let scanFlow: ScanFlow;
-  let sharePanel: SharePanel;
+  // The one call into a part that stays imperative: a file input's click()
+  // has to run inside the tap itself.
+  let scanFlow: ScanFlow | undefined = $state();
   // Taps on these open the share panel, so they mustn't count as "outside".
   let shareToggle: HTMLButtonElement;
-  let windowChip: HTMLButtonElement;
+  let windowChip: HTMLButtonElement | undefined = $state();
 
   const inSession = $derived(view.page === "session");
 
@@ -116,7 +114,7 @@
   function onShareTap(event: MouseEvent) {
     event.stopPropagation();
     overlays.settings = false;
-    overlays.share = !overlays.share;
+    overlays.share = overlays.share ? false : "top";
   }
 
   function onSettingsTap(event: MouseEvent) {
@@ -159,7 +157,7 @@
     class:active={!!session.id}
     type="button"
     aria-label={shareLabel}
-    aria-expanded={overlays.share}
+    aria-expanded={!!overlays.share}
     aria-controls="share-panel"
     hidden={!inSession}
     bind:this={shareToggle}
@@ -200,188 +198,210 @@
   </div>
   <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
 
-  <SharePanel
-    bind:this={sharePanel}
-    bind:open={overlays.share}
-    onVisibility={changeVisibility}
-    onRequestsMode={changeRequestsMode}
-    onWindow={changeRequestsWindow}
-    onShareLink={shareSessionLink}
-    onShareRoomLink={shareRoomLink}
-    openers={() => [shareToggle, windowChip]}
-  />
+  {#if overlays.share}
+    <SharePanel
+      at={overlays.share}
+      onclose={() => (overlays.share = false)}
+      onVisibility={changeVisibility}
+      onRequestsMode={changeRequestsMode}
+      onWindow={changeRequestsWindow}
+      onShareLink={shareSessionLink}
+      onShareRoomLink={shareRoomLink}
+      openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
+    />
+  {/if}
   <!-- Settings survive a reload like the lists do: losing a toggle you set
        last Tuesday reads as a bug at the club. Switching the book is a
        cache-first re-scope like any other, saved at once so a cached switch
        reaches the session's peers even if the background refresh never lands
        (pub wifi). -->
-  <SettingsPanel
-    bind:open={overlays.settings}
-    onName={setPlayerName}
-    onChange={persist}
-    onEdition={(editionId) => {
-      scopeCatalogueToEdition(editionId);
-      persist();
-    }}
-  />
+  {#if overlays.settings}
+    <SettingsPanel
+      onclose={() => (overlays.settings = false)}
+      onName={setPlayerName}
+      onChange={persist}
+      onEdition={(editionId) => {
+        scopeCatalogueToEdition(editionId);
+        persist();
+      }}
+    />
+  {/if}
 </header>
 
 <main>
-  <!-- Home: the club's session history. Shown whenever the URL carries no
-       ?session= param: the app is a session picker until you pick one. -->
-  <section id="home" hidden={inSession}>
-    <!-- Above the heading, so it reads as an announcement, never as part of
-         the pick-a-session flow below. -->
-    <button
-      id="whats-new-banner"
-      class="whats-new-banner"
-      type="button"
-      hidden={!latest || bannerSeen}
-      onclick={() => latest && openWhatsNew([latest])}
+  {#if inSession}
+    <!-- One session's working state. The mode classes drive the CSS: room
+         (the request view, #86), fresh (no songs yet), and the request link
+         closed or about to open. -->
+    <div
+      id="session-view"
+      class:room={view.room}
+      class:fresh
+      class:requests-closed={!session.link.open && session.link.soonMinutes === null}
+      class:requests-opening-soon={session.link.soonMinutes !== null}
     >
-      <Icon name="news" /><span class="btn-label">What’s new</span>
-    </button>
-
-    <Home
-      onPick={openSession}
-      onNewSession={() => {
-        notices.home.clear();
-        overlays.newSession = true;
-      }}
-    />
-
-    <!-- Footer register: app-meta belongs at the bottom, like the edition
-         note in the session view. -->
-    <p id="whats-new-footer" class="whats-new-footer" hidden={!latest}>
-      <button
-        id="whats-new-open"
-        class="link-button"
-        type="button"
-        onclick={() => openWhatsNew(sortedEntries<WhatsNewEntry>())}
-      >
-        What’s new
-      </button>
-    </p>
-  </section>
-
-  <!-- One session's working state, wrapped so the view swap is a single
-       attribute. The mode classes drive the CSS: room (the request view,
-       #86), fresh (no songs yet), and the request link closed or about to
-       open. -->
-  <div
-    id="session-view"
-    hidden={!inSession}
-    class:room={view.room}
-    class:fresh
-    class:requests-closed={!session.link.open && session.link.soonMinutes === null}
-    class:requests-opening-soon={session.link.soonMinutes !== null}
-  >
-    <!-- Session-level navigation: just the way out. You stop working on a set
-         by walking away from it, never by wiping it for everyone else in the
-         room (there is no "Start over"). -->
-    <div class="session-bar">
-      <button id="back-home" class="link-button" type="button" onclick={leaveToHome}>
-        <Icon name="back" /><span class="btn-label">All sessions</span>
-      </button>
-      <!-- Where the request link stands right now, so an organiser sees it
-           without opening the share panel; tapping opens that panel. -->
-      <button
-        id="window-chip"
-        class="window-pill"
-        type="button"
-        data-state={session.link.status.state}
-        bind:this={windowChip}
-        onclick={() => sharePanel.revealRequests()}
-      >
-        {windowChipText(session.link.status)}
-      </button>
-    </div>
-
-    <!-- Request view only: what this page is for and the one thing to do on
-         it, first. Someone who just scanned a QR code needs both before they
-         need the running order. Hidden by the mode CSS while requests are
-         closed or about to open, where the notes in Requests take over. -->
-    <div class="room-top">
-      <h2 class="room-purpose">Pick a tune for tonight</h2>
-      <p class="room-purpose-sub">
-        Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
-      </p>
-      <div id="room-add" class="room-add">
-        <button type="button" class="songbook-trigger" onclick={() => (overlays.songbook = true)}>
-          <Icon name="add" /><span class="btn-label">Request a tune</span>
+      <!-- Session-level navigation: just the way out. You stop working on a set
+           by walking away from it, never by wiping it for everyone else in the
+           room (there is no "Start over"). -->
+      <div class="session-bar">
+        <button id="back-home" class="link-button" type="button" onclick={leaveToHome}>
+          <Icon name="back" /><span class="btn-label">All sessions</span>
+        </button>
+        <!-- Where the request link stands right now, so an organiser sees it
+             without opening the share panel; tapping opens that panel. -->
+        <button
+          id="window-chip"
+          class="window-pill"
+          type="button"
+          data-state={session.link.status.state}
+          bind:this={windowChip}
+          onclick={() => (overlays.share = "requests")}
+        >
+          {windowChipText(session.link.status)}
         </button>
       </div>
-      <!-- The link's rules, up front instead of discovered by bumping into
-           them, plus the name this phone requests under. -->
-      <div class="room-rules">
-        <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
-        <span>One request a minute</span>
-        <!-- The name is asked for in the confirm sheet at the moment it's
-             needed. Once set it's fire-and-forget and this is its only trace;
-             "change" reopens that sheet, since the gear that normally holds
-             "Your name" is hidden in room mode. -->
-        <span id="room-identity" class="room-identity" hidden={!roomName}>
-          <span id="room-identity-text">As {roomName}</span>
-          <button
-            id="room-identity-change"
-            class="link-button"
-            type="button"
-            onclick={() => (overlays.request = { entry: null })}
-          >
-            change
+
+      <!-- Request view only: what this page is for and the one thing to do on
+           it, first. Someone who just scanned a QR code needs both before they
+           need the running order. Hidden by the mode CSS while requests are
+           closed or about to open, where the notes in Requests take over. -->
+      <div class="room-top">
+        <h2 class="room-purpose">Pick a tune for tonight</h2>
+        <p class="room-purpose-sub">
+          Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
+        </p>
+        <div id="room-add" class="room-add">
+          <button type="button" class="songbook-trigger" onclick={() => (overlays.songbook = true)}>
+            <Icon name="add" /><span class="btn-label">Request a tune</span>
           </button>
-        </span>
+        </div>
+        <!-- The link's rules, up front instead of discovered by bumping into
+             them, plus the name this phone requests under. -->
+        <div class="room-rules">
+          <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
+          <span>One request a minute</span>
+          <!-- The name is asked for in the confirm sheet at the moment it's
+               needed. Once set it's fire-and-forget and this is its only trace;
+               "change" reopens that sheet, since the gear that normally holds
+               "Your name" is hidden in room mode. -->
+          <span id="room-identity" class="room-identity" hidden={!roomName}>
+            <span id="room-identity-text">As {roomName}</span>
+            <button
+              id="room-identity-change"
+              class="link-button"
+              type="button"
+              onclick={() => (overlays.request = { entry: null })}
+            >
+              change
+            </button>
+          </span>
+        </div>
       </div>
+
+      <!-- A brand-new session has exactly one job, get songs in, so while both
+           lists are empty the view collapses to this line plus the two add
+           affordances. Shown purely by the fresh class, never the hidden
+           attribute, which would override the mode CSS. -->
+      <div class="fresh-intro">
+        <h2>No tunes yet</h2>
+        <p>Snap the whiteboard, or add tunes from the songbook.</p>
+      </div>
+
+      <UpNextSection
+        actions={rowActions}
+        onReorder={commitOrder}
+        onCopy={copySetlist}
+        onDownload={downloadSetlist}
+      />
+      <RequestsSection
+        actions={rowActions}
+        onAddTune={() => (overlays.songbook = true)}
+        onSnap={() => scanFlow?.pickPhoto()}
+      />
+
+      <!-- The scan flow: #add (the photo, its scanning overlay, the post-scan
+           note and the error line) and #review (the rows the parser wasn't
+           sure about). -->
+      <ScanFlow
+        bind:this={scanFlow}
+        scan={scanBoard}
+        onConfirm={addFromBoard}
+        onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
+        {onReviewChange}
+      />
+
+      <!-- Binned songs, at the very bottom, below the add controls, so the
+           discard pile never wedges itself between Requests and the controls
+           that feed it. -->
+      <BinGroup actions={rowActions} />
     </div>
+  {:else}
+    <!-- Home: the club's session history, whenever the URL carries no
+         ?session= param: the app is a session picker until you pick one. -->
+    <section id="home">
+      <!-- Above the heading, so it reads as an announcement, never as part of
+           the pick-a-session flow below. -->
+      <button
+        id="whats-new-banner"
+        class="whats-new-banner"
+        type="button"
+        hidden={!latest || bannerSeen}
+        onclick={() => latest && openWhatsNew([latest])}
+      >
+        <Icon name="news" /><span class="btn-label">What’s new</span>
+      </button>
 
-    <!-- A brand-new session has exactly one job, get songs in, so while both
-         lists are empty the view collapses to this line plus the two add
-         affordances. Shown purely by the fresh class, never the hidden
-         attribute, which would override the mode CSS. -->
-    <div class="fresh-intro">
-      <h2>No tunes yet</h2>
-      <p>Snap the whiteboard, or add tunes from the songbook.</p>
-    </div>
+      <Home
+        onPick={openSession}
+        onNewSession={() => {
+          notices.home.clear();
+          overlays.newSession = true;
+        }}
+      />
 
-    <UpNextSection
-      actions={rowActions}
-      onReorder={commitOrder}
-      onCopy={copySetlist}
-      onDownload={downloadSetlist}
-    />
-    <RequestsSection
-      actions={rowActions}
-      onAddTune={() => (overlays.songbook = true)}
-      onSnap={() => scanFlow.pickPhoto()}
-    />
-
-    <!-- The scan flow: #add (the photo, its scanning overlay, the post-scan
-         note and the error line) and #review (the rows the parser wasn't
-         sure about). -->
-    <ScanFlow
-      bind:this={scanFlow}
-      scan={scanBoard}
-      onConfirm={addFromBoard}
-      onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
-      {onReviewChange}
-    />
-
-    <!-- Binned songs, at the very bottom, below the add controls, so the
-         discard pile never wedges itself between Requests and the controls
-         that feed it. -->
-    <BinGroup actions={rowActions} />
-  </div>
+      <!-- Footer register: app-meta belongs at the bottom, like the edition
+           note in the session view. -->
+      <p id="whats-new-footer" class="whats-new-footer" hidden={!latest}>
+        <button
+          id="whats-new-open"
+          class="link-button"
+          type="button"
+          onclick={() => openWhatsNew(sortedEntries<WhatsNewEntry>())}
+        >
+          What’s new
+        </button>
+      </p>
+    </section>
+  {/if}
 </main>
 
-<NewSessionSheet bind:open={overlays.newSession} onStart={startSession} />
-<RoomRequestSheet bind:request={overlays.request} onConfirm={confirmRequest} />
-<SongbookSheet bind:open={overlays.songbook} onPick={pickSong} />
-<NameResetSheet bind:open={overlays.nameReset} onSave={setPlayerName} />
-<WhatsNewSheet bind:entries={overlays.whatsNew} />
+<!-- The sheets, each mounted only while it's up, so every opening starts
+     fresh. -->
+{#if overlays.newSession}
+  <NewSessionSheet onStart={startSession} onclose={() => (overlays.newSession = false)} />
+{/if}
+{#if overlays.request}
+  <RoomRequestSheet
+    entry={overlays.request.entry}
+    onConfirm={confirmRequest}
+    onclose={() => (overlays.request = null)}
+  />
+{/if}
+{#if overlays.songbook}
+  <SongbookSheet onPick={pickSong} onclose={() => (overlays.songbook = false)} />
+{/if}
+{#if overlays.nameReset}
+  <NameResetSheet onSave={setPlayerName} onclose={() => (overlays.nameReset = false)} />
+{/if}
+{#if overlays.whatsNew}
+  <WhatsNewSheet entries={overlays.whatsNew} onclose={() => (overlays.whatsNew = null)} />
+{/if}
 
 <!-- Which songbook edition rows were matched against, and when it was
      generated. A quiet page footer: provenance, not part of the running order
      up top. -->
 <footer id="edition-note" class="note" hidden={!inSession}>{editionNote}</footer>
 
-<PhotoLightbox bind:src={overlays.photo} />
+{#if overlays.photo}
+  <PhotoLightbox src={overlays.photo} onclose={() => (overlays.photo = null)} />
+{/if}

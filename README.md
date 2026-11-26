@@ -145,12 +145,13 @@ by [Vite](https://vite.dev/) and managed with npm. `index.html` is a bare page
 and `App.svelte` the whole of it, one component per screen, sheet and panel.
 The state they show lives in `*.svelte.ts` modules (`night`, `session`,
 `catalogue`, `settings`, `view`, `history`, and `overlays` / `notices` for
-what's open and said) that components read and bind to directly. Changes go
-through action modules by concern (`adds`, `rows`, `routing`, `sharing`,
-`live` for sync and presence, `save`), and `main.ts` only boots. The logic that doesn't need a page (sync, presence, session
-index, dedupe, the request window, downscaling) lives in plain, unit-tested
-`.ts` modules; shared shapes are in `ui/types.ts`. `firebase`, `lucide` and `svelte`
-are the only runtime dependencies.
+what's open and said) that components read directly; each sheet and popover
+is mounted only while it's open. Changes go through action modules by concern
+(`adds`, `rows`, `routing`, `sharing`, `live` for sync and presence, `save`),
+and `main.ts` only boots. The logic that doesn't need a page (sync, presence,
+session index, dedupe, the request window, downscaling) lives in plain,
+unit-tested `.ts` modules; shared shapes are in `ui/types.ts`. `firebase`,
+`lucide` and `svelte` are the only runtime dependencies.
 
 ```bash
 cd ui

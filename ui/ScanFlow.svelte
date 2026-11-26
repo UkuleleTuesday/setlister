@@ -21,7 +21,7 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick, untrack } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import Icon from "./Icon.svelte";
   import ReviewRow from "./ReviewRow.svelte";
   import { findDuplicate, rowKey } from "./dupes.js";
@@ -31,7 +31,6 @@
   import { reviewNote, scanResultMessage } from "./scan.js";
   import { settings } from "./settings.svelte.js";
   import type { CatalogueEntry, Row } from "./types.js";
-  import { view } from "./view.svelte.js";
 
   /** What a finished scan left for review (`scan` has added the rest). */
   export interface ScanOutcome {
@@ -105,10 +104,12 @@
     photoInput?.click();
   }
 
-  // Leaving the session drops a review in progress: its rows belong to the
-  // night that was showing.
-  $effect(() => {
-    if (view.page !== "session") untrack(closeReview);
+  // Leaving the session unmounts this, dropping a review in progress (its
+  // rows belong to the night that was showing): release the photo, and stop
+  // the session view counting songs as coming.
+  onDestroy(() => {
+    if (phase.kind !== "idle") URL.revokeObjectURL(phase.imageUrl);
+    if (phase.kind === "reviewing") onReviewChange(false);
   });
 
   /** Drop the review (and its photo), back to idle. */

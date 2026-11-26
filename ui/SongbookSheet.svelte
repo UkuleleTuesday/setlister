@@ -17,8 +17,9 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick, untrack } from "svelte";
+  import { onMount, tick } from "svelte";
   import Icon from "./Icon.svelte";
+  import Sheet from "./Sheet.svelte";
   import { indexTonight, matchKey } from "./dupes.js";
   import { catalogue } from "./catalogue.svelte.js";
   import { night } from "./night.svelte.js";
@@ -31,10 +32,8 @@
   import { view } from "./view.svelte.js";
   import { hasVoted, voteCount } from "./votes.js";
 
-  let {
-    open = $bindable(false),
-    onPick,
-  }: { open?: boolean; onPick: (entry: CatalogueEntry) => void } = $props();
+  let { onPick, onclose }: { onPick: (entry: CatalogueEntry) => void; onclose: () => void } =
+    $props();
 
   let query = $state("");
   let waiting = $state(false);
@@ -69,45 +68,26 @@
     }),
   );
 
-  // Each opening starts at the top of an unfiltered book.
-  $effect.pre(() => {
-    if (!open) return;
-    untrack(() => {
-      query = "";
-      notices.songbook.clear();
-      refreshWait();
-    });
-  });
-
-  // Not the search field: focusing it raises the keyboard over the list, and
-  // browsing is the point. Typing is one tap away at the top.
-  $effect(() => {
-    if (!open) return;
-    untrack(() => {
-      if (list) list.scrollTop = 0;
-      closeButton?.focus({ preventScroll: true });
-    });
-  });
-
-  // However it closes (here, or a pick that moved on to the confirm sheet),
-  // any note still up goes with it, along with the wait's timer.
-  $effect(() => {
-    if (open) return;
-    untrack(() => {
-      search?.blur();
+  // Each opening mounts the sheet afresh: the top of an unfiltered book.
+  // Focus goes to Close, not the search field: focusing that raises the
+  // keyboard over the list, and browsing is the point. Typing is one tap
+  // away at the top. However it closes (Close, or a pick that moved on to
+  // the confirm sheet), any note still up goes with it, and the wait's timer.
+  onMount(() => {
+    notices.songbook.clear();
+    refreshWait();
+    closeButton?.focus({ preventScroll: true });
+    return () => {
       notices.songbook.clear();
       clearTimeout(waitTimer);
-    });
+    };
   });
-
-  function close() {
-    open = false;
-  }
 
   // The wait between requests, told up front rather than discovered on a
   // tap. No number in it: a figure that sat still for a minute would be
   // wrong, and a ticking one would chatter at screen readers. The exact wait
-  // comes with the tap (note()). Re-checked once, when the wait runs out.
+  // comes with the tap (notices.songbook). Re-checked once, when the wait runs
+  // out.
   function refreshWait() {
     clearTimeout(waitTimer);
     const remaining = view.mode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
@@ -132,96 +112,72 @@
   function onListTouchmove() {
     if (document.activeElement === search) search?.blur();
   }
-
-  function onBackdrop(event: MouseEvent) {
-    if (event.target === event.currentTarget) close();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && open) close();
-  }
 </script>
 
-<svelte:document onkeydown={onKeydown} />
-
-<!-- The backdrop's click is the tap-outside shortcut, not the accessible way
-     out: Close is a real button, and Escape is handled on the document. -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div
-  id="songbook-sheet"
-  class="sheet-backdrop"
-  hidden={!open}
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="songbook-title"
-  tabindex="-1"
-  onclick={onBackdrop}
->
-  <div class="sheet">
-    <h2 id="songbook-title">The songbook</h2>
-    <input
-      type="search"
-      id="songbook-search"
-      class="song-picker-input"
-      placeholder="Title, artist or page"
-      autocomplete="off"
-      enterkeyhint="search"
-      aria-label="Search the songbook"
-      value={query}
-      bind:this={search}
-      oninput={onSearch}
-      onkeydown={onSearchKeydown}
-    />
-    <!-- Shown while this phone's one-a-minute wait runs: new requests pause,
-         browsing and thumbs up don't. -->
-    <p id="songbook-wait" class="note songbook-wait" hidden={!waiting || Boolean(status)}>
-      Your next request opens up shortly. Thumbs up work any time.
-    </p>
-    <!-- Why a tap didn't add. aria-live so it reaches screen readers without
-         moving focus. -->
-    <p id="songbook-status" class="songbook-status" aria-live="polite" hidden={!status}>
-      {status}
-    </p>
-    <ul id="songbook-list" class="songbook-list" bind:this={list} ontouchmove={onListTouchmove}>
-      {#each rows as { entry, existing, count, mine, state }, i (i)}
-        <li>
-          <!-- click, not pointerdown: in a list you scroll with the same
-               finger, and a pick on touch-down would fire on every scroll
-               that starts on a row. -->
-          <button
-            type="button"
-            class={existing ? `songbook-song ${existing.where}` : "songbook-song"}
-            aria-label={`${entry.display}, page ${entry.page}${state}`}
-            onclick={() => onPick(entry)}
-          >
-            <span class="songbook-text">
-              <span class="songbook-title">
-                {entry.title || entry.display}
-              </span>{#if entry.artist}<span class="songbook-artist">{entry.artist}</span>{/if}
-            </span><span class="songbook-side">
-              {#if existing?.where === "played"}<span class="tonight-tag">
-                  {tonightTagLabel("played")}
-                </span>{:else if existing}<span class="tonight-tag" class:voted={mine}>
-                  <Icon name="want" />{` ${count} · ${tonightTagLabel(existing.where)}`}
-                </span>{/if}<span class="page-badge">p.{entry.page}</span>
-            </span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-    <p id="songbook-empty" class="note songbook-empty" hidden={songs.length > 0}>
-      {songs.length ? "" : catalogueEmptyMessage(catalogue.status, query)}
-    </p>
-    <div class="actions">
-      <button
-        id="songbook-close"
-        class="secondary"
-        type="button"
-        bind:this={closeButton}
-        onclick={close}
-      >
-        Close
-      </button>
-    </div>
+<Sheet id="songbook-sheet" labelledby="songbook-title" {onclose}>
+  <h2 id="songbook-title">The songbook</h2>
+  <input
+    type="search"
+    id="songbook-search"
+    class="song-picker-input"
+    placeholder="Title, artist or page"
+    autocomplete="off"
+    enterkeyhint="search"
+    aria-label="Search the songbook"
+    value={query}
+    bind:this={search}
+    oninput={onSearch}
+    onkeydown={onSearchKeydown}
+  />
+  <!-- Shown while this phone's one-a-minute wait runs: new requests pause,
+       browsing and thumbs up don't. -->
+  <p id="songbook-wait" class="note songbook-wait" hidden={!waiting || Boolean(status)}>
+    Your next request opens up shortly. Thumbs up work any time.
+  </p>
+  <!-- Why a tap didn't add. aria-live so it reaches screen readers without
+       moving focus. -->
+  <p id="songbook-status" class="songbook-status" aria-live="polite" hidden={!status}>
+    {status}
+  </p>
+  <ul id="songbook-list" class="songbook-list" bind:this={list} ontouchmove={onListTouchmove}>
+    {#each rows as { entry, existing, count, mine, state }, i (i)}
+      <li>
+        <!-- click, not pointerdown: in a list you scroll with the same
+             finger, and a pick on touch-down would fire on every scroll
+             that starts on a row. -->
+        <button
+          type="button"
+          class={existing ? `songbook-song ${existing.where}` : "songbook-song"}
+          aria-label={`${entry.display}, page ${entry.page}${state}`}
+          onclick={() => onPick(entry)}
+        >
+          <span class="songbook-text">
+            <span class="songbook-title">
+              {entry.title || entry.display}
+            </span>{#if entry.artist}<span class="songbook-artist">{entry.artist}</span>{/if}
+          </span><span class="songbook-side">
+            {#if existing?.where === "played"}<span class="tonight-tag">
+                {tonightTagLabel("played")}
+              </span>{:else if existing}<span class="tonight-tag" class:voted={mine}>
+                <Icon name="want" />{` ${count} · ${tonightTagLabel(existing.where)}`}
+              </span>{/if}<span class="page-badge">p.{entry.page}</span>
+          </span>
+        </button>
+      </li>
+    {/each}
+  </ul>
+  <p id="songbook-empty" class="note songbook-empty" hidden={songs.length > 0}>
+    {songs.length ? "" : catalogueEmptyMessage(catalogue.status, query)}
+  </p>
+  <div class="actions">
+    <button
+      id="songbook-close"
+      class="secondary"
+      type="button"
+      bind:this={closeButton}
+      onclick={onclose}
+    >
+      Close
+    </button>
   </div>
-</div>
+</Sheet>

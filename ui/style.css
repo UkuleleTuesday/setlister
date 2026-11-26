@@ -1531,9 +1531,6 @@ body.room-mode #edition-note {
   padding: 1rem;
   background: rgba(0, 0, 0, 0.88);
 }
-.photo-lightbox[hidden] {
-  display: none;
-}
 .photo-lightbox img {
   max-width: 100%;
   max-height: 80vh;

@@ -1,13 +1,16 @@
-// Which sheet or popover is up. The components bind to these (bind:open and
-// friends), and the actions open and close them by setting them: a pick
-// closes the songbook and opens the confirm sheet, starting a night closes
-// its sheet, leaving a session closes the share panel.
+// Which sheet or popover is up. App.svelte mounts each one only while it's
+// set here, so every opening starts fresh; the actions open and close them
+// by setting them: a pick closes the songbook and opens the confirm sheet,
+// starting a night closes its sheet, leaving a session closes the share
+// panel.
 
 import type { CatalogueEntry } from "./types.js";
 import type { WhatsNewEntry } from "./whats-new.js";
 
 class Overlays {
-  share = $state(false);
+  /** The share panel: open at its top, or at the request link (the window
+   * chip's shortcut); false while closed. */
+  share = $state<false | "top" | "requests">(false);
   settings = $state(false);
   newSession = $state(false);
   songbook = $state(false);
