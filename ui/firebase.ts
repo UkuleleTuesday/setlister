@@ -1,9 +1,6 @@
-// Lazy Firebase loader: Firestore for everyone, Auth for organiser phones.
-//
-// The dynamic imports sit in async functions so Vite code-splits Firebase
-// into its own chunks, fetched on the first call rather than blocking the
-// first paint. Auth is a separate chunk that only organiser.svelte.ts asks
-// for, so room phones never download it.
+// Lazy Firebase loader. Dynamic imports, so Vite splits Firestore and Auth
+// into their own chunks, fetched on first call; only organiser phones load
+// Auth.
 //
 // Usage:
 //   const { db, fx } = await getFirestore();
@@ -14,14 +11,12 @@ import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config.js";
 
-// localhost talks to the emulators, never production (see getFirestore). A
-// function, not a constant: modules importing this one also run under node.
+// localhost uses the emulators. A function: this module is imported under node.
 const onLocalhost = () => ["localhost", "127.0.0.1"].includes(location.hostname);
 
 let _app: Promise<FirebaseApp> | null = null;
 
-// One app for both SDKs. Re-uses an existing app if one was already
-// initialised (e.g. during hot-module replacement in dev).
+// One app for both SDKs; reuses an existing one (HMR).
 function getApp(): Promise<FirebaseApp> {
   _app ??= import("firebase/app").then(({ initializeApp, getApps }) =>
     getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig),
@@ -119,7 +114,6 @@ async function _init() {
   return { db, fx };
 }
 
-/** What getAuth() resolves to: the instance plus the calls organiser.svelte.ts makes. */
 export interface AuthHandle {
   auth: Auth;
   signInAnonymously: typeof import("firebase/auth").signInAnonymously;
@@ -127,11 +121,7 @@ export interface AuthHandle {
 
 let _auth: Promise<AuthHandle> | null = null;
 
-/**
- * Firebase Auth, loaded on first call, with any persisted sign-in restored
- * before it resolves (`auth.currentUser` is then final). On localhost it uses
- * the Auth emulator on port 9099.
- */
+/** Resolves once a persisted sign-in is restored, so `currentUser` is final. */
 export async function getAuth(): Promise<AuthHandle> {
   if (_auth) return _auth;
   _auth = _initAuth().catch((err: Error) => {

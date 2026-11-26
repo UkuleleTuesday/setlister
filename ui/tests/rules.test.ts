@@ -322,14 +322,11 @@ describe("sessionIndex/{id}", () => {
   });
 });
 
-// Organiser registration (#151). The current key lives in clubConfig, which no
-// client can read; a phone proves it holds the key by writing it into its own
-// row, keyed by its anonymous auth uid.
+// Organiser registration (#151): writing the key into your own row proves you hold it.
 describe("organisers/{uid}", () => {
   const KEY = "0123456789abcdef0123456789abcdef";
   const OLD_KEY = "ffffffffffffffffffffffffffffffff";
 
-  // A signed-in phone's db. Anonymous sign-in gives a uid and nothing else.
   const as = (uid: string) => modular(testEnv.authenticatedContext(uid).firestore());
 
   const row = (overrides: Doc = {}): Doc => ({

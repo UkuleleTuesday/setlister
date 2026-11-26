@@ -1,15 +1,7 @@
-// The organiser link (#151): `…/setlister/#organise=<key>`, pinned in the
-// organisers' chat. Tapping it registers this phone as an organiser's (see
-// organiser.svelte.ts). The key rides in the hash so it never reaches server
-// logs, and the app strips it on load so a screenshot or "copy link" can't
-// pass it on. A one-shot action, not a route: `?session=` alone still decides
-// what the page shows.
-//
-// Pure, so it runs under node (like view-mode.ts).
+// The organiser link, `#organise=<key>` (#151): pure helpers, tested under
+// node. The key is in the hash so it never reaches server logs.
 
-// Generous: the real key is 32 hex chars (`openssl rand -hex 16`), and the
-// rules compare it exactly anyway. The cap only stops a mangled paste from
-// being sent at all.
+// The real key is 32 hex chars; this only rejects garbage.
 const MAX_KEY_LENGTH = 200;
 
 /** The key in an organiser link's hash, or null if the hash isn't one. */
@@ -25,26 +17,19 @@ export function stripHash(href: string): string {
   return url.toString();
 }
 
-/**
- * The key from what someone pasted into Settings: the whole organiser link,
- * or just the key. The home-screen route on iPhone, where a tapped link opens
- * in Safari instead of the app.
- */
+/** The key from a pasted link or a bare key. */
 export function parseOrganiseInput(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
   if (trimmed.includes("#")) return parseOrganiseKey(trimmed.slice(trimmed.indexOf("#")));
-  // A bare key: one token, nothing URL-shaped.
   return /^[A-Za-z0-9_-]{8,200}$/.test(trimmed) ? trimmed : null;
 }
 
-/** What the sheet says when registering fails, and what its button does. */
 export interface RegistrationError {
   message: string;
   action: "retry" | "reload";
 }
 
-/** Rejected by withTimeout(): the write never came back. */
 export class TimeoutError extends Error {
   constructor() {
     super("Timed out");
@@ -52,8 +37,7 @@ export class TimeoutError extends Error {
   }
 }
 
-/** `promise`, or a TimeoutError after `ms`. Firestore doesn't fail an
- * offline write, it waits, so without this "Registering" never ends. */
+// Firestore never fails an offline write; it waits.
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -62,8 +46,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// Plain words for the failures an organiser can hit. Raw Firebase messages
-// ("auth/network-request-failed") go to the console, never the sheet.
+// Raw Firebase errors go to the console, never the sheet.
 export function describeRegistrationError(err: unknown): RegistrationError {
   const code = (err as { code?: unknown } | null)?.code;
   const text = err instanceof Error ? err.message : String(err);
@@ -77,8 +60,7 @@ export function describeRegistrationError(err: unknown): RegistrationError {
       action: "retry",
     };
   }
-  // A tab open since before a deploy asks for a chunk that's gone: only a
-  // reload can fix it. Chrome, Safari and Firefox word it differently.
+  // A tab older than the last deploy: its chunks are gone. Wording varies by browser.
   if (/dynamically imported module|importing a module script failed/i.test(text)) {
     return {
       message: "Setlister has been updated since this page opened. Reload to finish registering.",

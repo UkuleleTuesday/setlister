@@ -1,7 +1,7 @@
 <!--
   The settings popover behind the gear: this device's name, the session's
-  songbook, two display toggles, the organiser link (status, or paste it),
-  and the scan parser's knobs under Advanced.
+  songbook, two display toggles, organiser status, and the scan parser's
+  knobs under Advanced.
 
   The device settings (settings.svelte.ts) are edited in place here; every
   change is reported through the props so App can persist it (and, for the
@@ -61,8 +61,6 @@
     if (target && !panel?.contains(target)) onclose();
   }
 
-  // Settings → Organisers: the link pasted, for a home-screen app that a
-  // tapped link can't reach (it opens in the browser instead).
   let organiserLink = $state("");
   let organiserLinkBad = $state(false);
 
@@ -125,9 +123,7 @@
     />
     <span>Include crossed-out rows in export</span>
   </label>
-  <!-- Closed, so it reads as nothing to the room. Open, it's where an
-       organiser checks this phone is registered (#151), or registers a copy
-       of the app a tapped link can't reach. -->
+  <!-- Status, or paste the link: a tapped link can't reach a home-screen app (#151). -->
   <details class="advanced" id="organiser-setting">
     <summary>Organisers</summary>
     {#if organiser.isOrganiser}

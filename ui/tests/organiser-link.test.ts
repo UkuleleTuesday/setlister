@@ -1,5 +1,4 @@
-// The organiser link (#151): the key is read from the hash, and the hash is
-// stripped without touching the route.
+// Organiser link helpers (#151).
 import { describe, expect, it } from "vitest";
 
 import {

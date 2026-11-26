@@ -1,7 +1,4 @@
-// The organiser link (#151): tapping it (or pasting it in Settings) registers
-// this phone as an organiser's, the key leaves the address bar at once, and
-// Settings says whether the phone is registered. Nothing is locked yet, so the
-// rest of the app behaves as before.
+// The organiser link (#151) and Settings → Organisers.
 import type { Page } from "@playwright/test";
 import { expect, organiserRows, setOrganiserKey, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
@@ -19,7 +16,7 @@ test("the organiser link registers this phone, inside a session too", async ({ p
   const id = await startSession(page);
 
   await page.goto(`/?session=${id}#organise=${KEY}`);
-  // The key is gone before anything else happens; the session stays.
+  // The key is gone; the session stays.
   await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
   await expect(page.locator("#session-view")).toBeVisible();
 
@@ -34,13 +31,11 @@ test("the organiser link registers this phone, inside a session too", async ({ p
   await page.locator("#organiser-ok").tap();
   await expect(sheet).toBeHidden();
 
-  // A plain reopen asks nothing.
   await page.reload();
   await expect(page.locator("#session-view")).toBeVisible();
   await expect(sheet).toBeHidden();
 
-  // Settings says the phone is registered. Checked from home: opening a
-  // session closes settings once the join lands, which would race the taps.
+  // From home: a session's join closes settings when it lands.
   await page.goto("/");
   await expect(page.locator("#home")).toBeVisible();
   await openOrganiserSettings(page);
@@ -63,7 +58,6 @@ test("a retired link says so and registers nothing", async ({ phone }) => {
   );
   expect(await organiserRows()).toEqual([]);
 
-  // Tapping outside closes it, like every sheet.
   await page.locator("#organiser-sheet").tap({ position: { x: 10, y: 10 } });
   await expect(page.locator("#organiser-sheet")).toBeHidden();
 });
@@ -102,7 +96,7 @@ test("a pasted link registers too, under the name the phone already has", async 
 
   await page.locator("#organiser-link").fill(`https://example.com/setlister/#organise=${KEY}`);
   await page.locator("#organiser-link-register").tap();
-  // The phone has a name, so there's no name step: the done step says it.
+  // The phone has a name: no name step.
   await expect(page.locator("#organiser-title")).toHaveText("You’re on the organiser list");
   await expect(page.locator("#organiser-message")).toContainText("Registered as Robin.");
   await expect(page.locator("#organiser-name")).toHaveCount(0);
@@ -110,7 +104,7 @@ test("a pasted link registers too, under the name the phone already has", async 
 });
 
 test("a failed registration says why in plain words", async ({ phone, allowConsole }) => {
-  // The aborted sign-in request is the failure under test.
+  // The aborted sign-in logs one.
   allowConsole.push(/Failed to load resource|ERR_FAILED/);
   await setOrganiserKey(KEY);
   const page = await phone();

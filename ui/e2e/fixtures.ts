@@ -55,8 +55,7 @@ export async function storedRowCount(sessionId: string): Promise<number> {
 
 const DOCS = `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
 
-// The organiser key (#151): console-only in production, so seeded with the
-// same local-only "owner" bypass.
+// Console-only in production; seeded via the emulator's owner bypass.
 export async function setOrganiserKey(key: string): Promise<void> {
   const res = await fetch(`${DOCS}/clubConfig/organiserKey`, {
     method: "PATCH",
@@ -66,7 +65,6 @@ export async function setOrganiserKey(key: string): Promise<void> {
   if (!res.ok) throw new Error(`Couldn't set the organiser key (${res.status})`);
 }
 
-/** Every organiser row in the emulator, as { name, key }. */
 export async function organiserRows(): Promise<{ name?: string; key?: string }[]> {
   const res = await fetch(`${DOCS}/organisers`, { headers: { Authorization: "Bearer owner" } });
   if (!res.ok) return [];
@@ -109,7 +107,7 @@ export const test = base.extend<Fixtures>({
       context.on("console", (msg) => {
         if (msg.type() !== "error") return;
         if (allowConsole.some((pattern) => pattern.test(msg.text()))) return;
-        // "Failed to load resource" names no URL; the message's location does.
+        // "Failed to load resource" names no URL; its location does.
         const where = msg.location().url;
         errors.push(`${label}: ${msg.text()}${where ? ` (${where})` : ""}`);
       });

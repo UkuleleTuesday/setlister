@@ -23,13 +23,13 @@ import {
 import { applyViewMode, currentRouteId, followBackButton, navigateTo, setView } from "./routing.js";
 import { restore } from "./save.js";
 
-// First of all: an organiser link's key leaves the address bar at once.
+// First: strip an organiser key from the address bar.
 takeOrganiseLink();
 restore();
 // Resolve the view mode before the first paint: the lists key row
 // interactivity off it, so a sticky room device must know before painting.
 applyViewMode();
-// After restore(): the name step is skipped when the phone has a name.
+// After restore(): needs the saved name.
 startRegistration();
 // Search from the cached catalogue at once; the network fetch below replaces
 // it (a Cloud Function cold start can take several seconds). Keyed by the

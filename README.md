@@ -125,7 +125,7 @@ npx --yes firebase-tools emulators:start --only firestore,auth  # Firestore :808
 
 On localhost the UI talks to the emulators, never production Firebase. The
 Firestore emulator is required: everything happens inside a session. Auth is
-only needed to try the organiser link.
+only for the organiser link.
 
 ## Development
 
@@ -146,10 +146,11 @@ Components read state directly from `*.svelte.ts` modules (`night`, `session`,
 open and said, `lists` for what the lists derive); each sheet and popover is
 mounted only while open. Changes go through action modules by concern (`adds`,
 `rows`, `routing`, `sharing`, `live` for sync and presence, `save`, `player`
-for the player's name, `organiser` for the organiser link), and `main.ts` only boots. Logic that doesn't need a
-page (sync, presence, session index, dedupe, the request window, downscaling)
-lives in plain, unit-tested `.ts` modules; shared shapes are in `ui/types.ts`.
-`firebase`, `lucide` and `svelte` are the only runtime dependencies.
+for the player's name, `organiser` for the organiser link), and `main.ts` only
+boots. Logic that doesn't need a page (sync, presence, session index, dedupe,
+the request window, downscaling) lives in plain, unit-tested `.ts` modules;
+shared shapes are in `ui/types.ts`. `firebase`, `lucide` and `svelte` are the
+only runtime dependencies.
 
 ```bash
 cd ui
@@ -174,9 +175,9 @@ touch screen against the Firestore and Auth emulators: the session history, a
 night run end to end, the lists' gestures, the panels and sheets, the room's
 request link on a second phone, the organiser link, and the photo scan. The
 Python API is stubbed with `context.route` (`ui/e2e/api.ts`), so no Gemini call
-is made, and any console error fails the test. Tests select by the app's ids and accessible names, so
-markup changes must keep those. If Playwright has no browser yet, run
-`npx playwright install chromium` once.
+is made, and any console error fails the test. Tests select by the app's ids
+and accessible names, so markup changes must keep those. If Playwright has no
+browser yet, run `npx playwright install chromium` once.
 
 Check new flows by hand too: drive the real page in a phone-sized,
 touch-enabled browser (the e2e project's settings in `ui/playwright.config.ts`)
@@ -240,35 +241,24 @@ Vertex AI.
 
 ### Organiser access
 
-Organisers register their phones by tapping the organiser link,
-`https://ukuleletuesday.github.io/setlister/#organise=<key>`, pinned in the
-organisers' chat and never shown in the app (#150). The phone signs in with
-Firebase anonymous sign-in and writes `organisers/{uid}` (name, date, key); the
-rules accept it only if the key matches `clubConfig/organiserKey`, which no
-client can read. A row counts only while its key is the current one. Room
-phones never sign in.
+Organisers register a phone by tapping the organiser link,
+`https://ukuleletuesday.github.io/setlister/#organise=<key>`, pinned in their
+chat (#150). The phone signs in anonymously and writes `organisers/{uid}`; the
+rules accept it only if the key matches `clubConfig/organiserKey`. Nothing is
+locked yet (#152).
 
-Nothing is locked on it yet: sessions are as open as described above until
-#152 makes running a night organiser-only.
+Pin it with: "Tap this on the phone you run nights from. If you use Setlister
+from your home screen, paste it in Settings → Organisers instead." (A tapped
+link opens in the browser, and an iPhone home-screen app has its own storage.)
 
-Suggested pinned message: "Tap this on the phone you run nights from. If you
-use Setlister from your home screen, copy the link and paste it in Settings →
-Organisers instead." A tapped link always opens in the browser, and on iPhone
-a home-screen app keeps its own sign-in, separate from Safari's.
-
-- **Add someone:** send them the link.
-- **Check a phone:** Settings → Organisers says whether it's registered, and
-  as whom. Safari can drop a site's sign-in after 7 days unused; re-tap the
-  link if the line is missing.
-- **Remove someone, or a leaked link:** change the key and re-pin the new link;
-  every organiser re-taps it. Deleting a row alone removes no one: they can
-  re-tap the old link still in their chat. The app strips the key from the
-  address bar, but browser history may still hold it: one more reason to
-  rotate after a leak.
-- **Who's registered:** the `organisers` rows in the Firebase console.
-  `createdAt` is the latest registration, not the first.
-- **"This link has been retired"** is what everyone sees while
-  `clubConfig/organiserKey` doesn't exist, too.
+- **Add someone:** send the link.
+- **Check a phone:** Settings → Organisers. Safari can drop the sign-in after
+  7 days unused; re-tap the link.
+- **Remove someone, or a leaked link:** change the key and re-pin. Deleting a
+  row removes no one: the old link still works until the key changes.
+- **Who's registered:** `organisers` in the Firebase console. `createdAt` is
+  the latest registration.
+- A missing `clubConfig/organiserKey` shows as "This link has been retired".
 
 ### One-time setup
 
@@ -304,28 +294,21 @@ firebase apps:sdkconfig web --project=songbook-generator
 # Then re-run ./deploy-gcs.sh so the deployer SA gains the Firebase rules roles.
 ```
 
-The committed web `apiKey` only identifies the project; Firebase's
-[API key guide](https://firebase.google.com/docs/projects/api-keys) says keys
-restricted to Firebase services are safe in code. Restrict it so it stays
-that way: in GCP Credentials, on "Browser key (auto created by Firebase)",
-allow only the HTTP referrer `https://ukuleletuesday.github.io/*` (localhost
-always uses the emulators, which ignore the key) and only these APIs: Identity
-Toolkit, Token Service, Cloud Firestore and Cloud Datastore. Never put a
-non-Firebase API on it.
+The web `apiKey` is safe to commit
+([Firebase](https://firebase.google.com/docs/projects/api-keys)) once
+restricted. In GCP Credentials, on "Browser key (auto created by Firebase)",
+allow only the referrer `https://ukuleletuesday.github.io/*` and the Identity
+Toolkit, Token Service, Cloud Firestore and Cloud Datastore APIs.
 
-The organiser link (see [Organiser access](#organiser-access)) needs:
+For [organiser access](#organiser-access):
 
-1. Firebase console → Authentication → Sign-in method: enable **Anonymous**.
-   In Settings → Authorized domains, check `ukuleletuesday.github.io` is
-   listed.
-2. Firestore console: create `clubConfig/organiserKey` with a string field
-   `key` set to the output of `openssl rand -hex 16`. Changing it later is how
-   anyone is removed.
-3. Pin `https://ukuleletuesday.github.io/setlister/#organise=<key>` in the
-   organisers' chat.
+1. Firebase Authentication: enable **Anonymous**; check
+   `ukuleletuesday.github.io` is an authorised domain.
+2. Firestore: create `clubConfig/organiserKey` with string `key` =
+   `openssl rand -hex 16`.
+3. Pin the link in the organisers' chat.
 
-Don't enable automatic clean-up of anonymous accounts (Identity Platform): it
-would delete organisers' accounts.
+Don't enable automatic clean-up of anonymous accounts: it deletes organisers.
 
 **If this project was provisioned before session history shipped**, it has a TTL
 policy on `expiresAt` that must be turned off — otherwise the sweep keeps

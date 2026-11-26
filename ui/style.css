@@ -964,7 +964,7 @@ h2#past-heading {
 .sheet-hint {
   margin: 0.7rem 0 0;
   text-align: center;
-  /* --muted, not a lighter grey: AA contrast on white, in a dark pub. */
+  /* AA contrast */
   color: var(--muted);
   font-size: 0.8rem;
 }
