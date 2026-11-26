@@ -27,8 +27,12 @@ export const CATALOGUE: CatalogueEntry[] = [
 
 export const bySong = (title: string) => CATALOGUE.find((e) => e.title === title)!;
 
-/** What /api/parse answers for the photo flow; tests swap it per case. */
-export type ParseRows = unknown[];
+/**
+ * What /api/parse answers for the photo flow; tests swap it per case: the
+ * rows of a successful parse, a server error with its user-facing detail, or
+ * "hang" for a request that never answers (the cancel path).
+ */
+export type ParseRows = unknown[] | { status: number; detail: string } | "hang";
 
 const json = (route: Route, body: unknown) =>
   route.fulfill({
@@ -51,10 +55,21 @@ export async function stubApi(context: BrowserContext, parseRows: () => ParseRow
       });
     }
     if (path === "/api/parse") {
+      const reply = parseRows();
+      // Left unanswered: the page's own abort is what ends it.
+      if (reply === "hang") return;
+      if (!Array.isArray(reply)) {
+        return route.fulfill({
+          status: reply.status,
+          contentType: "application/json",
+          headers: { "access-control-allow-origin": "*" },
+          body: JSON.stringify({ detail: reply.detail }),
+        });
+      }
       return json(route, {
         edition: EDITION,
         catalogue_generated_at: "2026-11-24T00:00:00Z",
-        rows: parseRows(),
+        rows: reply,
         catalogue: CATALOGUE,
       });
     }

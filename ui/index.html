@@ -217,58 +217,11 @@
           <p id="requests-empty" class="note">No requests yet. Snap the board, or add one above.</p>
         </section>
 
-        <!-- The scan ritual's working parts: the photo input the camera button in
-         #manual-add forwards to, the post-scan note, and the photo with its
-         scanning overlay. -->
-        <section id="add">
-          <input id="photo-input" type="file" accept="image/*" capture="environment" hidden />
-          <!-- Post-scan feedback for the no-review path: when every row matched
-           confidently they go straight into Requests (#80) and this line is
-           the only acknowledgement — including how many duplicates were
-           skipped (#52). aria-live so the news reaches screen readers without
-           moving focus. Populated by flashNote(). -->
-          <p id="scan-result" class="flash-note" aria-live="polite" hidden></p>
-
-          <div id="preview-wrap" class="preview-wrap" hidden>
-            <img id="preview" alt="" />
-            <!-- The overlay itself is inert (pointer-events: none) so the sweep
-             never eats a tap; only the Cancel button opts back in. It can no
-             longer be aria-hidden as a whole — that would bury a focusable
-             control — so the decorative sweep is hidden piece by piece. -->
-            <div id="scan-overlay" class="scan-overlay" hidden>
-              <div class="scan-beam" aria-hidden="true"></div>
-              <div class="scan-corner tl" aria-hidden="true"></div>
-              <div class="scan-corner tr" aria-hidden="true"></div>
-              <div class="scan-corner bl" aria-hidden="true"></div>
-              <div class="scan-corner br" aria-hidden="true"></div>
-              <div class="scan-hud">
-                <div class="scan-status" role="status">
-                  <span class="dot" aria-hidden="true"></span
-                  ><span id="scan-status-text">Reading the board…</span>
-                </div>
-                <!-- The way out of a hung scan without reloading the page (#44). -->
-                <button id="scan-cancel" class="scan-cancel" type="button">Cancel scan</button>
-              </div>
-            </div>
-          </div>
-          <div id="error" class="error" hidden></div>
-        </section>
-
-        <!-- Review sheet: only the scanned rows the parser wasn't sure about land
-         here (#80) — confident matches go straight to Requests. Hidden unless
-         a scan leaves something to check. The note is rewritten per scan
-         (openReview) to say how many rows skipped the queue. -->
-        <section id="review" hidden>
-          <h2>Review scan</h2>
-          <p id="review-note" class="note">
-            Fix any misreads, drop what you don't want, then add them to Requests.
-          </p>
-          <ul id="review-rows"></ul>
-          <div class="actions">
-            <button id="review-confirm">Add to Requests</button>
-            <button id="review-cancel" class="secondary">Cancel</button>
-          </div>
-        </section>
+        <!-- The scan flow: ScanFlow.svelte renders #add (the photo, its
+         scanning overlay, the post-scan note and the error line) and #review
+         (the rows the parser wasn't sure about), mounted just before this
+         placeholder by app.js. -->
+        <div id="scan-flow-mount" hidden></div>
 
         <!-- Binned songs (swipe-left / trash icon) collapse into a one-line
          disclosure like played songs — kept and recoverable, without a whole
@@ -329,27 +282,9 @@
        order up top. Populated by renderEditionNote(). -->
     <footer id="edition-note" class="note"></footer>
 
-    <!-- Full-screen viewer for the scanned board, opened from a flagged review
-       row's ⚠️ icon so a match can be checked against the handwriting. -->
-    <div
-      id="photo-lightbox"
-      class="photo-lightbox"
-      hidden
-      role="dialog"
-      aria-modal="true"
-      aria-label="Scanned request board"
-    >
-      <button
-        id="photo-lightbox-close"
-        class="photo-lightbox-close"
-        type="button"
-        aria-label="Close photo"
-      >
-        ✕
-      </button>
-      <img id="photo-lightbox-img" alt="Scanned request board" />
-      <p class="photo-lightbox-hint">Tap anywhere to close</p>
-    </div>
+    <!-- The scanned board, full-screen: PhotoLightbox.svelte, mounted just
+       before this placeholder by app.js. -->
+    <div id="photo-lightbox-mount" hidden></div>
 
     <script type="module" src="app.js"></script>
   </body>

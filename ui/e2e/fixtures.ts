@@ -26,6 +26,8 @@ const PROJECT = firebaseConfig.projectId;
 interface Fixtures {
   phone: () => Promise<Page>;
   parseRows: { current: ParseRows };
+  /** Console errors a test expects (a stubbed server error logs one). */
+  allowConsole: RegExp[];
 }
 
 async function clearFirestore() {
@@ -44,7 +46,12 @@ export const test = base.extend<Fixtures>({
     await use({ current: [] });
   },
 
-  phone: async ({ browser, parseRows }, use) => {
+  // eslint-disable-next-line no-empty-pattern
+  allowConsole: async ({}, use) => {
+    await use([]);
+  },
+
+  phone: async ({ browser, parseRows, allowConsole }, use) => {
     await clearFirestore();
     const contexts: BrowserContext[] = [];
     const errors: string[] = [];
@@ -59,7 +66,9 @@ export const test = base.extend<Fixtures>({
         return route.abort();
       });
       context.on("console", (msg) => {
-        if (msg.type() === "error") errors.push(`${label}: ${msg.text()}`);
+        if (msg.type() !== "error") return;
+        if (allowConsole.some((pattern) => pattern.test(msg.text()))) return;
+        errors.push(`${label}: ${msg.text()}`);
       });
       context.on("weberror", (err) => errors.push(`${label}: ${err.error().message}`));
       return context.newPage();
