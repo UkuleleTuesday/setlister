@@ -61,6 +61,6 @@ how to run it, and every command; this file doesn't repeat them.
 ## Before you push
 
 - Python changes: `ruff check` / `ruff format` and the offline test suite.
-- UI changes: `npm run test:emulator` in `ui/`, then exercise the flow in a
-  mobile-sized browser with no console errors. If user-facing, confirm
-  `ui/whats-new.json` has an entry.
+- UI changes: `npm run lint` and `npm run format:check` in `ui/`, then
+  `npm run test:emulator` and exercise the flow in a mobile-sized browser with
+  no console errors. If user-facing, confirm `ui/whats-new.json` has an entry.
