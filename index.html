@@ -11,7 +11,7 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎶</text></svg>"
     />
-    <script type="module" crossorigin src="./assets/index-BDYgcgJ5.js"></script>
+    <script type="module" crossorigin src="./assets/index-nZlrYpfM.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-yQFFVr70.css">
   </head>
   <body>
@@ -144,79 +144,11 @@
           <p>Snap the whiteboard, or add tunes from the songbook.</p>
         </div>
 
-        <!-- "Up next" is the curated running order: the tunes you'll actually play,
-         promoted (in order) from the Requests pool below. -->
-        <section id="upnext">
-          <div class="setlist-head">
-            <h2>Up next <span id="upnext-count" class="count" hidden></span></h2>
-            <!-- Export is what the night produces, so it lives on the page rather
-             than behind the gear icon. It covers BOTH lists (see exportedRows),
-             but it belongs beside the running order — that's the artifact
-             people mean by "the setlist". Icon-only like every other control
-             in the chrome; the accessible name carries the meaning. -->
-            <div class="setlist-actions">
-              <button
-                id="copy"
-                type="button"
-                title="Copy list"
-                aria-label="Copy the setlist to the clipboard"
-              ></button>
-              <button
-                id="download"
-                type="button"
-                title="Download JSON"
-                aria-label="Download the setlist as JSON"
-              ></button>
-            </div>
-          </div>
-          <!-- Played songs collapse into a one-line count here (the set plays from
-           the top, so the list "consumes itself"); tap to expand for the
-           night's history and the un-play control. Hidden until a song is
-           played. Populated by renderGroup(). -->
-          <!-- What the list is, said once it has something in it. -->
-          <p id="upnext-hint" class="list-hint" hidden>Coming up, in order.</p>
-          <div id="played-group" class="row-group" hidden></div>
-          <ul id="upnext-rows"></ul>
-          <p id="upnext-empty" class="note">Nothing queued yet. Promote a request from below.</p>
-        </section>
-
-        <!-- "Requests" is the incoming pool: everything added by name or snapped off
-         the board lands here first, then gets promoted up into the set. -->
-        <section id="requests">
-          <h2>Requests <span id="requests-count" class="count" hidden></span></h2>
-          <!-- What to do with the pool; worded per mode by renderRequests(). -->
-          <p id="requests-hint" class="list-hint" hidden></p>
-          <!-- Full app only: both ways in, side by side at the TOP of the pool.
-           Mid-night someone shouts a request and it has to go in without
-           scrolling past twenty cards; the board gets snapped from the same
-           spot. mountManualAdd() puts the songbook button before the camera.
-           The request view has its own add button up in .room-top. -->
-          <div id="manual-add" class="manual-add">
-            <!-- A real button (not a label) so it's reachable and activatable with
-             a keyboard / switch access; it forwards the tap to the hidden
-             input in #add below. -->
-            <button id="camera-button" class="camera-button" type="button">Snap the board</button>
-          </div>
-          <!-- What replaces the add field once the organiser closes the session to
-           requests (#86). Room mode only, and shown purely by the mode CSS (no
-           hidden attribute) so a room device that loads a closed session never
-           flashes a combobox it can't use. The pool below stays: the room still
-           gets to watch what's coming. -->
-          <p id="requests-closed-note" class="requests-closed-note note">
-            Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
-          </p>
-          <!-- 30 minutes before the (effective) window opens, room devices see
-           this instead of the closed note above — same mode-CSS-driven swap,
-           one extra state (#NEW). Text populated live by applyRequestsOpen()
-           and its periodic tick. -->
-          <p id="requests-opening-soon-note" class="requests-opening-soon-note note"></p>
-          <!-- "Already in Up next" — why a quick-add pick didn't add a row (#52).
-           Transient, aria-live so it reaches screen readers without moving
-           focus. Populated by flashNote(). -->
-          <p id="add-feedback" class="flash-note" aria-live="polite" hidden></p>
-          <ul id="requests-rows"></ul>
-          <p id="requests-empty" class="note">No requests yet. Snap the board, or add one above.</p>
-        </section>
+        <!-- The two lists: UpNextSection.svelte (#upnext, the running order)
+         and RequestsSection.svelte (#requests, the incoming pool), mounted
+         just before these placeholders by app.js. -->
+        <div id="upnext-mount" hidden></div>
+        <div id="requests-mount" hidden></div>
 
         <!-- The scan flow: ScanFlow.svelte renders #add (the photo, its
          scanning overlay, the post-scan note and the error line) and #review
@@ -225,12 +157,12 @@
         <div id="scan-flow-mount" hidden></div>
 
         <!-- Binned songs (swipe-left / trash icon) collapse into a one-line
-         disclosure like played songs — kept and recoverable, without a whole
-         extra section to scroll past. It sits at the very bottom, below the
-         add controls, so the discard pile never wedges itself between the
-         Requests list and the controls that feed it. Populated by
-         renderGroup(). -->
-        <div id="bin-group" class="row-group" hidden></div>
+         disclosure like played songs: kept and recoverable, without a whole
+         extra section to scroll past. At the very bottom, below the add
+         controls, so the discard pile never wedges itself between Requests
+         and the controls that feed it. RowGroup.svelte, mounted just before
+         this placeholder by app.js. -->
+        <div id="bin-group-mount" hidden></div>
       </div>
       <!-- /#session-view -->
     </main>
