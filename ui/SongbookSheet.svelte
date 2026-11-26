@@ -7,9 +7,9 @@
   than a refusal after the tap. Same pinned-chrome layout as What's new: it
   runs several screens long, so Close stays under the thumb.
 
-  It renders what app.js hands it (setData) and reports picks through
+  It renders what main.ts hands it (setData) and reports picks through
   `onPick`; what a pick DOES (thumbs up, played note, cool-down, the confirm
-  sheet) stays in app.js, which answers with note() or close(). Matching is
+  sheet) stays in main.ts, which answers with note() or close(). Matching is
   search.ts, tonight's state dupes.ts and votes.ts, the brake room-limits.ts.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
@@ -44,7 +44,7 @@
 
   let isOpen = $state(false);
   let query = $state("");
-  // Raw, not deep state: app.js mutates its own lists in place, and each
+  // Raw, not deep state: main.ts mutates its own lists in place, and each
   // setData() hands over a fresh object anyway.
   let data: SongbookData = $state.raw({
     catalogue: [],
@@ -85,7 +85,7 @@
     }),
   );
 
-  /** Fresh lists, votes or catalogue from app.js. */
+  /** Fresh lists, votes or catalogue from main.ts. */
   export function setData(next: SongbookData) {
     data = next;
     if (isOpen) refreshWait();

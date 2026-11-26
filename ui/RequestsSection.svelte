@@ -5,7 +5,7 @@
   because rewriting that whole-array last-writer-wins field on every vote
   would fight every concurrent edit in the room.
 
-  It renders from app.js's ListsData and hands every change back through
+  It renders from main.ts's ListsData and hands every change back through
   `actions`. The camera and songbook buttons open the scan flow and the
   songbook, which live elsewhere.
 
@@ -54,7 +54,7 @@
       : "No requests yet. Snap the board, or add one above.",
   );
 
-  /** Fresh lists from app.js. */
+  /** Fresh lists from main.ts. */
   export function setData(next: ListsData) {
     data = next;
   }

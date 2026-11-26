@@ -3,7 +3,7 @@
   promoted (in order) from the Requests pool below. Played songs collapse into
   a one-line group above the list, so it always starts at the next tune.
 
-  It renders from app.js's ListsData and hands every change back through
+  It renders from main.ts's ListsData and hands every change back through
   `actions`; drag-to-reorder is run here, since it spans the whole list.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
@@ -31,7 +31,7 @@
 
   let data: ListsData = $state.raw(EMPTY_LISTS);
 
-  /** Fresh lists from app.js. */
+  /** Fresh lists from main.ts. */
   export function setData(next: ListsData) {
     data = next;
   }
@@ -74,7 +74,7 @@
   // Pointer-events drag so touch works on the mobile browsers this app
   // targets (HTML5 drag-and-drop is desktop-only on touch). The list reorders
   // live as the row crosses its neighbours' midpoints, and the final order
-  // goes back to app.js on release.
+  // goes back to main.ts on release.
   function startDrag(event: PointerEvent, li: HTMLLIElement) {
     const uid = li.dataset.uid;
     if (!uid) return;

@@ -15,7 +15,7 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? [["list"], ["github"]] : "list",
   use: {
-    // localhost, not a LAN address: firebase.ts and getApiBase() in app.js
+    // localhost, not a LAN address: firebase.ts and API_BASE in api.ts
     // switch to the emulator and the local API only on localhost.
     baseURL: `http://localhost:${PORT}`,
     trace: "off",

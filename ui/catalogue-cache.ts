@@ -4,8 +4,8 @@
 // slot — fine when the edition was a device setting, thrashing the moment two
 // sessions disagree.
 //
-// These helpers are pure (store in, store out); app.js owns the localStorage
-// I/O, same split as room-limits.ts and request-window.ts.
+// The helpers are pure (store in, store out), with the localStorage I/O in
+// two thin wrappers at the bottom, same split as room-limits.ts.
 
 import type { CatalogueEntry, Edition } from "./types.js";
 
@@ -93,4 +93,36 @@ export function catalogueNeedsRefresh(
   now: number,
 ): boolean {
   return !lastAttemptAt || now - lastAttemptAt >= CATALOGUE_MAX_AGE_MS;
+}
+
+// The stored map, with the legacy slot folded in (and retired) on first read.
+// Corrupt or blocked storage reads as empty: the network load repopulates it.
+export function readCatalogueStore(now = Date.now()): CatalogueStore {
+  let store: CatalogueStore = {};
+  try {
+    store = JSON.parse(localStorage.getItem(CATALOGUES_CACHE_KEY) || "null") || {};
+  } catch {
+    /* corrupt cache: the network load will repopulate it */
+  }
+  try {
+    const legacy: unknown = JSON.parse(localStorage.getItem(LEGACY_CATALOGUE_CACHE_KEY) || "null");
+    if (legacy) {
+      store = migrateLegacyCatalogue(store, legacy, now);
+      localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
+      localStorage.removeItem(LEGACY_CATALOGUE_CACHE_KEY);
+    }
+  } catch {
+    /* unreadable legacy slot: nothing worth keeping */
+  }
+  return store;
+}
+
+// Best-effort, like every cache write: storage full or blocked is non-fatal.
+export function saveCachedCatalogue(editionId: string, entry: CachedCatalogue): void {
+  try {
+    const store = putCachedCatalogue(readCatalogueStore(), editionId, entry, Date.now());
+    localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
+  } catch {
+    /* storage full or blocked: the cache is best-effort */
+  }
 }

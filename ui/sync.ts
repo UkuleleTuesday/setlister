@@ -2,8 +2,8 @@
 //
 // This module mirrors the app's durable state (the two lists + edition) to a
 // single Firestore document at `sessions/{id}` and applies remote changes back
-// live. It is deliberately UI-free: app.js owns all DOM and drives it through
-// a tiny API (the sharing UI from #30).
+// live. It is deliberately UI-free: main.ts drives it through a tiny API (the
+// sharing UI from #30).
 //
 // It is also the parse boundary for the session doc: Firestore data enters as
 // `unknown` through parseSyncFields() / readMeta() / readCreatedAt(), and
@@ -47,7 +47,7 @@ import { generateSessionId } from "./session-id.js";
 import { INDEX_COLLECTION, indexEntryData, timestampToDate } from "./session-index.js";
 import type { Edition, ListState, Row, SessionMeta, SyncFields, Votes } from "./types.js";
 
-/** What app.js hands over to push: votes and edition may be missing. */
+/** What main.ts hands over to push: votes and edition may be missing. */
 export type LocalState = Pick<ListState, "upNext" | "requests"> &
   Partial<Pick<ListState, "edition" | "votes">>;
 
@@ -75,7 +75,7 @@ let unsubscribe: Unsubscribe | null = null;
 // shape ({rows, upNextOrder, requestsOrder, edition}). The push diff compares
 // against this so a single toggle writes only that row's path.
 let lastRemote: SyncFields | null = null;
-// Callback that writes a fresh {upNext, requests, edition} back into app.js,
+// Callback that writes a fresh {upNext, requests, edition} back into main.ts,
 // re-rendering + persisting. Shared by the snapshot listener and the
 // gesture-deferral flush, so it is stored module-level.
 let applyState: ApplyState | null = null;
@@ -83,7 +83,7 @@ let applyState: ApplyState | null = null;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingState: LocalState | null = null;
 
-// app.js sets this true during drags/swipes so an incoming snapshot doesn't
+// The lists set this true during drags/swipes so an incoming snapshot doesn't
 // yank the row out from under the user's finger; the snapshot is stashed and
 // applied when the gesture ends.
 let gestureActive = false;
@@ -383,7 +383,7 @@ export async function createSession(
 
 // Error thrown by joinSession when the doc is missing (never created or since
 // deleted — sessions are kept forever, so nothing expires any more). Flagged so
-// app.js can show its "not found" copy instead of a raw error.
+// main.ts can show its "not found" copy instead of a raw error.
 export class SessionNotFoundError extends Error {
   readonly notFound = true;
   readonly sessionId: string;
@@ -554,8 +554,9 @@ function applyRemote(remote: unknown): void {
   emitMeta(remote);
 }
 
-// app.js flips this around drags/swipes (see wireDrag / wireSwipe). On release
-// we apply whatever snapshot arrived meanwhile so the two clients converge.
+// The lists flip this around drags and swipes (Row.svelte, UpNextSection.svelte).
+// On release we apply whatever snapshot arrived meanwhile so the two clients
+// converge.
 export function setGestureActive(active: boolean): void {
   gestureActive = active;
   if (!active && deferredSnapshot && sessionId) {

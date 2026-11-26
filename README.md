@@ -140,12 +140,14 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-The `ui/` app is ES modules bundled by [Vite](https://vite.dev/) and managed
-with npm — `index.html` + `app.js` plus focused, strict TypeScript modules
-(sync, presence, session index, dedupe, downscaling). Screens are moving into
-[Svelte 5](https://svelte.dev/) components one at a time (#158), mounted from
-`app.js`; `firebase`, `lucide` and `svelte` are the only runtime dependencies.
-Shared shapes live in `ui/types.ts`; `app.js` stays JS until it's split up.
+The `ui/` app is [Svelte 5](https://svelte.dev/) and strict TypeScript, bundled
+by [Vite](https://vite.dev/) and managed with npm. `index.html` is a bare page;
+`main.ts` mounts `App.svelte` (the whole page, one component per screen, sheet
+and panel) and holds the night's state: the lists, sync, routing and the
+catalogue. The logic that doesn't need a page (sync, presence, session index,
+dedupe, the request window, downscaling) lives in plain, unit-tested `.ts`
+modules; shared shapes are in `ui/types.ts`. `firebase`, `lucide` and `svelte`
+are the only runtime dependencies.
 
 ```bash
 cd ui
@@ -153,7 +155,7 @@ npm test              # pure unit tests (no emulator)
 npm run test:emulator # everything, incl. the firestore.rules suite
 npm run test:e2e      # mobile Playwright smoke suite, against the emulator
 npm run lint          # ESLint
-npm run typecheck     # tsc (app, tests, e2e) and svelte-check
+npm run typecheck     # svelte-check (the app) and tsc (tests, e2e)
 npm run format        # Prettier (format:check is the CI gate)
 npm run build         # production bundle into ui/dist
 npm run preview       # serve that build locally
@@ -167,7 +169,8 @@ like a passing one. CI runs `test:emulator`.
 
 `npm run test:e2e` drives the production build (`vite preview`) on a 390px
 touch screen against the Firestore emulator: the session history, a night run
-end to end, the room's request link on a second phone, and the photo scan. The
+end to end, the lists' gestures, the panels and sheets, the room's request
+link on a second phone, and the photo scan. The
 Python API is stubbed with `page.route` (`ui/e2e/api.ts`), so no Gemini call is
 made, and any console error fails the test. Tests select by the app's ids and
 accessible names, so markup changes must keep those. Run it once with

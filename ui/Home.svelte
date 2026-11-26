@@ -2,10 +2,10 @@
   The home view's session history: "New session", the next night as a big
   card, any further prepped nights, and the club's history below. Mounted
   inside <section id="home"> between the What's new banner and footer, which
-  app.js keeps (they're the release notes' doors, not the history).
+  App.svelte keeps (they're the release notes' doors, not the history).
 
   Driven by session-index.ts: listing, labelling, disambiguation and the
-  upcoming/past split all stay pure there. app.js reaches in through refresh()
+  upcoming/past split all stay pure there. main.ts reaches in through refresh()
   and showError(), and hears back through the props.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on

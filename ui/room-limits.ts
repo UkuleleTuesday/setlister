@@ -2,7 +2,7 @@
 // requests, so a keen participant can't fill the pool in a minute. #88's "rate
 // over volume" reading: ten requests across an evening is ordinary, ten in
 // ninety seconds is a flood. (The confirmation before a request lands applies
-// in both modes now; see openRequestSheet in app.js.)
+// in both modes now; see openRequestSheet in main.ts.)
 //
 // Client-side and per-device. The only identity the app has is a
 // free-text name, so anyone determined clears storage and carries on — which

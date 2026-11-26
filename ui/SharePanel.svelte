@@ -3,9 +3,9 @@
   night is called, its visibility, the request link's mode and window, who's
   here, and the two links.
 
-  It renders what app.js hands it through update() / setRoster() /
+  It renders what main.ts hands it through update() / setRoster() /
   setRequestNote(), and hands every change back through the props. Session
-  metadata (listed, requestsOpen, the window) is written by app.js through
+  metadata (listed, requestsOpen, the window) is written by main.ts through
   sync.ts's own metadata writes, never the debounced row push (see the sync.ts
   header); the panel only owns the optimistic-then-revert dance around them.
 
@@ -127,7 +127,7 @@
     roster = next;
   }
 
-  /** What the request link does right now (app.js resolves it against the clock). */
+  /** What the request link does right now (main.ts resolves it against the clock). */
   export function setRequestNote(text: string) {
     requestNote = text;
   }
@@ -189,7 +189,7 @@
     try {
       await onWindow({ opensAt, closesAt });
     } catch {
-      // app.js re-renders through update() on failure, which puts the stored
+      // main.ts re-renders through update() on failure, which puts the stored
       // value back in the field.
     }
   }

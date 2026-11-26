@@ -2,7 +2,7 @@
   What's new: release notes from whats-new.json, in the same centred sheet
   idiom as starting a night. Two ways in, two amounts of news: the home banner
   opens it on the latest entry alone (an announcement), the footer link on the
-  full history (an archive). app.js owns both doors and the "seen" bookkeeping;
+  full history (an archive). App.svelte owns both doors and the "seen" bookkeeping;
   this component only shows what it's given, via open().
 
   This is the one sheet you read rather than fill in, and the only one that

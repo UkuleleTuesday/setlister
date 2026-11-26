@@ -10,12 +10,12 @@
               aborts
     reviewing the flagged rows wait in #review; #add steps aside
     failed    the scan errored: the photo stays up beside the error
-  The error box doubles as the session view's error line (app.js's
+  The error box doubles as the session view's error line (main.ts's
   showSessionError), so it lives outside the phase.
 
   What a scan DOES to the night (the API call, the catalogue it brings back,
-  the rows that go straight in) is app.js's `scan`; what review keeps is
-  app.js's `onConfirm`. This component is the screens and their states.
+  the rows that go straight in) is main.ts's `scan`; what review keeps is
+  main.ts's `onConfirm`. This component is the screens and their states.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -29,7 +29,7 @@
   import type { CatalogueStatus } from "./songbook.js";
   import type { CatalogueEntry, Row } from "./types.js";
 
-  /** What a finished scan left for review (app.js has added the rest). */
+  /** What a finished scan left for review (main.ts has added the rest). */
   export interface ScanOutcome {
     flagged: Row[];
     autoAdded: number;
@@ -127,7 +127,7 @@
     error = "";
   }
 
-  /** Fresh lists or catalogue from app.js. */
+  /** Fresh lists or catalogue from main.ts. */
   export function refresh(next: ScanContext) {
     context = next;
   }

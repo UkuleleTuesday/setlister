@@ -36,7 +36,7 @@ let _promise: Promise<FirestoreHandle> | null = null;
  * On the first call the Firebase SDK chunks are fetched; subsequent calls
  * return the memoized result instantly.
  *
- * Mirrors the `getApiBase()` localhost-detection pattern in app.js for the
+ * Mirrors the localhost detection of `API_BASE` in api.ts for the
  * emulator: when running on localhost / 127.0.0.1 the Firestore emulator on
  * port 8081 is used instead of production (8080 is the Python API).
  */
@@ -83,7 +83,7 @@ async function _init() {
   const db = _getFirestore(app);
 
   // Connect to the local Firestore emulator when developing — mirrors the
-  // getApiBase() localhost-detection pattern in app.js.
+  // localhost detection of API_BASE in api.ts.
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
   }

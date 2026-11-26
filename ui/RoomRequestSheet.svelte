@@ -9,7 +9,7 @@
 
   It only gathers and checks the answer: committing the name and adding the
   row (with its duplicate guard, the open/closed brake and the cool-down)
-  stay in app.js, behind `onConfirm`.
+  stay in main.ts, behind `onConfirm`.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -18,7 +18,7 @@
   import { tick } from "svelte";
   import type { CatalogueEntry } from "./types.js";
 
-  /** What a confirm hands to app.js. */
+  /** What a confirm hands to main.ts. */
   export interface RequestAnswer {
     /** The tune to add, or null for a rename. */
     entry: CatalogueEntry | null;
