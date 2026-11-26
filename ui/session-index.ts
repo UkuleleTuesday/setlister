@@ -13,7 +13,7 @@
 // session stays world-readable by id like every other one (see
 // firestore.rules). Unlisted means "not advertised in the club's list".
 //
-// UI-free, like sync.ts and presence.ts: app.js owns all DOM. Firebase still
+// UI-free, like sync.ts and presence.ts. Firebase still
 // loads lazily through firebase.ts, so importing this module pulls no SDK.
 
 import { getFirestore } from "./firebase.js";
@@ -136,7 +136,7 @@ export function sessionDateLabel(date: Date | null, now = new Date()): string {
 
 // The browser-tab title. Session-first: the night's label leads so parked tabs
 // can be told apart; the brand alone marks the home view. DOM-free here (not in
-// app.js) so it's testable without a browser.
+// main.ts) so it's testable without a browser.
 export function pageTitle(label: string | null | undefined): string {
   return label ? `${label} · Setlister` : "Setlister · Ukulele Tuesday";
 }

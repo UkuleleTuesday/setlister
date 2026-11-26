@@ -1,7 +1,7 @@
 <!--
   Starting a night. The sheet owns its fields, the one-planned-night gate and
   the Start button's states; creating the session (sync.createSession, the
-  app's lists, navigation) stays in app.js, behind `onStart`. That's also what
+  app's lists, navigation) stays in main.ts, behind `onStart`. That's also what
   keeps the create path's doc shape where it was: this component never
   touches Firestore writes.
 
@@ -21,7 +21,7 @@
     toDateInputValue,
   } from "./session-index.js";
 
-  /** What Start hands to app.js. */
+  /** What Start hands to main.ts. */
   export interface NewSessionChoice {
     /** null means "now": the server stamps the moment of creation. */
     createdAt: Date | null;
@@ -29,7 +29,7 @@
     editionId: string;
   }
 
-  /** One songbook option, labelled by app.js (it owns editionLabel). */
+  /** One songbook option, labelled by main.ts (it owns editionLabel). */
   export interface EditionOption {
     id: string;
     label: string;

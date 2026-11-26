@@ -2,9 +2,9 @@
   The settings popover behind the gear: this device's name, the session's
   songbook, two display toggles, and the scan parser's knobs under Advanced.
 
-  app.js reads the values through settings() (persist(), the scan request,
+  main.ts reads the values through settings() (persist(), the scan request,
   rendering) and restores saved ones with apply(); every change comes back
-  through the props so app.js can persist and re-render.
+  through the props so main.ts can persist and re-render.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -122,7 +122,7 @@
   }
 
   // Forgiving dismissal: a tap anywhere outside closes it (the gear's own tap
-  // stops propagation in app.js, so it toggles instead). Escape is a desktop
+  // stops propagation in App.svelte, so it toggles instead). Escape is a desktop
   // bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;

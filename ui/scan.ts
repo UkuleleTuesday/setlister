@@ -1,5 +1,5 @@
 // The whiteboard scan, minus the UI: the /api/parse call, and what a scan's
-// rows mean for the night. ScanFlow.svelte owns the screens; app.js owns the
+// rows mean for the night. ScanFlow.svelte owns the screens; main.ts owns the
 // lists the rows land in.
 
 import { findDuplicate, rowKey } from "./dupes.js";

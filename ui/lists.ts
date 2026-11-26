@@ -1,4 +1,4 @@
-// What the session lists render from: app.js hands the sections one of these
+// What the session lists render from: main.ts hands the sections one of these
 // (rows as fresh copies, so an in-place edit still re-renders) after every
 // change. Types plus one helper; no state lives here.
 
@@ -18,7 +18,7 @@ export interface ListsData {
   clientId: string;
   /** The room's request view, rather than the full app. */
   room: boolean;
-  /** Whether this device can vote right now (see votingEnabled in app.js). */
+  /** Whether this device can vote right now (see votingEnabled in main.ts). */
   votingEnabled: boolean;
   /** The room view's request link is taking tunes. */
   roomOpen: boolean;
@@ -29,7 +29,7 @@ export interface ListsData {
   openingSoon: string;
 }
 
-/** Before app.js's first render: nothing to show yet. */
+/** Before main.ts's first render: nothing to show yet. */
 export const EMPTY_LISTS: ListsData = {
   upNext: [],
   requests: [],

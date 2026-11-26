@@ -4,7 +4,7 @@
 // of a scan, two people writing it up — and with confident scan rows skipping
 // review (#80) there is no human checkpoint left to catch it. These helpers
 // answer "is this song already on the night's lists?" so the add paths in
-// app.js can skip or flag the copy instead of silently doubling it.
+// main.ts can skip or flag the copy instead of silently doubling it.
 //
 // Identity: a catalogue match's server-minted `id` (a slug of its display
 // string — stable within an edition) when present, else the normalized

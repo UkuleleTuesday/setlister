@@ -10,8 +10,8 @@
 // ?mode=full link still gets its amnesty.
 //
 // Pure decision logic + the sheet's copy live here (DOM-free, the testable
-// seam, like view-mode.ts); app.js owns the sheet. The copy is exported so
-// tests pin the wording, same as plannedSessionMessage in session-index.ts.
+// seam, like view-mode.ts); NameResetSheet.svelte draws the sheet. The copy is
+// exported so tests pin the wording, same as plannedSessionMessage in session-index.ts.
 
 // Its own localStorage key, outside setlister.v1, so persist()/restore()'s
 // schema stays untouched (the ROOM_MODE_KEY precedent).

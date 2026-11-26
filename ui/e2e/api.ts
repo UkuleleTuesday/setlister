@@ -38,7 +38,7 @@ const json = (route: Route, body: unknown) =>
   route.fulfill({
     status: 200,
     contentType: "application/json",
-    // The real API is cross-origin too (see getApiBase in app.js).
+    // The real API is cross-origin too (see API_BASE in api.ts).
     headers: { "access-control-allow-origin": "*" },
     body: JSON.stringify(body),
   });

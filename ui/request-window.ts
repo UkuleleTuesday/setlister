@@ -1,7 +1,7 @@
 // The request time window: when the room's request link takes tunes on its
 // own, with no organiser action (#NEW). Pure and DOM-free like
-// session-index.ts/room-limits.ts — app.js owns all the DOM, this module only
-// answers "what does the schedule say right now".
+// session-index.ts and room-limits.ts: this module only answers "what does
+// the schedule say right now".
 //
 // The window has two independent boundaries, each either an explicit override
 // (stored on the session doc, see sync.ts's requestsOpensAt/requestsClosesAt)

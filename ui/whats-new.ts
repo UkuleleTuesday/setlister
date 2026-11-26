@@ -1,7 +1,7 @@
 // "What's new": the app's changelog and the logic that picks what the home
 // screen shows. The entries live in whats-new.json — pure data, so the
 // "document this feature" PR convention (see AGENTS.md) touches no code — and
-// this module stays UI-free like session-index.ts: app.js owns all DOM.
+// this module stays UI-free like session-index.ts: App.svelte draws it.
 //
 // Entry dates are ISO YYYY-MM-DD strings. That's data, not a stored formatted
 // label: the visible date still renders through Intl in the viewer's locale at
@@ -81,4 +81,28 @@ export function whatsNewDateLabel(
   if (!date) return "";
   const sameYear = date.getFullYear() === now.getFullYear();
   return (sameYear ? DAY_MONTH_FORMAT : FULL_DATE_FORMAT).format(date);
+}
+
+// The ISO date of the last entry this device has seen: what retires the home
+// banner. Its own key, outside setlister.v1, so the saved lists' schema stays
+// untouched, and data rather than a label, so shipping a newer entry revives
+// the banner with nothing to migrate.
+export const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
+
+// Forgiving like name-reset.ts's wrappers: in private mode the banner simply
+// shows every visit.
+export function readWhatsNewSeen(): string | null {
+  try {
+    return localStorage.getItem(WHATS_NEW_SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeWhatsNewSeen(date: string): void {
+  try {
+    localStorage.setItem(WHATS_NEW_SEEN_KEY, date);
+  } catch {
+    /* best-effort: the banner just returns next visit */
+  }
 }

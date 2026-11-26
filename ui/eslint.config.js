@@ -13,8 +13,8 @@ export default tseslint.config(
   tseslint.configs.recommended,
   svelte.configs.recommended,
   {
-    // TypeScript inside <script lang="ts">.
-    files: ["**/*.svelte"],
+    // TypeScript inside <script lang="ts">, and in runes modules (.svelte.ts).
+    files: ["**/*.svelte", "**/*.svelte.ts"],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
   {

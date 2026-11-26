@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tests && tsc --noEmit -p e2e && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "typecheck": "tsc --noEmit -p tests && tsc --noEmit -p e2e && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
     "firebase": "^12.16.0",

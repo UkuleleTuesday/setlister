@@ -1,4 +1,4 @@
-// Songbook editions: how one is named in a select. Pure, so app.js and the
+// Songbook editions: how one is named in a select. Pure, so main.ts and the
 // Svelte panels label them the same way.
 
 import type { Edition } from "./types.js";

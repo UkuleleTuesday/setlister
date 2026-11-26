@@ -221,7 +221,7 @@ const NOUNS = [
   "seashell",
 ];
 
-// Same feature-detection posture as `newUid()` in app.js: prefer the crypto
+// Same feature-detection posture as `newUid()` in main.ts: prefer the crypto
 // API, fall back to Math.random only where it's genuinely missing. Ids are
 // low-stakes (guessable by design — see firestore.rules), but crypto gives an
 // unbiased, uniform spread across the wordlists.

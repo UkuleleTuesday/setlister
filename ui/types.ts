@@ -70,7 +70,7 @@ export interface Row {
 /** `{ [rowUid]: { [clientId]: true } }`, see votes.ts. */
 export type Votes = Record<string, Record<string, true>>;
 
-/** What app.js holds and renders: the two lists in order. */
+/** What main.ts holds and renders: the two lists in order. */
 export interface ListState {
   upNext: Row[];
   requests: Row[];

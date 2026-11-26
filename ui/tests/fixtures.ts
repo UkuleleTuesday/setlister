@@ -8,7 +8,7 @@ export function song(fields: Partial<CatalogueEntry> = {}): CatalogueEntry {
   return { id: "", display: title, title, page: 0, ...fields };
 }
 
-/** A list row, shaped like a manual add (app.js addManualEntry). */
+/** A list row, shaped like a manual add (main.ts addManualEntry). */
 export function row(fields: Partial<Row> = {}): Row {
   return {
     uid: "",
