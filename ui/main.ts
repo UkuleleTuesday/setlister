@@ -14,10 +14,18 @@ import {
 } from "./catalogue.svelte.js";
 import { followSession } from "./live.js";
 import { night } from "./night.svelte.js";
+import {
+  followOrganiseLinks,
+  restoreOrganiser,
+  startRegistration,
+  takeOrganiseLink,
+} from "./organiser.svelte.js";
 import { maybeResetName } from "./player.js";
 import { applyViewMode, currentRouteId, followBackButton, navigateTo, setView } from "./routing.js";
 import { restore } from "./save.js";
 
+// First of all: an organiser link's key leaves the address bar at once.
+takeOrganiseLink();
 restore();
 // Resolve the view mode before the first paint: the lists key row
 // interactivity off it, so a sticky room device must know before painting.
@@ -25,6 +33,8 @@ applyViewMode();
 // After restore() (there must be a name to clear) and applyViewMode() (the
 // amnesty is full-view only), before any presence write.
 maybeResetName();
+// After the amnesty, which this replaces when the link asks for a name.
+startRegistration();
 // Search from the cached catalogue at once; the network fetch below replaces
 // it (a Cloud Function cold start can take several seconds). Keyed by the
 // edition restore() brought back: joining a session with a different book
@@ -40,6 +50,7 @@ mount(App, { target: document.body });
 
 followSession();
 followBackButton();
+followOrganiseLinks();
 // A phone "reopens" the app by foregrounding a tab it never reloaded, so this,
 // not a page load, is when a new night usually starts.
 document.addEventListener("visibilitychange", () => {
@@ -52,3 +63,4 @@ document.addEventListener("visibilitychange", () => {
 navigateTo(routeId, { replace: true });
 loadEditions();
 loadCatalogue(catalogue.editionId);
+restoreOrganiser();

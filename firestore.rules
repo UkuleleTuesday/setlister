@@ -4,10 +4,12 @@ rules_version = '2';
 // reads/writes sessions/{id} directly via the Firebase Web SDK — there is no
 // backend sync endpoint, so these rules are the ENTIRE access-control layer.
 //
-// Deliberately unauthenticated (see the epic's "accepted risks"): anyone can
-// read any session, and anyone who knows/guesses an id can write it. The
-// defence is a closed schema (hasOnly locks the key set) + deny-by-default
-// everywhere else.
+// Sessions are deliberately unauthenticated (see the epic's "accepted risks"):
+// anyone can read any session, and anyone who knows/guesses an id can write
+// it. The defence is a closed schema (hasOnly locks the key set) +
+// deny-by-default everywhere else. The one signed-in path is organiser
+// registration (#150): organiser phones sign in anonymously and register under
+// `organisers`. Nothing on sessions checks it yet; #152 does.
 //
 // Sessions are now KEPT FOREVER (#77): the app opens on the club's session
 // history, so a night that disappears after 30 days is a bug, not a feature.
@@ -63,6 +65,45 @@ service cloud.firestore {
       // weaker: the session doc itself is `delete: if false`, so only the
       // listing can be lost here, never the setlist.
       allow delete: if true;
+    }
+
+    // Organiser registrations (#150, #151). An organiser's phone signs in
+    // anonymously from the organiser link and writes its own row, keyed by
+    // its auth uid. The write carries the link's key and is allowed only if
+    // that key is the current one, so the key is the whole credential.
+    // create = first registration; update = re-registering after a key change.
+    match /organisers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'createdAt', 'key'])
+        && request.resource.data.key == currentKey()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.createdAt == request.time;
+      allow delete: if false;   // console only
+    }
+
+    // clubConfig/organiserKey holds the current key. Console only: no client
+    // may read it, or the link would be worthless.
+    match /clubConfig/{doc} {
+      allow read, write: if false;
+    }
+
+    // These use $(database), so they must live inside this block: at file
+    // level they error and deny every write that calls them.
+    function currentKey() {
+      return get(/databases/$(database)/documents/clubConfig/organiserKey).data.key;
+    }
+
+    // A row counts only while its key is the current one: changing the key
+    // de-registers every phone at once. Defined now, first used by #152.
+    function isOrganiser() {
+      return request.auth != null && hasCurrentRow(request.auth.uid);
+    }
+
+    function hasCurrentRow(uid) {
+      let path = /databases/$(database)/documents/organisers/$(uid);
+      return exists(path) && get(path).data.key == currentKey();
     }
 
     // Deny-by-default: everything not matched above is closed.

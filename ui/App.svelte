@@ -14,6 +14,7 @@
   import Icon from "./Icon.svelte";
   import NameResetSheet from "./NameResetSheet.svelte";
   import NewSessionSheet from "./NewSessionSheet.svelte";
+  import OrganiserSheet from "./OrganiserSheet.svelte";
   import PhotoLightbox from "./PhotoLightbox.svelte";
   import RequestsSection from "./RequestsSection.svelte";
   import RoomRequestSheet from "./RoomRequestSheet.svelte";
@@ -28,6 +29,7 @@
   import { editionLabel } from "./editions.js";
   import { night } from "./night.svelte.js";
   import { notices } from "./notices.svelte.js";
+  import { organiser } from "./organiser.svelte.js";
   import { overlays } from "./overlays.svelte.js";
   import { setPlayerName } from "./player.js";
   import { roomWindowText, windowChipText } from "./request-window.js";
@@ -382,6 +384,9 @@
 {/if}
 {#if overlays.nameReset}
   <NameResetSheet onSave={setPlayerName} onclose={() => (overlays.nameReset = false)} />
+{/if}
+{#if organiser.sheet}
+  <OrganiserSheet onclose={() => (organiser.sheet = null)} />
 {/if}
 {#if overlays.whatsNew}
   <WhatsNewSheet entries={overlays.whatsNew} onclose={() => (overlays.whatsNew = null)} />

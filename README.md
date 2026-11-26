@@ -118,13 +118,14 @@ uv run setlister parse photo.jpg --json         # machine-readable output
 The web app runs as three processes:
 
 ```bash
-uv run setlister serve                                     # API on :8080
-cd ui && npm ci && npm run dev                             # UI on :3000
-npx --yes firebase-tools emulators:start --only firestore  # Firestore on :8081
+uv run setlister serve                                          # API on :8080
+cd ui && npm ci && npm run dev                                  # UI on :3000
+npx --yes firebase-tools emulators:start --only firestore,auth  # Firestore :8081, Auth :9099
 ```
 
-On localhost the UI talks to the emulator, never production Firestore. The
-emulator is required: everything happens inside a session.
+On localhost the UI talks to the emulators, never production Firebase. The
+Firestore emulator is required: everything happens inside a session. Auth is
+only needed to try the organiser link.
 
 ## Development
 
@@ -145,7 +146,7 @@ Components read state directly from `*.svelte.ts` modules (`night`, `session`,
 open and said, `lists` for what the lists derive); each sheet and popover is
 mounted only while open. Changes go through action modules by concern (`adds`,
 `rows`, `routing`, `sharing`, `live` for sync and presence, `save`, `player`
-for the player's name), and `main.ts` only boots. Logic that doesn't need a
+for the player's name, `organiser` for the organiser link), and `main.ts` only boots. Logic that doesn't need a
 page (sync, presence, session index, dedupe, the request window, downscaling)
 lives in plain, unit-tested `.ts` modules; shared shapes are in `ui/types.ts`.
 `firebase`, `lucide` and `svelte` are the only runtime dependencies.
@@ -169,11 +170,11 @@ connection error, deliberately: a skipped security suite must not look like a
 passing one. CI runs `test:emulator`.
 
 `npm run test:e2e` drives the production build (`vite preview`) on a 390px
-touch screen against the Firestore emulator: the session history, a night run
-end to end, the lists' gestures, the panels and sheets, the room's request link
-on a second phone, and the photo scan. The Python API is stubbed with
-`context.route` (`ui/e2e/api.ts`), so no Gemini call is made, and any console
-error fails the test. Tests select by the app's ids and accessible names, so
+touch screen against the Firestore and Auth emulators: the session history, a
+night run end to end, the lists' gestures, the panels and sheets, the room's
+request link on a second phone, the organiser link, and the photo scan. The
+Python API is stubbed with `context.route` (`ui/e2e/api.ts`), so no Gemini call
+is made, and any console error fails the test. Tests select by the app's ids and accessible names, so
 markup changes must keep those. If Playwright has no browser yet, run
 `npx playwright install chromium` once.
 
@@ -237,6 +238,25 @@ bounded string fields, the 60-day cap on future-dated sessions, the 60-entry
 list query, and the budget alert below, which should cover Firestore as well as
 Vertex AI.
 
+### Organiser access
+
+Organisers register their phones by tapping the organiser link,
+`https://ukuleletuesday.github.io/setlister/#organise=<key>`, pinned in the
+organisers' chat and never shown in the app (#150). The phone signs in with
+Firebase anonymous sign-in and writes `organisers/{uid}` (name, date, key); the
+rules accept it only if the key matches `clubConfig/organiserKey`, which no
+client can read. A row counts only while its key is the current one. Room
+phones never sign in.
+
+Nothing is locked on it yet: sessions are as open as described above until
+#152 makes running a night organiser-only.
+
+- **Add someone:** send them the link.
+- **Remove someone, or a leaked link:** change the key and re-pin the new link;
+  every organiser re-taps it. Deleting a row alone removes no one: they can
+  re-tap the old link still in their chat.
+- **Who's registered:** the `organisers` rows in the Firebase console.
+
 ### One-time setup
 
 CI authenticates to GCP with **Workload Identity Federation** — GitHub mints a
@@ -270,6 +290,29 @@ firebase apps:sdkconfig web --project=songbook-generator
 
 # Then re-run ./deploy-gcs.sh so the deployer SA gains the Firebase rules roles.
 ```
+
+The committed web `apiKey` only identifies the project; Firebase's
+[API key guide](https://firebase.google.com/docs/projects/api-keys) says keys
+restricted to Firebase services are safe in code. Restrict it so it stays
+that way: in GCP Credentials, on "Browser key (auto created by Firebase)",
+allow only the HTTP referrer `https://ukuleletuesday.github.io/*` (localhost
+always uses the emulators, which ignore the key) and only these APIs: Identity
+Toolkit, Token Service, Cloud Firestore and Cloud Datastore. Never put a
+non-Firebase API on it.
+
+The organiser link (see [Organiser access](#organiser-access)) needs:
+
+1. Firebase console → Authentication → Sign-in method: enable **Anonymous**.
+   In Settings → Authorized domains, check `ukuleletuesday.github.io` is
+   listed.
+2. Firestore console: create `clubConfig/organiserKey` with a string field
+   `key` set to the output of `openssl rand -hex 16`. Changing it later is how
+   anyone is removed.
+3. Pin `https://ukuleletuesday.github.io/setlister/#organise=<key>` in the
+   organisers' chat.
+
+Don't enable automatic clean-up of anonymous accounts (Identity Platform): it
+would delete organisers' accounts.
 
 **If this project was provisioned before session history shipped**, it has a TTL
 policy on `expiresAt` that must be turned off — otherwise the sweep keeps

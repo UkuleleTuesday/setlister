@@ -1,15 +1,33 @@
-// Lazy Firebase / Firestore loader.
+// Lazy Firebase loader: Firestore for everyone, Auth for organiser phones.
 //
-// The dynamic imports sit in one async function so Vite code-splits Firebase
-// into its own chunk, fetched on the first call rather than blocking the
-// first paint.
+// The dynamic imports sit in async functions so Vite code-splits Firebase
+// into its own chunks, fetched on the first call rather than blocking the
+// first paint. Auth is a separate chunk that only organiser.svelte.ts asks
+// for, so room phones never download it.
 //
 // Usage:
 //   const { db, fx } = await getFirestore();
 //   const ref = fx.doc(db, "sessions", sessionId);
 
+import type { FirebaseApp } from "firebase/app";
+import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config.js";
+
+// localhost talks to the emulators, never production (see getFirestore). A
+// function, not a constant: modules importing this one also run under node.
+const onLocalhost = () => ["localhost", "127.0.0.1"].includes(location.hostname);
+
+let _app: Promise<FirebaseApp> | null = null;
+
+// One app for both SDKs. Re-uses an existing app if one was already
+// initialised (e.g. during hot-module replacement in dev).
+function getApp(): Promise<FirebaseApp> {
+  _app ??= import("firebase/app").then(({ initializeApp, getApps }) =>
+    getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig),
+  );
+  return _app;
+}
 
 /** The Firestore helpers callers use instead of importing firebase directly. */
 export type Fx = Awaited<ReturnType<typeof _init>>["fx"];
@@ -50,10 +68,7 @@ export async function getFirestore(): Promise<FirestoreHandle> {
 }
 
 async function _init() {
-  const [{ initializeApp, getApps }, firestoreModule] = await Promise.all([
-    import("firebase/app"),
-    import("firebase/firestore"),
-  ]);
+  const [app, firestoreModule] = await Promise.all([getApp(), import("firebase/firestore")]);
   const {
     getFirestore: _getFirestore,
     connectFirestoreEmulator,
@@ -75,14 +90,10 @@ async function _init() {
     Timestamp,
   } = firestoreModule;
 
-  // Re-use an existing Firebase app if one was already initialised (e.g.
-  // during hot-module replacement in dev).
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-
   const db = _getFirestore(app);
 
   // The local Firestore emulator when developing (see getFirestore).
-  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+  if (onLocalhost()) {
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
   }
 
@@ -106,4 +117,39 @@ async function _init() {
   };
 
   return { db, fx };
+}
+
+/** What getAuth() resolves to: the instance plus the calls organiser.svelte.ts makes. */
+export interface AuthHandle {
+  auth: Auth;
+  signInAnonymously: typeof import("firebase/auth").signInAnonymously;
+}
+
+let _auth: Promise<AuthHandle> | null = null;
+
+/**
+ * Firebase Auth, loaded on first call, with any persisted sign-in restored
+ * before it resolves (`auth.currentUser` is then final). On localhost it uses
+ * the Auth emulator on port 9099.
+ */
+export async function getAuth(): Promise<AuthHandle> {
+  if (_auth) return _auth;
+  _auth = _initAuth().catch((err: Error) => {
+    _auth = null;
+    throw new Error(`Failed to load Firebase Auth: ${err.message}`);
+  });
+  return _auth;
+}
+
+async function _initAuth(): Promise<AuthHandle> {
+  const [app, { getAuth: _getAuth, connectAuthEmulator, signInAnonymously }] = await Promise.all([
+    getApp(),
+    import("firebase/auth"),
+  ]);
+  const auth = _getAuth(app);
+  if (onLocalhost() && !auth.emulatorConfig) {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  }
+  await auth.authStateReady();
+  return { auth, signInAnonymously };
 }

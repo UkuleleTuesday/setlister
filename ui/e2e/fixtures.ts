@@ -53,6 +53,32 @@ export async function storedRowCount(sessionId: string): Promise<number> {
   return Object.keys(doc.fields?.rows?.mapValue?.fields ?? {}).length;
 }
 
+const DOCS = `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
+
+// The organiser key (#151): console-only in production, so seeded with the
+// same local-only "owner" bypass.
+export async function setOrganiserKey(key: string): Promise<void> {
+  const res = await fetch(`${DOCS}/clubConfig/organiserKey`, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { key: { stringValue: key } } }),
+  });
+  if (!res.ok) throw new Error(`Couldn't set the organiser key (${res.status})`);
+}
+
+/** Every organiser row in the emulator, as { name, key }. */
+export async function organiserRows(): Promise<{ name?: string; key?: string }[]> {
+  const res = await fetch(`${DOCS}/organisers`, { headers: { Authorization: "Bearer owner" } });
+  if (!res.ok) return [];
+  const body = (await res.json()) as {
+    documents?: { fields: Record<string, { stringValue?: string }> }[];
+  };
+  return (body.documents ?? []).map(({ fields }) => ({
+    name: fields.name?.stringValue,
+    key: fields.key?.stringValue,
+  }));
+}
+
 export const test = base.extend<Fixtures>({
   // Playwright reads a fixture's dependencies off a destructured first
   // argument, so a fixture with none must still destructure.
