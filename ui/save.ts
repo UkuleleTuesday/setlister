@@ -12,8 +12,6 @@ export function persist() {
   writeSavedState({
     ...lists,
     name: night.name,
-    // Never read back: a reload rejoins from the URL's ?session= (main.ts).
-    sessionId: sync.getSessionId(),
     settings: settingsSnapshot(),
   });
   if (sync.getSessionId()) sync.notifyLocalChange(lists);
