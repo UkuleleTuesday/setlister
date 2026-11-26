@@ -9,7 +9,9 @@
 What you must and mustn't do in this repo. `README.md` has what the project is,
 how to run it, and every command; this file doesn't repeat them.
 
-## The UI is mobile-first — a hard constraint
+## UI and UX
+
+The UI is mobile-first.
 
 - **Touch.** Tap targets ≥ 44px, no hover-only affordances. Escape is a desktop
   bonus, never the only way out.
@@ -22,20 +24,9 @@ how to run it, and every command; this file doesn't repeat them.
 
 ## Working in `ui/`
 
-- Keep runtime deps minimal and justified; adding one is a decision, not a
-  detail.
-- **Don't add a local-only mode, and don't route off anything but
-  `?session=<id>`.** The URL being the only source of truth for which view shows
-  is what makes the phone's Back button work.
-- **Keep session metadata (`createdBy`/`listed`/`requestsOpen`) outside the
-  synced list state**, or the debounced row push starts writing it — see the
-  `ui/sync.js` header.
-- **Never reintroduce session titles or stored formatted dates.** Stored formats
-  once mixed US and UK strings in one list and froze "today" into labels that
-  outlived the day; a free-text name field read as mandatory and got filled with
-  retyped dates. (Legacy `name` fields are tolerated and ignored.)
-- **User-visible changes go in `ui/whats-new.json`, in the same PR.** The in-app
-  changelog. Shape enforced by `ui/tests/whats-new.test.js`.
+- Keep runtime deps minimal and justified.
+- **User-visible changes are captured via the "What's New" feature, in the same PR.** The in-app
+  changelog.
   - One short sentence per item, for players at the club, not commit readers.
     Skip refactors, fixes to unreleased work, and internal tooling.
   - Dates are ISO `YYYY-MM-DD`; the label renders via `Intl` at view time. Never
@@ -45,22 +36,21 @@ how to run it, and every command; this file doesn't repeat them.
     anything a later same-day change made obsolete — nobody outside the repo saw
     the interim states. Lead with the biggest change; three items a day, max.
 - **No em dashes in copy.** Whimsical is fine as long as it stays clear.
-- **Never build anything that destroys other people's work.** "Start over" was
-  removed for wiping the night for everyone in the room. Row-level removal is
-  fine (recoverable from the bin); wholesale clearing is not.
-- **Adding a Firestore doc field means adding it to the rules' `hasOnly` list in
-  the same change**, or the write is silently denied. Run `npm run test:emulator`
-  after touching `firestore.rules`.
-- **Don't write a new field on the create path in the release that adds it.**
-  `hasOnly` rejects the whole write over one unknown key, and cached bundles run
-  ahead of deployed rules, so it breaks "New session". Default to absent-means-X
-  (`requestsOpen` in `ui/sync.js`).
-- Match the surrounding style: small focused functions, comments explaining *why*
-  (especially the mobile/touch reasoning), not *what*.
+- **Never build anything that destroys other people's work.**
+
+## Data storage and handling
+
+`firestore.rules` only accepts session doc keys it lists (`hasOnly`): one
+unknown key rejects the whole write. So a new field needs its rules entry in
+the same change, and PR previews run new code against production's rules,
+where a field written at session creation breaks "New session". Run
+`npm run test:emulator` after touching the rules.
 
 ## Before you push
 
+- Check what tests CI is running, and make a best effort to run the part of the test suite
+  that your change likely affects
 - Python changes: `ruff check` / `ruff format` and the offline test suite.
 - UI changes: `npm run test:emulator` in `ui/`, then exercise the flow in a
   mobile-sized browser with no console errors. If user-facing, confirm
-  `ui/whats-new.json` has an entry.
+  "What's New" has an entry.
