@@ -94,8 +94,8 @@
     if (remaining) waitTimer = setTimeout(refreshWait, remaining + 50);
   }
 
-  async function onSearch(event: Event) {
-    query = (event.currentTarget as HTMLInputElement).value;
+  async function setQuery(value: string) {
+    query = value;
     await tick();
     if (list) list.scrollTop = 0;
   }
@@ -123,9 +123,8 @@
     autocomplete="off"
     enterkeyhint="search"
     aria-label="Search the songbook"
-    value={query}
+    bind:value={() => query, setQuery}
     bind:this={search}
-    oninput={onSearch}
     onkeydown={onSearchKeydown}
   />
   <!-- Shown while this phone's one-a-minute wait runs: new requests pause,
@@ -146,7 +145,7 @@
              that starts on a row. -->
         <button
           type="button"
-          class={existing ? `songbook-song ${existing.where}` : "songbook-song"}
+          class={["songbook-song", existing?.where]}
           aria-label={`${entry.display}, page ${entry.page}${state}`}
           onclick={() => onPick(entry)}
         >

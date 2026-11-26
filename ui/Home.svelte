@@ -73,7 +73,7 @@
   <li>
     <button
       type="button"
-      class={extraClass ? `session-item ${extraClass}` : "session-item"}
+      class={["session-item", extraClass]}
       data-id={entry.id}
       onclick={() => onPick(entry.id)}
     >

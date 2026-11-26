@@ -11,6 +11,7 @@
 -->
 <script lang="ts">
   import { flushSync } from "svelte";
+  import { on } from "svelte/events";
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
   import RowGroup from "./RowGroup.svelte";
@@ -67,62 +68,79 @@
   }
 
   // Pointer-events drag so touch works on the mobile browsers this app
-  // targets (HTML5 drag-and-drop is desktop-only on touch). The list reorders
-  // live as the row crosses its neighbours' midpoints, and the final order
-  // goes out through onReorder on release.
-  function startDrag(event: PointerEvent, li: HTMLLIElement) {
-    const uid = li.dataset.uid;
-    if (!uid) return;
-    event.preventDefault();
-    // Hold remote snapshots while dragging, so a peer's change can't yank
-    // the row out from under the finger; sync applies it on release.
-    actions.gesture(true);
-    dragUid = uid;
-    dragOrder = visible.map((row) => row.uid);
-    // Where within the row the finger landed, kept pinned under the pointer
-    // as it moves (no jump on the first move).
-    const grabY = event.clientY - li.getBoundingClientRect().top;
-    // Capture keeps touch from scrolling the page; move/up listen on the
-    // document, so events keep flowing as the row moves in the list.
-    try {
-      (event.currentTarget as Element).setPointerCapture(event.pointerId);
-    } catch {
-      /* capture unsupported: document listeners still work */
-    }
+  // targets (HTML5 drag-and-drop is desktop-only on touch). A press on a
+  // row's handle starts it; the list reorders live as the row crosses its
+  // neighbours' midpoints, and the final order goes out through onReorder on
+  // release. An attachment, so leaving mid-drag drops the document listeners
+  // and releases held snapshots.
+  function reorder(ul: HTMLUListElement) {
+    // Ends the drag in flight, if any, committing `order` when given.
+    let finish: ((order?: string[]) => void) | null = null;
 
-    const onMove = (e: PointerEvent) => {
-      if (!dragOrder) return;
-      const after = dragAfterUid(e.clientY);
-      const next = dragOrder.filter((id) => id !== uid);
-      const at = after === null ? next.length : next.indexOf(after);
-      next.splice(at, 0, uid);
-      if (next.join() !== dragOrder.join()) {
-        dragOrder = next;
-        flushSync(); // move the card now, so it can be measured in place
+    const offDown = on(ul, "pointerdown", (event) => {
+      const handle = (event.target as Element).closest<HTMLElement>(".drag-handle");
+      const li = handle?.closest<HTMLLIElement>(".row-card");
+      const uid = li?.dataset.uid;
+      if (!handle || !li || !uid) return;
+      // A drag whose release never arrived (it ended outside the window).
+      finish?.();
+      event.preventDefault();
+      // Hold remote snapshots while dragging, so a peer's change can't yank
+      // the row out from under the finger; sync applies it on release.
+      actions.gesture(true);
+      dragUid = uid;
+      dragOrder = visible.map((row) => row.uid);
+      // Where within the row the finger landed, kept pinned under the pointer
+      // as it moves (no jump on the first move).
+      const grabY = event.clientY - li.getBoundingClientRect().top;
+      // Capture keeps touch from scrolling the page; move/up listen on the
+      // document, so events keep flowing as the row moves in the list.
+      try {
+        handle.setPointerCapture(event.pointerId);
+      } catch {
+        /* capture unsupported: document listeners still work */
       }
-      // Lift the row to follow the finger 1:1: clear the transform to read
-      // its true in-flow position, then translate it back under the grab
-      // point. The gap it leaves marks where it will land.
-      li.style.transform = "none";
-      const top = li.getBoundingClientRect().top;
-      li.style.transform = `translateY(${e.clientY - grabY - top}px)`;
-    };
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onUp);
-      li.style.transform = "";
-      const order = dragOrder ?? [];
-      dragOrder = null;
-      dragUid = null;
-      onReorder(order);
-      // Order committed and pushed; now let any held snapshot apply.
-      actions.gesture(false);
-    };
 
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
+      const onMove = (e: PointerEvent) => {
+        if (!dragOrder) return;
+        const after = dragAfterUid(e.clientY);
+        const next = dragOrder.filter((id) => id !== uid);
+        const at = after === null ? next.length : next.indexOf(after);
+        next.splice(at, 0, uid);
+        if (next.join() !== dragOrder.join()) {
+          dragOrder = next;
+          flushSync(); // move the card now, so it can be measured in place
+        }
+        // Lift the row to follow the finger 1:1: clear the transform to read
+        // its true in-flow position, then translate it back under the grab
+        // point. The gap it leaves marks where it will land.
+        li.style.transform = "none";
+        const top = li.getBoundingClientRect().top;
+        li.style.transform = `translateY(${e.clientY - grabY - top}px)`;
+      };
+      const onUp = () => finish?.(dragOrder ?? []);
+
+      const offs = [
+        on(document, "pointermove", onMove),
+        on(document, "pointerup", onUp),
+        on(document, "pointercancel", onUp),
+      ];
+      finish = (order) => {
+        for (const off of offs) off();
+        finish = null;
+        li.style.transform = "";
+        dragOrder = null;
+        dragUid = null;
+        if (order) onReorder(order);
+        // Order committed and pushed; now let any held snapshot apply.
+        actions.gesture(false);
+      };
+    });
+
+    return () => {
+      offDown();
+      finish?.();
+    };
   }
 
   // A transient tick in place of the icon: the button is icon-only, so a
@@ -192,7 +210,7 @@
   />
   <!-- Room mode watches the set and can want a tune, nothing else: no
        handle, no buttons, no swipe. -->
-  <ul id="upnext-rows" bind:this={list}>
+  <ul id="upnext-rows" bind:this={list} {@attach reorder}>
     {#each shown as row (row.uid)}
       <RowCard
         {row}
@@ -202,7 +220,6 @@
         isNext={row.uid === nextUid}
         dragging={row.uid === dragUid}
         showSuggestions={settings.showSuggestions}
-        onDragStart={startDrag}
       />
     {/each}
   </ul>

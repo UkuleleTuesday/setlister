@@ -82,7 +82,7 @@
 </script>
 
 <li
-  class={`row-card ${row.status}`}
+  class={["row-card", row.status]}
   class:crossed={row.crossed_out}
   class:removed={row.removed}
   class:played={row.played}
