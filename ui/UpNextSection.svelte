@@ -32,7 +32,7 @@
   } = $props();
 
   // Played and binned rows are lifted out (played into the group above,
-  // binned into the bin at the foot), so the list shows what's still to play.
+  // binned into the bin at the foot), so the list shows what's left to play.
   const visible = $derived(night.upNext.filter((e) => !e.binned && !e.played));
   const played = $derived(night.upNext.filter((e) => e.played));
   // While a drag is in flight the list shows its order, not the stored one.
@@ -136,8 +136,8 @@
 </script>
 
 <!-- Nothing queued and nothing played: the room CSS shrinks the section to
-       a one-line bar, so an empty box doesn't take the top of a page whose
-       job is adding a tune. -->
+     a one-line bar, so an empty box doesn't take the top of a page whose job
+     is adding a tune. -->
 <section
   id="upnext"
   class:empty={visible.length === 0 && !night.upNext.some((e) => e.played && !e.binned)}
@@ -148,11 +148,11 @@
         · {visible.length}
       </span>
     </h2>
-    <!-- Export is what the night produces, so it lives on the page rather
-           than behind the gear. It covers BOTH lists, but sits beside the
-           running order: that's the artifact people mean by "the setlist".
-           Icon-only like the rest of the chrome; the accessible name carries
-           the meaning. With nothing to export, both go inert. -->
+    <!-- Export is what the night produces, so it's on the page rather than
+         behind the gear. It covers BOTH lists, but sits beside the running
+         order: that's the artifact people mean by "the setlist". Icon-only
+         like the rest of the chrome; the accessible name carries the
+         meaning. With nothing to export, both go inert. -->
     <div class="setlist-actions">
       <button
         id="copy"
@@ -179,9 +179,8 @@
   <!-- What the list is, said once it has something in it. -->
   <p id="upnext-hint" class="list-hint" hidden={visible.length === 0}>Coming up, in order.</p>
   <!-- Played songs collapse into a one-line count here (the list consumes
-         itself from the top); expanding shows the night's history, dated,
-         and the un-play control. The room gets the same disclosure but
-         read-only rows. -->
+       itself from the top); expanding shows the night's history, dated, and
+       the un-play control. The room gets the same disclosure, read-only. -->
   <RowGroup
     id="played-group"
     iconName="played"
@@ -192,7 +191,7 @@
     showSuggestions={settings.showSuggestions}
   />
   <!-- Room mode watches the set and can want a tune, nothing else: no
-         handle, no buttons, no swipe. -->
+       handle, no buttons, no swipe. -->
   <ul id="upnext-rows" bind:this={list}>
     {#each shown as row (row.uid)}
       <RowCard
@@ -208,7 +207,7 @@
     {/each}
   </ul>
   <!-- The full app's note points at promote, a control the room doesn't
-         have. -->
+       have. -->
   <p id="upnext-empty" class="note" hidden={visible.length > 0}>
     {lists.room ? "Nothing queued yet" : "Nothing queued yet. Promote a request from below."}
   </p>

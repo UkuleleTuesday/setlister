@@ -14,20 +14,20 @@ import * as sync from "./sync.js";
 import type { ListState } from "./types.js";
 
 // Called by sync when a remote change arrives: swap in the fresh lists.
-// persist() writes them back to localStorage (and is a no-op push, since sync
-// just set lastRemote to this same state).
+// persist() saves them locally; its push is a no-op, since sync just set
+// lastRemote to this same state.
 export function applyRemoteState(state: ListState) {
   night.upNext = state.upNext;
   night.requests = state.requests;
   night.votes = state.votes || {};
   // The doc is authoritative even when it says null (a session predating
-  // per-session books): keeping this device's old edition would push it into
-  // the shared doc on the persist() below, hijacking the session's book.
+  // per-session books, which reads as the default book): keeping this
+  // device's old edition would push it into the shared doc on the persist()
+  // below, hijacking the session's book.
   night.edition = state.edition ?? null;
-  // The session's songbook is the one everyone searches: when the doc names a
-  // different edition than the loaded catalogue (joining a themed night, or a
-  // peer switching books mid-session), re-scope the pickers to it. Sessions
-  // from before editions carry null; those read as the default book.
+  // Everyone searches the session's songbook: when the doc names a different
+  // edition than the loaded catalogue (joining a themed night, or a peer
+  // switching books mid-session), re-scope the pickers to it.
   scopeCatalogueToEdition(state.edition?.id || "current");
   persist();
 }

@@ -2,12 +2,12 @@
   The one-time name amnesty: shows once per device, on the first full-app
   open after a reset round ships. player.ts decides whether (name-reset.ts
   holds the rules and the copy) and has already cleared the saved name by the
-  time this opens. Same centred-sheet idiom as starting a night.
+  time this opens.
 
   Every way out is a "later", not a refusal to comply: the flag is already
-  set, so the sheet never returns, and the settings gear still holds the name
-  field. Save with an empty field is just a dismiss, no error to read in a
-  dark pub. Not focused on open: the sheet appears at boot, unprompted, and a
+  set, so the sheet never returns, and the settings gear holds the name field
+  too. Save with an empty field is just a dismiss, no error to read in a dark
+  pub. Not focused on open: the sheet appears at boot, unprompted, and a
   keyboard shooting up over it would bury the message it exists to deliver.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on

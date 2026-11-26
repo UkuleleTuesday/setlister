@@ -4,17 +4,17 @@
 // the id of the `sessions/{id}` doc it points at. The home screen queries this
 // collection rather than `sessions` because the Firestore *web* SDK has no
 // field projection (`select()` is server-side only): listing sessions directly
-// would download every row of every night — and rows embed their full
-// catalogue match — on every app open, forever.
+// would download every row of every night (rows embed their full catalogue
+// match) on every app open, forever.
 //
 //   { v: 1, createdBy, createdAt }
 //
-// Unlisted sessions simply have no doc here. That is NOT access control — the
-// session stays world-readable by id like every other one (see
+// Unlisted sessions simply have no doc here. That is NOT access control: the
+// session is world-readable by id like every other one (see
 // firestore.rules). Unlisted means "not advertised in the club's list".
 //
-// UI-free, like sync.ts and presence.ts. Firebase still
-// loads lazily through firebase.ts, so importing this module pulls no SDK.
+// UI-free, like sync.ts and presence.ts. Firebase loads lazily through
+// firebase.ts, so importing this module pulls no SDK.
 
 import { getFirestore } from "./firebase.js";
 
@@ -45,10 +45,9 @@ export const INDEX_COLLECTION = "sessionIndex";
 // which is deep enough that "show older" would be a feature nobody asks for.
 const DEFAULT_MAX = 60;
 
-// An unreachable Firestore leaves getDocs pending indefinitely (we use the
-// default in-memory cache, so there's nothing local to resolve against). A
-// spinner that never resolves is the worst failure mode on a phone at a gig, so
-// the list query races a timeout and surfaces a retry instead.
+// An unreachable Firestore can leave getDocs pending indefinitely, and a
+// spinner that never resolves is the worst failure mode on a phone at a gig,
+// so the list query races a timeout and surfaces a retry instead.
 const LIST_TIMEOUT_MS = 8000;
 
 // `Intl` is the whole date dependency. Formatters are built against the
@@ -78,10 +77,10 @@ const CLUB_WEEKDAY = 2; // Date#getDay(): Sunday = 0
 // rather than "today".
 const EVENING_HOUR = 17;
 // A night belongs to the evening it started, not to the calendar. Without this
-// a session that kicks off at 21:00 and is still running at 00:30 — an entirely
-// normal pub night — would relabel itself "Yesterday" while people are still
-// adding songs to it. Exported so request-window.ts can default the request
-// window's close time to the same boundary, instead of re-deriving it.
+// a session that kicks off at 21:00 and is still running at 00:30 (an entirely
+// normal pub night) would relabel itself "Yesterday" while people are adding
+// songs to it. Exported so request-window.ts can default the request window's
+// close time to the same boundary.
 export const NIGHT_BOUNDARY_HOUR = 4;
 // A session created for a day other than today (backfilling a missed night, or
 // prepping a future one) is stamped at this hour: late enough to count as that
@@ -90,9 +89,8 @@ export const NIGHT_BOUNDARY_HOUR = 4;
 const PICKED_SESSION_HOUR = 20;
 
 // The start of the *night* `date` falls in, which is the previous calendar day
-// for anything before 04:00. Exported for request-window.ts: the request
-// window's default close time is "the end of the night", so it needs the same
-// night bucket this module already uses for labelling and partitioning.
+// for anything before 04:00. Exported for request-window.ts, whose default
+// close time is "the end of the night": the same bucket the labels use.
 export function startOfNight(date: Date): Date {
   const d = new Date(date);
   d.setHours(d.getHours() - NIGHT_BOUNDARY_HOUR);
@@ -110,10 +108,9 @@ function isEvening(date: Date): boolean {
 }
 
 // What a session is called: a relative label near the present, an absolute
-// date further out — in either direction, since a session can be created ahead
-// of its night. `now` is injectable so the tests can pin the clock — every
-// branch here is relative, and a test that reads the wall clock is a test that
-// fails at midnight.
+// date further out, in either direction (a session can be created ahead of
+// its night). `now` is injectable so the tests can pin the clock: a test that
+// reads the wall clock is a test that fails at midnight.
 export function sessionDateLabel(date: Date | null, now = new Date()): string {
   if (!date) return "";
   const days = nightsBetween(date, now);
@@ -121,12 +118,10 @@ export function sessionDateLabel(date: Date | null, now = new Date()): string {
   if (days === 0) return isEvening(date) ? "Tonight" : "Today";
   if (days === 1) return "Yesterday";
   if (days === -1) return "Tomorrow";
-  // Beyond the neighbouring nights, the concrete date. Relative labels used
-  // to stretch a week each way ("Tuesday" for 5 nights back, "Next Tuesday"
-  // ahead), which told a club that meets every Tuesday almost nothing — and
-  // put two near-identical Tuesdays meaning different nights on one screen.
-  // The Coming up / Past sessions headings carry the tense now; the date is
-  // the part worth reading.
+  // Beyond the neighbouring nights, the concrete date: to a club that meets
+  // every Tuesday, "Tuesday" or "Next Tuesday" says almost nothing, and two
+  // of them on one screen read alike. The Coming up / Past sessions headings
+  // carry the tense.
 
   const sameYear = date.getFullYear() === now.getFullYear();
   const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
@@ -157,7 +152,7 @@ export function toDateInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-// "" (a cleared picker) and malformed values both come back null — the caller
+// "" (a cleared picker) and malformed values both come back null: the caller
 // treats that as "today".
 export function fromDateInputValue(value: string | null | undefined): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
@@ -244,8 +239,8 @@ function toEntry(id: string, data: unknown): SessionEntry {
   const doc = (data ?? {}) as Record<string, unknown>;
   return {
     id,
-    // Legacy rows may still carry a `name`; it is deliberately ignored —
-    // sessions are identified by their date now.
+    // Legacy rows may carry a `name`; it is deliberately ignored: sessions
+    // are identified by their date.
     createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
     createdAt: timestampToDate(doc.createdAt),
   };
@@ -260,7 +255,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// Newest first — the night you want is almost always the most recent one.
+// Newest first: the night you want is almost always the most recent one.
 export async function listSessions({ max = DEFAULT_MAX } = {}): Promise<SessionEntry[]> {
   const { db, fx } = await getFirestore();
   const snap = await withTimeout(
@@ -269,7 +264,7 @@ export async function listSessions({ max = DEFAULT_MAX } = {}): Promise<SessionE
     ),
     LIST_TIMEOUT_MS,
   );
-  // An unreachable server doesn't reject here — Firestore quietly answers from
+  // An unreachable server doesn't reject here: Firestore quietly answers from
   // its (empty, in-memory) cache, which would render as a confident "No
   // sessions yet". Telling a club its history is gone when we simply couldn't
   // ask is the worst thing this screen can do, so a cache-only answer is an

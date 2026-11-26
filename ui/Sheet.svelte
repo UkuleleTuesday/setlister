@@ -1,6 +1,6 @@
 <!--
-  The centred sheet every dialog here uses. Rendered only while its dialog is
-  open (App.svelte mounts it), so each opening starts fresh.
+  The centred sheet every dialog wraps. App.svelte mounts each dialog only
+  while it's open, so each opening starts fresh.
 
   Forgiving dismissal: a tap anywhere on the backdrop closes it, since the
   card is small and the backdrop is most of the screen; a tap inside the card
@@ -38,8 +38,7 @@
 <svelte:document onkeydown={onKeydown} />
 
 <!-- The backdrop's click is the tap-outside shortcut, not the accessible way
-     out: each sheet has a real close button, and Escape is handled on the
-     document. -->
+     out (see the header). -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   {id}

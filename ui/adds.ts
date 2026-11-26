@@ -35,9 +35,9 @@ function newUid(): string {
 
 // A tap in the songbook does whatever actually helps: a new tune goes to the
 // confirm sheet, one already asked for gets this phone's thumbs up, a played
-// one says so and stays put. The one room-only part is the request link's
-// brakes (open/closed and the one-a-minute wait, see room-limits.ts): they
-// govern that link, and an organiser adds whatever the switch says.
+// one says so. Only the room gets the request link's brakes (open/closed and
+// the one-a-minute wait, see room-limits.ts): an organiser adds whatever the
+// switch says.
 export function pickSong(entry: CatalogueEntry) {
   const room = view.mode === "room";
   // Belt and braces: App closes the songbook when the door shuts, but a tap
@@ -83,8 +83,8 @@ export function pickSong(entry: CatalogueEntry) {
 
 // The confirm sheet's answer: a request (with the name, the first time), or a
 // rename. The name is committed here, not per keystroke, so an abandoned
-// sheet leaves it untouched. The request then goes in as part of the same
-// tap, so it can't be lost between the two.
+// sheet leaves it untouched, and the request goes in with the same tap, so it
+// can't be lost between the two.
 export function confirmRequest({ entry, name, comment }: RequestAnswer) {
   if (name !== null) setPlayerName(name);
   // The door can shut (or the window lapse) while the sheet is open. App
@@ -94,9 +94,8 @@ export function confirmRequest({ entry, name, comment }: RequestAnswer) {
     return;
   }
   // addByName re-runs the duplicate guard (the pool may have moved while the
-  // sheet was open) and says why if it refuses. On success say so (the sheet
-  // just covered the pool where the row landed) and set the expectation for
-  // the cool-down before it bites.
+  // sheet was open) and says why if it refuses. On success say so, since the
+  // sheet just covered the pool, and set the expectation for the cool-down.
   if (entry && addByName(entry, comment)) {
     notices.requests.show(
       view.mode === "room"
@@ -136,14 +135,11 @@ function addByName(entry: CatalogueEntry, comment: string): boolean {
     played: false,
     binned: false,
   });
-  // Asking for a song IS wanting it, so it counts as this device's vote (#83).
-  // One row added by one person, so it's attributed rather than anonymous:
-  // their thumb lights up, and the tap they'd otherwise spend upvoting their
-  // own request is already spent.
+  // Asking for a song IS wanting it, so it counts as this device's vote (#83),
+  // attributed rather than anonymous: their thumb lights up (see seedAsker).
   night.votes = seedAsker(night.votes, uid, presence.getClientId());
-  // Start the cool-down from the moment a request actually lands, not from the
-  // pick that opened the sheet: a slow typist shouldn't spend their wait
-  // inside the dialog. Persisted, so a reload isn't a way around it.
+  // The cool-down starts when a request lands, not at the pick that opened
+  // the sheet: a slow typist shouldn't spend their wait inside the dialog.
   if (view.mode === "room") writeLastRoomAdd(Date.now());
   persist();
   return true;
@@ -161,12 +157,11 @@ function scannedRow(row: Omit<Row, "uid">): Row {
   };
 }
 
-// One photo, start to finish: shrink it, send it, take the catalogue it
+// One photo, start to finish: shrink it, send it, adopt the catalogue it
 // brings back, and add the confident rows straight to Requests. Returns what's
 // left for review. Rejects (abort included) for ScanFlow to word.
 export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOutcome> {
-  // The long edge governs the upload, not just the server's resize: the
-  // camera's 3–8MB original would be thrown away server-side anyway (#44).
+  // Shrunk on the phone before upload (#44, see downscale.ts).
   const { maxImageEdge, model, disableThinking, sendCatalogue } = settings;
   const maxEdge = resolveMaxEdge(maxImageEdge);
   const upload = await downscaleImage(file, { maxEdge });
@@ -175,7 +170,7 @@ export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOu
     upload,
     {
       // The session's book, not the select: night.edition is the source of
-      // truth and the two only diverge for the beat before the select syncs.
+      // truth, and the two diverge only until the select catches up.
       edition: night.edition?.id || catalogue.editionId,
       // Tuning knobs from the settings panel: the API clamps or ignores
       // anything out of range and falls back to its configured defaults.
@@ -196,10 +191,9 @@ export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOu
   return { flagged, autoAdded: fresh.length, autoSkipped: skipped };
 }
 
-// Rows off the board, straight in or kept in review. Whoever wrote each one
-// counts as its asker, so board requests start level with app ones (#83).
-// Anonymous, not attributed to the person holding the camera: one photo makes
-// many rows and they asked for none of them.
+// Rows off the board: the confident ones from scanBoard, and what review
+// kept. Each gets the anonymous ASKER vote, so board requests start level
+// with app ones (#83; see votes.ts).
 export function addFromBoard(rows: Row[]) {
   night.requests.push(...rows);
   for (const row of rows) night.votes = seedAsker(night.votes, row.uid, ASKER);

@@ -1,9 +1,8 @@
 // Lazy Firebase / Firestore loader.
 //
-// Firebase is only needed for multiplayer session sharing — local-only use
-// must never trigger a Firestore network request. This module wraps the
-// dynamic imports in a single async function so Vite code-splits Firebase
-// into a separate chunk that is only fetched on first call.
+// The dynamic imports sit in one async function so Vite code-splits Firebase
+// into its own chunk, fetched on the first call rather than blocking the
+// first paint.
 //
 // Usage:
 //   const { db, fx } = await getFirestore();
@@ -82,8 +81,7 @@ async function _init() {
 
   const db = _getFirestore(app);
 
-  // Connect to the local Firestore emulator when developing — mirrors the
-  // localhost detection of API_BASE in api.ts.
+  // The local Firestore emulator when developing (see getFirestore).
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
   }

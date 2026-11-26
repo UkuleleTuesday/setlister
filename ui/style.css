@@ -28,7 +28,7 @@
   box-sizing: border-box;
 }
 
-/* Lucide control icons (see icons.js): stroke follows the button's text
+/* Lucide control icons (see icons.ts): stroke follows the button's text
    colour, size follows its font-size, so one rule serves every context. */
 svg.icon {
   width: 1.2em;
@@ -70,7 +70,7 @@ header {
   text-align: center;
 }
 /* Keep the centred title clear of the corner controls (Share top-left, gear
-   top-right) so it never tucks under them — even the long title at 320px. */
+   top-right) so it never tucks under them, even the long title at 320px. */
 header h1 {
   margin: 0 auto;
   font-size: 1.4rem;
@@ -85,10 +85,10 @@ header h1 {
   max-width: calc(100% - 6rem);
 }
 /* In a session the h1 is the night's date: one title bar (share, date,
-   settings) rather than a brand row stacked on a session row. The tagline gets out of the way. The min-height keeps
-   the header at least as tall as the absolutely-pinned corner buttons (their
-   top offset + the 2.4rem card) — without it, a short date would let the
-   Share button overhang "All sessions" just below. */
+   settings) rather than a brand row stacked on a session row, and no
+   tagline. The min-height keeps the header at least as tall as the pinned
+   corner buttons (their top offset + the 2.4rem card): without it, a short
+   date would let the Share button overhang "All sessions" just below. */
 body.in-session header {
   min-height: calc(max(0.9rem, env(safe-area-inset-top)) + 2.7rem);
   display: flex;
@@ -100,8 +100,9 @@ body.in-session header {
 body.in-session header h1 {
   font-size: 1.25rem;
 }
-/* The club's name over the night's date: a link opened away from the pub
-   still says whose night it is. Session only; home's title is the brand. */
+/* The club's name over the night's date, so a link opened away from the pub
+   (forwarded, reopened next day) says whose night it is. Session only; home's
+   title is the brand. */
 .club-name {
   display: none;
 }
@@ -112,7 +113,7 @@ body.in-session .title-stack {
   gap: 0.1rem;
   max-width: calc(100% - 6rem);
 }
-/* The stack keeps the corner clearance itself; the h1's own max-width would
+/* The stack holds the corner clearance itself; the h1's own max-width would
    be taken from the stack's (shrink-wrapped) width and squeeze the date into
    a sliver it overflows to the right. */
 body.in-session .title-stack h1 {
@@ -154,8 +155,8 @@ body.in-session .subtitle {
 .settings-toggle:active {
   opacity: 0.85;
 }
-/* The visible card is ~38px; extend the tappable area to the 44px minimum with
-   a transparent pseudo-element (same trick as .share-toggle below). */
+/* The visible card is ~38px; a transparent pseudo-element extends the
+   tappable area to the 44px minimum rather than enlarging the card. */
 .settings-toggle::before {
   content: "";
   position: absolute;
@@ -187,9 +188,7 @@ body.in-session .subtitle {
   border-radius: 50%;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
 }
-/* The visible card is only ~38px to match the gear, but a phone touch target
-   must be ≥44px — extend the tappable area with a transparent pseudo-element
-   rather than enlarging the card (the gear is under-spec; don't copy that). */
+/* Same 44px pseudo-element target as the gear's. */
 .share-toggle::before {
   content: "";
   position: absolute;
@@ -256,7 +255,7 @@ body.in-session .subtitle {
 .share-panel .note {
   margin: 0 0 0.7rem;
 }
-/* Stack the share/leave buttons full-width so each is an easy thumb target. */
+/* Stack the two share buttons full-width so each is an easy thumb target. */
 .share-panel .actions {
   flex-direction: column;
   margin: 0;
@@ -330,7 +329,7 @@ body.in-session .subtitle {
   right: 0.9rem;
   z-index: 10;
   width: min(18rem, calc(100vw - 1.8rem));
-  /* Short phones can't fit the full panel — scroll inside it rather than
+  /* Short phones can't fit the full panel: scroll inside it rather than
      pushing fields off-screen with no way to reach them. */
   max-height: calc(100vh - 4.5rem);
   max-height: calc(100dvh - 4.5rem);
@@ -689,10 +688,10 @@ h2 .count {
   justify-content: space-between;
   gap: 0.5rem;
 }
-/* Export, on the page instead of buried in the settings popover (#47). The head
-   aligns on the text baseline, which buttons don't share — centre this cluster
-   against the heading instead. The 44px hit areas overlap the gap, so the
-   visible gap is wider than it looks. */
+/* Export, on the page rather than behind the gear (#47). The head aligns on
+   the text baseline, which buttons don't share, so centre this cluster
+   against the heading. The 44px hit areas overlap the gap, so the visible gap
+   is wider than it looks. */
 .setlist-actions {
   display: flex;
   align-items: center;
@@ -798,8 +797,8 @@ h2 .count {
   color: #6b6b6b;
   font-size: 0.85rem;
 }
-/* Further prepped nights read as joinable — accented like the hero, a notch
-   quieter — where a past night keeps the plain card. */
+/* Further prepped nights read as joinable (accented like the hero, a notch
+   quieter), where a past night has the plain card. */
 .session-item.upcoming {
   border-color: var(--accent);
   box-shadow: var(--shadow-next);
@@ -826,18 +825,15 @@ h2#past-heading {
   margin-top: 0.5rem;
 }
 
-/* "What's new": announcement and archive are separate surfaces, and neither
-   sits inside the pick-a-session flow. The banner (unseen entries only) is an
-   accent-tinted strip above the heading — an announcement, not a list row —
-   and one tap opens the sheet on that entry alone, which retires it. The
-   footer link is the quiet, always-there door, and opens the full history in
-   the same sheet. */
+/* "What's new" (the two doors: App.svelte). The banner is an accent-tinted
+   strip above the heading, an announcement rather than a list row; the
+   footer link is the quiet one. */
 .whats-new-banner {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  /* ≥44px tap target — house hard constraint. */
+  /* ≥44px tap target: house hard constraint. */
   width: 100%;
   min-height: 44px;
   margin: 0 0 1rem;
@@ -879,13 +875,13 @@ h2#past-heading {
 .whats-new-entry + .whats-new-entry {
   margin-top: 1.2rem;
 }
-/* The full history is taller than any phone, so this sheet — alone among the
-   sheets — pins its chrome and scrolls the entries between it: the title says
-   what you're looking at, and Close stays under the thumb however long the
-   archive gets, instead of being buried at the end of the scroll.
-   Two thirds of the viewport, not the generic .sheet's near-full height: a
-   card that stops well short of both edges reads as a card with the app
-   behind it, and leaves a backdrop you can dismiss it on without aiming. */
+/* The full history is taller than any phone, so this sheet (like the
+   songbook's) pins its chrome and scrolls the entries between: the title says
+   what you're looking at, and Close is under the thumb however long the
+   archive gets, not buried at the end of the scroll. Two thirds of the
+   viewport, not the generic .sheet's near-full height: a card that stops well
+   short of both edges reads as a card with the app behind it, and leaves a
+   backdrop you can dismiss it on without aiming. */
 #whats-new-sheet .sheet {
   display: flex;
   flex-direction: column;
@@ -910,9 +906,9 @@ h2#past-heading {
   border-top: 1px solid #eee;
 }
 
-/* --- Session bar: back / new ----------------------------------------------
-   A slim secondary nav row — the night's date lives in the header h1 above,
-   so this only carries the way out and the way to a fresh night. */
+/* --- Session bar: back + request link chip --------------------------------
+   A slim secondary nav row: the night's date is the header h1 above, so this
+   carries only the way out and the request link's state (.window-pill). */
 .session-bar {
   display: flex;
   align-items: center;
@@ -922,7 +918,7 @@ h2#past-heading {
   min-height: 44px;
 }
 
-/* --- Modal sheet (new session) -------------------------------------------- */
+/* --- Modal sheet (Sheet.svelte) ------------------------------------------- */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -938,7 +934,7 @@ h2#past-heading {
 .sheet {
   width: min(22rem, 100%);
   /* Short phones (and the software keyboard eating half the screen) must be
-     able to reach Start — scroll inside the sheet, never off it. */
+     able to reach every button: scroll inside the sheet, never off it. */
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   padding: 1rem;
@@ -979,14 +975,15 @@ h2#past-heading {
   border-radius: var(--radius);
 }
 
-/* The scan ritual: "or" + camera button (quick add lives up in Requests). */
+/* The scan flow (ScanFlow.svelte): photo, overlay, result and error lines.
+   Its trigger is the camera button in Requests. */
 #add {
   margin-top: 1.4rem;
 }
-/* Transient inline feedback — "Added 7 from the board" after a clean scan
-   (#80), "Already in Up next" under the quick-add (#52). Accent-tinted like
-   the What's new banner: news, not chrome. Shown and retired by the component that
-   shows it. */
+/* Transient inline feedback: "Added 7 from the board" after a clean scan
+   (#80), "Already in Up next" under the add buttons (#52). Accent-tinted like
+   the What's new banner: news, not chrome. Timed out by its owner (ScanFlow,
+   notices.svelte.ts). */
 .flash-note {
   margin: 0.8rem 0 0;
   padding: 0.6rem 0.8rem;
@@ -996,8 +993,8 @@ h2#past-heading {
   border-radius: var(--radius);
   font-size: 0.9rem;
 }
-/* Under the quick-add field the note reads as part of that control, so it
-   hugs the input and keeps the pool's spacing. */
+/* Under the add buttons the note reads as part of them, so it hugs them and
+   keeps the pool's spacing. */
 #add-feedback {
   margin: 0 0 0.7rem;
 }
@@ -1106,11 +1103,10 @@ button.window-pill::after {
 
 /* --- Fresh session: one job on screen -------------------------------------
    While both lists are empty (and no scan is in review) the session view
-   collapses to its two add affordances: intro line, add-by-name, "or", the
-   camera hero. Everything else — headings, export, empty-state boxes — waits
-   until there is at least one song to organise. The `fresh` class is kept
-   current by App.svelte (`fresh`); visibility is class-driven only
-   (the [hidden] attribute would fight these rules). */
+   collapses to the intro line and its two add buttons, stacked. Everything
+   else (headings, export, empty-state boxes) waits until there is at least
+   one song to organise. App.svelte sets the `fresh` class; visibility is
+   class-driven only (the [hidden] attribute would fight these rules). */
 .fresh-intro {
   display: none;
 }
@@ -1152,13 +1148,13 @@ button.window-pill::after {
 
 /* --- Room mode: the requests view (#86) ------------------------------------
    A device that arrived through a `?mode=request` link gets the "Request a
-   tune" button (the songbook), the (read-only) Requests pool, and a read-only look at the set:
-   Up next plus the collapsed played group, so the room can follow the night —
-   no camera, no reorder, no export, no header chrome. Like `fresh`, the
-   classes (`#session-view.room`, `body.room-mode`) are kept current by
-   App.svelte from view.svelte.ts, and visibility is class-driven only — the
-   [hidden] attribute would fight these rules. This hides a VIEW, not a
-   permission: anyone with the plain link has the full app (see #86). */
+   tune" button (the songbook), the read-only Requests pool, and a read-only
+   look at the set (Up next plus the collapsed played group), so the room can
+   follow the night: no camera, no reorder, no export, no header chrome. Like
+   `fresh`, App.svelte sets the classes (`#session-view.room`,
+   `body.room-mode`) from view.svelte.ts, and visibility is class-driven
+   only. This hides a VIEW, not a permission: anyone with the plain link has
+   the full app (see #86). */
 body.room-mode .share-toggle,
 body.room-mode .share-count-badge,
 body.room-mode .settings-toggle,
@@ -1194,15 +1190,15 @@ body.room-mode #edition-note {
   font-size: 0.85rem;
 }
 /* The name line is the only trace of the name: entered in
-   #room-request-sheet, shown via the hidden attribute by renderRoomIdentity().
-   The change button keeps its .link-button 44px hit area. */
+   #room-request-sheet, hidden by App.svelte while there is none. The change
+   button has the usual .link-button 44px hit area. */
 .room-identity {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
 }
 /* Nothing queued and nothing played: one line, not a box, so the top of the
-   page stays the add button's. */
+   page belongs to the add button. */
 #session-view.room #upnext.empty {
   display: flex;
   align-items: center;
@@ -1225,10 +1221,10 @@ body.room-mode #edition-note {
   text-align: left;
   font-size: 0.9rem;
 }
-/* Closed to requests (#86): the room loses the way in, not the view. The add
-   field and its feedback line go, the note takes their place, and the pool
-   below stays so the room can still see what's coming. Full-app devices are
-   untouched by all of this — an organiser adds whatever the switch says. */
+/* Closed to requests (#86): the room loses the way in, not the view. The
+   request view's top and the feedback line go, the note takes their place,
+   and the pool below remains so the room can see what's coming. Full-app
+   devices are untouched: an organiser adds whatever the switch says. */
 .requests-closed-note {
   display: none;
 }
@@ -1242,7 +1238,7 @@ body.room-mode #edition-note {
 }
 
 /* The "opening soon" state (#127): 30 minutes out from an auto window's open
-   time, room devices get this note in place of the closed one above — same
+   time, room devices get this note in place of the closed one above: same
    swap, one more state. */
 .requests-opening-soon-note {
   display: none;
@@ -1275,10 +1271,9 @@ body.room-mode #edition-note {
   padding: 0;
 }
 
-/* Collapsed groups: played songs above Up next, binned songs below Requests.
-   A single tappable summary line ("3 played") replaces a whole stacked section,
-   so the page never grows as the night's history does. Solid, not dashed —
-   dashed is reserved for empty-state placeholders, and this is a control. */
+/* Collapsed groups (RowGroup.svelte): played songs above Up next, binned songs
+   at the foot. Solid, not dashed: dashed is reserved for empty-state
+   placeholders, and this is a control. */
 .row-group {
   margin: 0 0 0.6rem;
 }
@@ -1291,7 +1286,7 @@ body.room-mode #edition-note {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  /* ≥44px tap target — house hard constraint. */
+  /* ≥44px tap target: house hard constraint. */
   min-height: 44px;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--border);
@@ -1335,7 +1330,7 @@ body.room-mode #edition-note {
 }
 /* The two lists carry different weight: Up next is the artifact (elevated
    cards), Requests is raw material (flat, bordered). The played/bin groups
-   follow the flat treatment — they're history, not the set. */
+   follow the flat treatment: they're history, not the set. */
 #requests-rows .row-card,
 .group-rows .row-card {
   box-shadow: none;
@@ -1344,7 +1339,7 @@ body.room-mode #edition-note {
 .group-rows .row-body {
   border: 1px solid var(--border);
 }
-/* The first card in Up next IS the next tune — the one thing the screen must
+/* The first card in Up next IS the next tune: the one thing the screen must
    answer at a glance. One accented card, so the edge is a signal. The tag is
    real text (Row.svelte). */
 .row-card.next-up {
@@ -1354,8 +1349,8 @@ body.room-mode #edition-note {
   border-left: 3px solid var(--accent);
 }
 .next-tag {
-  /* Its own micro-line above the title (prepended to .row-main): inline with
-     the title it forced mid-name wraps on anything longer than a word. */
+  /* Its own micro-line above the title (first in .row-main): inline with the
+     title it would force mid-name wraps on anything longer than a word. */
   display: inline-block;
   margin-bottom: 0.25rem;
   padding: 0.12rem 0.5rem;
@@ -1368,9 +1363,9 @@ body.room-mode #edition-note {
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
-/* Raised while this row's song-picker dropdown is open (ReviewRow.svelte). .row-body's z-index makes each card a stacking context, so
-   without this the following card paints over the open menu and swallows the
-   taps meant for it. */
+/* Raised while this row's song-picker dropdown is open (ReviewRow.svelte):
+   .row-body's z-index makes each card a stacking context, so without this the
+   following card paints over the open menu and swallows its taps. */
 .row-card.picker-open {
   position: relative;
   z-index: 5;
@@ -1386,8 +1381,8 @@ body.room-mode #edition-note {
   transition: transform 0.2s ease;
 }
 /* Working-list rows put the text and the action icons side by side (icons
-   vertically centred at the right edge) instead of stacking a tools row under
-   the text — that band of near-empty card was most of each row's height. */
+   vertically centred at the right edge) rather than stacking a tools row
+   under the text, a near-empty band that would make up most of each card. */
 .row-body.compact {
   display: flex;
   align-items: center;
@@ -1411,11 +1406,11 @@ body.room-mode #edition-note {
   user-select: none;
 }
 /* Status stripes are review-sheet furniture: that's where rows genuinely
-   differ (matched vs not, while being validated). On the working lists every
-   surviving row was green, so the stripe said nothing — those cards are
-   plain, and an unmatched row says "not in the songbook" in words instead.
-   Any matched review row is "green"; a page/title mismatch is flagged with a
-   ⚠️ icon (see .warn-icon) rather than a warning colour. */
+   differ (matched vs not, while being validated). On the working lists nearly
+   every row is matched, so a stripe would say nothing: those cards are plain,
+   and an unmatched row says "not in the songbook" in words. Any matched
+   review row is "green"; a page/title mismatch is flagged with a ⚠️ icon (see
+   .warn-icon) rather than a warning colour. */
 #review-rows .row-body {
   border-left: 5px solid var(--unmatched);
 }
@@ -1497,7 +1492,7 @@ body.room-mode #edition-note {
   /* The SVG takes its amber from here. */
   color: var(--review);
 }
-/* The icon glyph is tiny but it's the key "check this match" affordance —
+/* The icon glyph is tiny but it's the key "check this match" affordance:
    give it the full 44px hit area. */
 .warn-icon::before {
   content: "";
@@ -1517,8 +1512,8 @@ body.room-mode #edition-note {
   border-radius: 4px;
 }
 
-/* Full-screen photo viewer opened from a flagged row. Mobile-first: tapping
-   anywhere closes it, with a thumb-sized ✕ and a hint for discoverability. */
+/* Full-screen photo viewer (PhotoLightbox.svelte): tap anywhere to close,
+   with a thumb-sized ✕ and a hint for discoverability. */
 .photo-lightbox {
   position: fixed;
   inset: 0;
@@ -1612,8 +1607,8 @@ body.room-mode #edition-note {
   margin-top: 0.3rem;
   color: #666;
 }
-/* "Already in Up next" on a review row (#52): amber — a caution about the
-   match's destination, same register as the ⚠️ flag, not an error. */
+/* "Already in Up next" on a review row (#52): amber, a caution about the
+   match's destination in the ⚠️ flag's register, not an error. */
 .dup-note {
   font-size: 0.84rem;
   margin-top: 0.3rem;
@@ -1645,10 +1640,10 @@ body.room-mode #edition-note {
   margin-top: 0.5rem;
 }
 /* On the two working lists, right-align the action buttons so promote/demote
-   and played/bin fall into the same columns across both lists. (The drag handle
-   isn't in this row: it's a full-height strip down the left edge, see below.)
-   Group rows (played/bin) follow suit so their restore control
-   lands in the same column; review rows have their own tool set. */
+   and played/bin fall into the same columns across both lists (the drag
+   handle is a strip down the left edge, see below). Group rows follow suit so
+   their restore control lands in the same column; review rows have their own
+   tool set. */
 .row-card.swipeable .row-tools,
 .group-rows .row-tools {
   justify-content: flex-end;
@@ -1757,9 +1752,9 @@ body.room-mode #edition-note {
 }
 
 /* Collapsed correct-song picker on a confirmed review row. The expanded picker
-   is the flex:1 child that normally takes up the slack in a review row's tools;
-   with it collapsed to a button, auto margin does that job instead so the
-   actions still sit at the right edge like every other row's. */
+   is the flex:1 child that takes up the slack in a review row's tools; with
+   it collapsed to a button, auto margin does that job, so the actions sit at
+   the right edge like every other row's. */
 .row-tools .picker-toggle {
   margin-left: auto;
 }
@@ -1793,8 +1788,8 @@ body.room-mode #edition-note {
   touch-action: none;
   line-height: 1;
   /* No fill: the grip dots are the standard idiom and carry the affordance on
-     their own — a tinted strip on every card made the whole list heavier. The
-     tint returns on :active as grab feedback. */
+     their own, where a tinted strip on every card would weigh the list down.
+     The tint shows on :active as grab feedback. */
   background: none;
   border-radius: var(--radius) 0 0 var(--radius);
 }
@@ -1813,12 +1808,11 @@ body.room-mode #edition-note {
   outline-offset: -2px;
   border-radius: var(--radius) 0 0 var(--radius);
 }
-/* While dragging the row lifts off the list and tracks the finger 1:1 (the
-   translateY is set inline from JS). We raise it above its neighbours, drop a
-   pronounced shadow and nudge the scale so it reads as "picked up" the instant
-   it's grabbed — before it has moved far enough to swap places. transition:none
-   keeps it glued to the pointer instead of lagging behind. The gap it leaves in
-   the list is the drop target. */
+/* While dragging, the row lifts off the list and tracks the finger 1:1 (the
+   translateY is set inline by UpNextSection.svelte). Raised, with a pronounced
+   shadow, so it reads as "picked up" the instant it's grabbed, before it has
+   moved far enough to swap places. transition:none keeps it glued to the
+   pointer. The gap it leaves in the list is the drop target. */
 .row-card.dragging {
   position: relative;
   z-index: 5;
@@ -1830,8 +1824,7 @@ body.room-mode #edition-note {
   will-change: transform;
 }
 
-/* Custom song-picker combobox: the native <datalist> is unreliable on the
-   mobile browsers this app targets. */
+/* Custom song-picker combobox (SongPicker.svelte). */
 .song-picker {
   position: relative;
   flex: 1;
@@ -1916,11 +1909,11 @@ body.room-mode #edition-note {
 }
 
 /* --- The songbook (#songbook-sheet) --------------------------------------- */
-/* Taller than the other sheets (the list is the content) but still short of
-   both edges: the backdrop strip left above and below is the easy way out,
-   alongside Close. Chrome pinned, list scrolled, like What's new. A fixed
-   height, not a max: a centred sheet that shrank as results narrowed would
-   slide the search field out from under the typing thumb. */
+/* Taller than the other sheets (the list is the content) but short of both
+   edges: the backdrop strip above and below is the easy way out, alongside
+   Close. Chrome pinned, list scrolled, like What's new. A fixed height, not a
+   max: a centred sheet that shrank as results narrowed would slide the search
+   field out from under the typing thumb. */
 #songbook-sheet .sheet {
   display: flex;
   flex-direction: column;
@@ -2011,7 +2004,7 @@ body.room-mode #edition-note {
   gap: 0.5rem;
   flex-shrink: 0;
 }
-/* Played tonight: still listed (it's in the book), faded so the eye skips it. */
+/* Played tonight: listed (it's in the book), faded so the eye skips it. */
 .songbook-song.played .songbook-text,
 .songbook-song.played .page-badge {
   opacity: 0.5;

@@ -3,7 +3,7 @@
   and the session view, the sheets and the footnote. It draws the state
   modules (*.svelte.ts) and wires each part to the actions that change them
   (adds.ts, rows.ts, sharing.ts, routing.ts, ...). Which sheet or popover is
-  up is overlays.svelte.ts, bound to each part.
+  up is overlays.svelte.ts: each is mounted only while its flag is set.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -54,8 +54,8 @@
 
   const BRAND_TITLE = "🎶 Setlister";
 
-  // The one call into a part that stays imperative: a file input's click()
-  // has to run inside the tap itself.
+  // The one imperative call into a part: a file input's click() has to run
+  // inside the tap itself.
   let scanFlow: ScanFlow | undefined = $state();
   // Taps on these open the share panel, so they mustn't count as "outside".
   let shareToggle: HTMLButtonElement;
@@ -79,10 +79,9 @@
         ? `Sharing session ${session.id}, ${session.roster.length} people here. Tap for options`
         : `Sharing session ${session.id}. Tap for options`,
   );
-  // A session with no songs at all has exactly one job, get the board in, so
-  // the view collapses to the add buttons. An in-flight review means songs
-  // are coming. Never in room mode: the fresh state is a camera hero, and the
-  // room has no camera.
+  // No songs yet: the view collapses to the add buttons ("Fresh session" in
+  // style.css). An in-flight review means songs are coming. Never in room
+  // mode: the fresh state is a camera hero, and the room has no camera.
   const fresh = $derived(
     night.upNext.length === 0 &&
       night.requests.length === 0 &&
@@ -97,10 +96,9 @@
       : "",
   );
 
-  // A phone left holding the confirm sheet or the songbook when the request
-  // link shuts (a peer's switch, or the window's own close) would otherwise
-  // still offer taps that can't land. Closing is the same "no" as the
-  // backdrop.
+  // When the request link shuts (a peer's switch, or the window's own close),
+  // close the confirm sheet and the songbook so they don't offer taps that
+  // can't land. Same "no" as the backdrop.
   $effect(() => {
     if (view.room && !session.link.open) {
       overlays.request = null;
@@ -109,8 +107,8 @@
   });
 
   // The popovers close themselves on an outside tap or Escape. These taps
-  // stop propagating so they toggle rather than counting as outside, and
-  // never leave both header popovers open at once.
+  // stop propagating so they toggle rather than count as outside, and never
+  // leave both header popovers open.
   function onShareTap(event: MouseEvent) {
     event.stopPropagation();
     overlays.settings = false;
@@ -123,12 +121,11 @@
     overlays.settings = !overlays.settings;
   }
 
-  // What's new: announcement and archive are two jobs, so two doors. The
-  // banner exists only while the latest entry is unseen on this device and
-  // opens that entry alone; one tap retires it, so the home screen carries no
-  // permanent extra furniture. The footer link is the quiet, always-there
-  // door, and opens the whole history: someone who goes looking is browsing,
-  // not being told.
+  // What's new has two doors for two jobs. The banner shows only while the
+  // latest entry is unseen on this device, opens that entry alone, and one
+  // tap retires it, so home carries no permanent extra furniture. The footer
+  // link is the quiet, always-there door to the whole history: someone who
+  // goes looking is browsing, not being told.
   const latest = latestEntry<WhatsNewEntry>();
   let bannerSeen = $state(readWhatsNewSeen() === latest?.date);
 
@@ -186,12 +183,11 @@
   >
     <Icon name="settings" />
   </button>
-  <!-- The app is Setlister; the "whiteboard of wishes" is the physical board
-       it photographs: the phrase belongs to the scan ritual, not the app. In
-       a session the h1 is the night's date, between the share and settings
-       buttons that act on it, and the club's name sits over it, so a link
-       opened away from the pub (forwarded, reopened next day) still says
-       whose night this is. Hidden on home, where the brand is the title. -->
+  <!-- The "whiteboard of wishes" is the physical board the app photographs,
+       so the phrase belongs to the scan ritual, not the app's name. In a
+       session the h1 is the night's date, between the share and settings
+       buttons that act on it, under the club's name (see .club-name in
+       style.css; hidden on home, where the brand is the title). -->
   <div class="title-stack">
     <p class="club-name">Ukulele Tuesday</p>
     <h1>{inSession ? session.label : BRAND_TITLE}</h1>
@@ -210,11 +206,10 @@
       openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
     />
   {/if}
-  <!-- Settings survive a reload like the lists do: losing a toggle you set
-       last Tuesday reads as a bug at the club. Switching the book is a
-       cache-first re-scope like any other, saved at once so a cached switch
-       reaches the session's peers even if the background refresh never lands
-       (pub wifi). -->
+  <!-- Settings are saved with the lists: losing a toggle you set last
+       Tuesday reads as a bug at the club. Switching the book is a cache-first
+       re-scope, saved at once so a cached switch reaches the session's peers
+       even if the background refresh never lands (pub wifi). -->
   {#if overlays.settings}
     <SettingsPanel
       onclose={() => (overlays.settings = false)}
@@ -240,9 +235,9 @@
       class:requests-closed={!session.link.open && session.link.soonMinutes === null}
       class:requests-opening-soon={session.link.soonMinutes !== null}
     >
-      <!-- Session-level navigation: just the way out. You stop working on a set
-           by walking away from it, never by wiping it for everyone else in the
-           room (there is no "Start over"). -->
+      <!-- Session-level navigation is just the way out: you leave a set by
+           walking away from it, never by wiping it for everyone in the room
+           (see AGENTS.md). -->
       <div class="session-bar">
         <button id="back-home" class="link-button" type="button" onclick={leaveToHome}>
           <Icon name="back" /><span class="btn-label">All sessions</span>
@@ -275,15 +270,14 @@
             <Icon name="add" /><span class="btn-label">Request a tune</span>
           </button>
         </div>
-        <!-- The link's rules, up front instead of discovered by bumping into
+        <!-- The link's rules, up front rather than discovered by bumping into
              them, plus the name this phone requests under. -->
         <div class="room-rules">
           <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
           <span>One request a minute</span>
-          <!-- The name is asked for in the confirm sheet at the moment it's
-               needed. Once set it's fire-and-forget and this is its only trace;
-               "change" reopens that sheet, since the gear that normally holds
-               "Your name" is hidden in room mode. -->
+          <!-- The confirm sheet asks for the name when it's first needed; this
+               line is its only trace. "change" reopens that sheet, since the
+               gear that holds "Your name" is hidden in room mode. -->
           <span id="room-identity" class="room-identity" hidden={!roomName}>
             <span id="room-identity-text">As {roomName}</span>
             <button
@@ -298,10 +292,8 @@
         </div>
       </div>
 
-      <!-- A brand-new session has exactly one job, get songs in, so while both
-           lists are empty the view collapses to this line plus the two add
-           affordances. Shown purely by the fresh class, never the hidden
-           attribute, which would override the mode CSS. -->
+      <!-- Shown purely by the fresh class, never the hidden attribute, which
+           would override the mode CSS. -->
       <div class="fresh-intro">
         <h2>No tunes yet</h2>
         <p>Snap the whiteboard, or add tunes from the songbook.</p>
@@ -319,9 +311,8 @@
         onSnap={() => scanFlow?.pickPhoto()}
       />
 
-      <!-- The scan flow: #add (the photo, its scanning overlay, the post-scan
-           note and the error line) and #review (the rows the parser wasn't
-           sure about). -->
+      <!-- #add (the photo, its scanning overlay, the post-scan note and the
+           error line) and #review (the rows the parser wasn't sure about). -->
       <ScanFlow
         bind:this={scanFlow}
         scan={scanBoard}
@@ -336,8 +327,8 @@
       <BinGroup actions={rowActions} />
     </div>
   {:else}
-    <!-- Home: the club's session history, whenever the URL carries no
-         ?session= param: the app is a session picker until you pick one. -->
+    <!-- Home, whenever the URL carries no ?session= param: the app is a
+         session picker until you pick one. -->
     <section id="home">
       <!-- Above the heading, so it reads as an announcement, never as part of
            the pick-a-session flow below. -->
@@ -375,8 +366,7 @@
   {/if}
 </main>
 
-<!-- The sheets, each mounted only while it's up, so every opening starts
-     fresh. -->
+<!-- Each sheet is mounted only while it's up, so every opening starts fresh. -->
 {#if overlays.newSession}
   <NewSessionSheet onStart={startSession} onclose={() => (overlays.newSession = false)} />
 {/if}

@@ -8,7 +8,7 @@ export default defineConfig({
   // subpath (https://ukuleletuesday.github.io/setlister/).
   base: "./",
   server: {
-    // Port 3000 matches the existing CORS allowlist in utrequests/config.py.
+    // Port 3000 matches the CORS allowlist in utrequests/config.py.
     port: 3000,
   },
   build: {

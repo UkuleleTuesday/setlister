@@ -1,28 +1,24 @@
 // Lightweight "who's here" presence for shared sessions (#32).
 //
-// The durable session doc (`sessions/{id}`) has a CLOSED v1 schema that
-// firestore.rules locks down field-by-field, so presence deliberately lives
-// OUTSIDE it, in a sibling subcollection: `sessions/{id}/presence/{clientId}`.
-// Each connected browser owns exactly one presence doc (keyed by a stable
-// per-device clientId), so a reload reuses the same doc instead of spawning a
-// ghost. The doc is tiny and ephemeral:
+// The session doc (`sessions/{id}`) has a CLOSED schema that firestore.rules
+// locks down field by field, so presence lives OUTSIDE it, in a subcollection:
+// `sessions/{id}/presence/{clientId}`. Each browser owns one presence doc,
+// keyed by a stable per-device clientId, so a reload reuses it instead of
+// spawning a ghost:
 //   { name: string, updatedAt: timestamp, expiresAt: timestamp }
 //
-// Liveness is a heartbeat: every HEARTBEAT_MS the client rewrites its own doc
-// with a fresh server timestamp. Readers treat a peer as "here now" only while
-// its updatedAt is within ONLINE_WINDOW_MS, so a client that closes the tab
-// without cleanly leaving fades from every other roster after that window. The
-// window is deliberately generous (minutes, not seconds): this is a
-// glance-at-it-occasionally club setlist, so a peer who steps away shouldn't
-// blink out just because they haven't touched their phone recently — the
-// best-effort delete on leave / pagehide still removes them promptly when they
-// actually go. The expiresAt lets Firestore's TTL sweep the abandoned doc from
-// storage later (belt-and-braces on top of the client-side staleness filter).
+// Liveness is a heartbeat: every HEARTBEAT_MS the client rewrites its doc with
+// a fresh server timestamp, and readers count a peer as "here now" only while
+// its updatedAt is within ONLINE_WINDOW_MS. The window is deliberately
+// generous (minutes, not seconds): this is a glance-at-it-occasionally club
+// setlist, so a peer who hasn't touched their phone lately shouldn't blink
+// out; the best-effort delete on leave / pagehide removes them promptly when
+// they actually go. expiresAt lets Firestore's TTL sweep abandoned docs
+// (belt-and-braces on top of the staleness filter).
 //
-// Firebase loads lazily through firebase.ts — importing this module does NOT
-// pull the Firestore SDK; only startPresence() does, and only inside an already
-// active session. Kept UI-free: live.ts hands onRoster()'s roster to the
-// share panel.
+// Firebase loads lazily through firebase.ts: importing this module doesn't
+// pull the Firestore SDK, only startPresence() does, inside an active
+// session. UI-free: live.ts copies onRoster()'s roster into session.roster.
 
 import type { Firestore, QuerySnapshot, Unsubscribe } from "firebase/firestore";
 import { type Fx, getFirestore } from "./firebase.js";
@@ -42,12 +38,11 @@ const HEARTBEAT_MS = 2 * 60 * 1000;
 
 // A peer is "here now" while its last heartbeat is this recent. Generous by
 // design (see the module header): well above HEARTBEAT_MS so a missed beat or
-// two — a locked phone, a flaky connection — doesn't drop someone who's still
-// around.
+// two (a locked phone, a flaky connection) doesn't drop someone who's around.
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 // Cap the stored doc's lifetime so Firestore TTL can reap it if a client
-// vanishes without deleting. Kept above ONLINE_WINDOW_MS so storage cleanup
+// vanishes without deleting. Above ONLINE_WINDOW_MS so storage cleanup
 // never retires a doc a peer would still count as online, and well under the
 // 1h cap in firestore.rules.
 const PRESENCE_TTL_MS = 10 * 60 * 1000;
@@ -294,8 +289,7 @@ function toRoster(snap: QuerySnapshot): RosterEntry[] {
 }
 
 // Join the session's presence: write our first heartbeat, listen to the roster,
-// and start the heartbeat loop. Idempotent-ish — call stopPresence() first if a
-// session is already active.
+// and start the heartbeat loop. Stops any presence already running first.
 export async function startPresence(id: string, nameFn: () => string): Promise<void> {
   await stopPresence();
   sessionId = id;
@@ -315,7 +309,7 @@ export async function startPresence(id: string, nameFn: () => string): Promise<v
     colRef,
     (snap) => emitRoster(toRoster(snap)),
     () => {
-      /* transient listen error — heartbeats keep flowing, listener retries */
+      /* transient listen error: heartbeats keep flowing, listener retries */
     },
   );
 
@@ -350,8 +344,8 @@ export async function stopPresence(): Promise<void> {
     const { db, fx } = await getFirestore();
     await fx.deleteDoc(fx.doc(db, "sessions", leavingId, "presence", getClientId()));
   } catch {
-    // Couldn't delete (offline, etc.) — the ONLINE_WINDOW_MS staleness filter
-    // and the TTL both still retire the doc.
+    // Couldn't delete (offline, etc.): the ONLINE_WINDOW_MS staleness filter
+    // and the TTL retire the doc anyway.
   }
 }
 

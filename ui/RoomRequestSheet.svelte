@@ -2,10 +2,9 @@
   Both modes (#86, #88): the sheet every add by name goes through, doing two
   jobs at the moment a song is picked. It CONFIRMS the request (a row in the
   pool is in for everyone, and a mis-tap in a dark pub shouldn't land a tune
-  unasked) and, on the first request, asks the name that will go on it. The
-  name field is dropped once there is a name, so a regular is one tap from
-  adding. Also reached from "change" with no request attached: then it's
-  just a rename.
+  unasked) and, while there's no name yet, asks the one that will go on it,
+  so a regular is one tap from adding. Also reached from "change" with no
+  request attached: then it's just a rename.
 
   It only gathers and checks the answer: committing the name and adding the
   row (with its duplicate guard, the open/closed brake and the cool-down)
@@ -48,8 +47,6 @@
   let comment = $state("");
   let error = $state("");
 
-  // One sheet, doing as little as the situation needs: it always confirms the
-  // request, and adds the name field only while there's no name to put on it.
   const askName = $derived(!hasName || !entry);
   const title = $derived(entry ? (hasName ? "Add this request?" : "Who’s asking?") : "Your name");
 
@@ -60,9 +57,8 @@
   // puts the thumb on the button instead.
   onMount(() => (askName ? nameInput : confirmButton)?.focus());
 
-  // The name is committed on confirm, not per keystroke, so an abandoned
-  // sheet leaves the saved name untouched. The request goes in with the same
-  // tap, so it can't be lost between the two.
+  // The answer goes to adds.ts's confirmRequest, which commits the name and
+  // the request together.
   function confirm() {
     if (askName && !name.trim()) {
       error = "Add a name so the room knows whose request it is.";
@@ -83,8 +79,6 @@
      doesn't happen. -->
 <Sheet id="room-request-sheet" labelledby="room-request-title" {onclose}>
   <h2 id="room-request-title">{title}</h2>
-  <!-- The song is what's being confirmed, so it reads as the sheet's
-       subject rather than as a caption. -->
   <p id="room-request-song" class="room-request-song" hidden={!entry}>{entry?.display ?? ""}</p>
   <div id="room-request-name-field" hidden={!askName}>
     <label class="field">

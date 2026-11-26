@@ -33,10 +33,10 @@ class Catalogue {
 
 export const catalogue = new Catalogue();
 
-// Which edition the LOADED entries belong to. Distinct from night.edition: on
-// joining a session, night.edition names the session's book the instant the
-// doc arrives, while the entries in memory are still whatever this device
-// last searched. This is how a re-scope notices the gap.
+// Which edition the LOADED entries belong to. Distinct from night.edition,
+// which names the session's book the instant its doc arrives, while the
+// entries in memory are whatever this device last searched. This is how a
+// re-scope notices the gap.
 let loadedEditionId: string | null = null;
 
 // Hydrate from the cached copy of ONE edition. Returns whether it hit, so
@@ -87,7 +87,7 @@ export async function loadEditions() {
     const editions = parseEditions(await res.json());
     if (!editions.length) return;
     catalogue.editions = editions;
-    // Point the select at the session's book, now the listing can name it.
+    // Point the select at the session's book, which the listing can name.
     catalogue.editionId = night.edition?.id || "current";
   } catch {
     /* keep the hardcoded "current" options */
@@ -98,7 +98,7 @@ export async function loadEditions() {
 // leave two fetches in flight, and the slower (stale) one must not win.
 let loadSeq = 0;
 // The edition the latest fetch asked for, and when: what a staleness re-check
-// re-fetches. Not loadedEditionId, which lags a switch still in flight, and
+// re-fetches. Not loadedEditionId: it lags a switch in flight, and
 // re-fetching it would supersede the switch.
 let loadEditionId: string | null = null;
 let loadAttemptAt = 0;

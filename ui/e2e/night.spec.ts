@@ -1,7 +1,7 @@
 // The organiser's night, in the full app: start a session from the history,
 // add tunes by name, run the set (promote, mark played) and bin and restore a
-// request. Selectors are the app's own ids and accessible names, so the
-// Svelte ports (#158) have to keep them.
+// request. Selectors are the app's own ids and accessible names, so a
+// refactor has to preserve them.
 import { expect, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 

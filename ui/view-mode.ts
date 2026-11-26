@@ -1,24 +1,22 @@
-// Room mode (#86, phase 1): the room's view of a session — add and watch
-// requests, follow the set read-only — opened from a shared `?mode=request`
-// link. It is a view, not a permission — firestore.rules
-// grants any client with the session id full write access either way — so the
-// job here is only to decide which view a device gets, and to keep that
-// decision sticky: a phone that arrived through the room link must stay in the
-// room view across reloads and plain-link opens, never silently graduating to
-// the full app (accidental reordering is the failure mode #86 worries about).
-// The one way back out is a deliberate `?mode=full` link — no in-app escape.
+// Room mode (#86): the room's view of a session (add and watch requests,
+// follow the set read-only), opened from a shared `?mode=request` link. It is
+// a view, not a permission: firestore.rules grants any client with the
+// session id full write access either way. So the job here is only to decide
+// which view a device gets, and to keep that decision sticky: a phone that
+// arrived through the room link stays in the room view across reloads and
+// plain-link opens, never silently graduating to the full app (accidental
+// reordering is the failure mode #86 worries about). The one way out is a
+// deliberate `?mode=full` link; there is no in-app escape.
 //
 // Pure decision logic lives here (routing.ts can't run under node, so this
 // is the testable seam, like dupes.ts and session-id.ts).
 
-// The sticky flag's localStorage key. Its own key, outside setlister.v1, so
-// persist()/restore()'s schema stays untouched (the WHATS_NEW_SEEN_KEY
-// precedent).
 import type { RowSource } from "./types.js";
 
 /** Which view a device gets: the full app or the room's request view. */
 export type ViewMode = "full" | "room";
 
+// The sticky flag. Its own key, outside setlister.v1 (the saved night).
 export const ROOM_MODE_KEY = "setlister.roomMode.v1";
 
 // What view this device gets, from the URL and the sticky flag. Returns
@@ -38,11 +36,11 @@ export function resolveMode(
 
 // Every shareable session URL funnels through here so the `mode` param is
 // always deliberate: the room link sets `request`, the full-app link sets
-// `full` — being handed the full-app link IS the deliberate way out, so it
+// `full`. Being handed the full-app link IS the deliberate way out, so it
 // must override a clicker's sticky room flag rather than fall through to it
-// (and a room-mode sharer can't propagate their own mode by accident either,
-// since location.href's param is always overwritten).
-// Built on the given href so the GitHub Pages subpath survives.
+// (and since location.href's param is always overwritten, a room-mode sharer
+// can't pass on their own mode by accident). Built on the given href so the
+// GitHub Pages subpath survives.
 export function buildSessionUrl(href: string, id: string, { room = false } = {}): string {
   const url = new URL(href);
   url.searchParams.set("session", id);
@@ -73,6 +71,6 @@ export function writeStoredMode(value: string | null): void {
     if (value) localStorage.setItem(ROOM_MODE_KEY, value);
     else localStorage.removeItem(ROOM_MODE_KEY);
   } catch {
-    /* storage blocked — non-fatal */
+    /* storage blocked: non-fatal */
   }
 }

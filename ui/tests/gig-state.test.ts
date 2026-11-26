@@ -2,7 +2,7 @@
 //
 // Two things are load bearing beyond "the flag flips": un-marking must REMOVE
 // the key (an `undefined` value makes Firestore's updateDoc throw, since
-// serialize() hands the live row to it), and a re-mark must record the new
+// serialize() hands the row to it), and a re-mark must record the new
 // moment, not keep the old one.
 
 import { describe, expect, it } from "vitest";

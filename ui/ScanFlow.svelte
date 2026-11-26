@@ -75,8 +75,7 @@
     "Nearly there…",
   ];
   const STATUS_STEP_MS = 4000;
-  // Post-scan feedback: long enough to read across the room, gone before it
-  // reads as a permanent fixture.
+  // Post-scan feedback, timed like notices.requests (notices.svelte.ts).
   const RESULT_MS = 8000;
 
   let phase = $state<Phase>({ kind: "idle" });
@@ -137,9 +136,9 @@
   async function onPhoto() {
     const file = photoInput?.files?.[0];
     if (!file) return;
-    // A fresh scan replaces any photo still up (a failed one): release its
-    // object URL before minting a new one. Kept while reviewing, so a flagged
-    // row can reopen it to eyeball a match against the handwriting.
+    // A fresh scan replaces a failed scan's photo: release its object URL
+    // before minting a new one. A reviewing photo isn't released here: a
+    // flagged row can reopen it to eyeball a match against the handwriting.
     if (phase.kind === "failed") URL.revokeObjectURL(phase.imageUrl);
     const url = URL.createObjectURL(file);
     phase = { kind: "scanning", imageUrl: url };

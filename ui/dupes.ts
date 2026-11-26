@@ -1,18 +1,18 @@
 // Duplicate-request detection (#52).
 //
-// The same song can arrive twice — a re-scan of the board, a manual add on top
-// of a scan, two people writing it up — and with confident scan rows skipping
-// review (#80) there is no human checkpoint left to catch it. These helpers
-// answer "is this song already on the night's lists?" so the add paths in
-// an add can skip or flag the copy instead of silently doubling it.
+// The same song can arrive twice (a re-scan of the board, a manual add on top
+// of a scan, two people writing it up), and confident scan rows skip review
+// (#80), so no human checks for it. These helpers answer "is this song
+// already on the night's lists?" so the add paths can skip or flag the copy
+// instead of silently doubling it.
 //
 // Identity: a catalogue match's server-minted `id` (a slug of its display
-// string — stable within an edition) when present, else the normalized
-// display/raw title, so legacy rows and unmatched rows still compare.
+// string, stable within an edition) when present, else the normalized
+// display/raw title, so legacy rows and unmatched rows compare too.
 //
 // What counts as "already there" (decided in #52): rows sitting in Up next or
 // Requests, and PLAYED rows (re-requesting tonight's tune is #81's no). BINNED
-// rows don't block — binning meant "not this one", and a fresh, genuine
+// rows don't block: binning means "not this one", and a fresh, genuine
 // request later deserves a fresh row.
 //
 // Pure module, no DOM: exported for ui/tests (same precedent as sync.ts).
@@ -28,7 +28,7 @@ export interface Duplicate {
 }
 
 /**
- * Accent-insensitive lowercase form, mirroring the backend's matcher.py — so
+ * Accent-insensitive lowercase form, mirroring the backend's matcher.py, so
  * "sara" equals "Sarà" here just like it does in search.
  */
 export function normalizeText(s: string): string {

@@ -133,7 +133,7 @@ test("review: remove and restore, correct a song, check the photo", async ({
   await picker.fill("jol");
   await page.getByRole("option", { name: /Jolene - Dolly Parton/ }).tap();
   await expect(rows.nth(1).locator(".match-title")).toHaveText("Jolene - Dolly Parton");
-  // (It keeps the parser's confidence, as it always has: "Manually selected (50%)".)
+  // (The parser's confidence is shown with it: "Manually selected (50%)".)
   await expect(rows.nth(1).locator(".explanation")).toHaveText(/^Manually selected/);
   // Confirmed now, so the picker folds back behind "Change song".
   await expect(rows.nth(1).getByRole("button", { name: "Change song for “Jolly”" })).toBeVisible();

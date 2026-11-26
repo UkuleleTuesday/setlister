@@ -14,9 +14,8 @@ export const night = $state({
   votes: {} as Votes,
   edition: null as Edition | null,
   // The name the player typed, or "": the raw setting, not the identity.
-  // Every surface that shows a person resolves it through
-  // presence.displayName(), which falls back to this device's anonymous
-  // name, so an unnamed player reads the same everywhere.
+  // Surfaces that show a person resolve it through presence.displayName(),
+  // which falls back to this device's anonymous name.
   name: "",
 });
 

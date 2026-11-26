@@ -1,16 +1,15 @@
 <!--
-  What's new: release notes from whats-new.json, in the same centred sheet
-  idiom as starting a night. Two ways in, two amounts of news: the home banner
-  opens it on the latest entry alone (an announcement), the footer link on the
-  full history (an archive). App.svelte owns both doors and the "seen"
-  bookkeeping; this component only shows the entries it's given.
+  What's new: release notes from whats-new.json. App.svelte owns both doors
+  (the home banner opens the latest entry alone, the footer link the full
+  history) and the "seen" bookkeeping; this only shows the entries it's
+  given.
 
-  This is the one sheet you read rather than fill in, and the only one that
-  can run several screens long, so it carries a real Close button instead of
-  the "tap outside" hint: the way out has to be a proper tap target under the
-  thumb, not a strip of backdrop the archive is busy squeezing. Backdrop and
-  Escape still close it (Sheet.svelte); they're just not the only way. Each
-  opening mounts it afresh, so long archives always open at the top.
+  A sheet you read rather than fill in, and one that can run several screens
+  long, so it carries a real Close button instead of the "tap outside" hint:
+  the way out has to be a proper tap target under the thumb, not a strip of
+  backdrop the archive is busy squeezing. Backdrop and Escape close it too
+  (Sheet.svelte). Each opening mounts it afresh, so long archives open at the
+  top.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -28,8 +27,7 @@
     onclose: () => void;
   } = $props();
 
-  // Labels in the viewer's locale; the stored date stays ISO (see
-  // whats-new.ts).
+  // Labels in the viewer's locale; the stored date is ISO (see whats-new.ts).
   const blocks = $derived(entries.map((entry) => ({ entry, label: whatsNewDateLabel(entry) })));
 </script>
 

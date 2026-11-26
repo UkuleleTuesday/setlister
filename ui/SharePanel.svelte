@@ -4,10 +4,8 @@
   here, and the two links.
 
   It renders the session as sync last reported it (session.svelte.ts) and
-  hands every change back through the props. Session metadata (listed,
-  requestsOpen, the window) is written by sharing.ts through sync.ts's own
-  metadata writes, never the debounced row push (see the sync.ts header); the
-  panel only owns the optimistic-then-revert dance around them.
+  hands every change back through the props; sharing.ts writes the metadata.
+  The panel only owns the optimistic-then-revert dance around those writes.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -61,11 +59,11 @@
   let openTimeInput: HTMLInputElement | undefined = $state();
   let closeTimeInput: HTMLInputElement | undefined = $state();
 
-  // The window fields show the CURRENTLY RESOLVED window (an explicit
-  // override if set, else the smart default) so they never look empty, and
-  // "Use default" shows only on a side that has an override to clear. All
-  // hidden outside auto mode: a forced open/closed makes the window inert,
-  // and live-looking fields for a schedule that isn't in effect would lie.
+  // The window fields show the RESOLVED window (an override if set, else the
+  // smart default) so they never look empty, and "Use default" shows only on
+  // a side that has an override to clear. All hidden outside auto mode: a
+  // forced open/closed makes the window inert, and live-looking fields for a
+  // schedule that isn't in effect would lie.
   const auto = $derived(session.meta.requestsOpen === null);
   const resolved = $derived(session.link.window);
   const openTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.opensAt) : "");
@@ -108,9 +106,8 @@
     }
   }
 
-  // Each side writes independently: touching Opens never disturbs whatever
-  // Closes currently resolves to, and vice versa. Both current values always
-  // go out, so one save can't silently clear the other side. An empty field
+  // Each side writes independently: the other side's stored override goes
+  // out with it, so one save can't silently clear the other. An empty field
   // (a cleared picker, or "Use default") clears that side's override.
   async function changeWindow(side: "open" | "close") {
     const opensAt =
@@ -159,8 +156,7 @@
 
 <svelte:document onclick={onDocumentClick} onkeydown={onKeydown} />
 
-<!-- In-session popover (mirrors the settings panel, anchored top-left). Only
-     shown once a session is active. -->
+<!-- Anchored top-left under the share button, mirroring the settings panel. -->
 <div
   id="share-panel"
   class="share-panel"
@@ -177,9 +173,9 @@
   </p>
   <p class="note">Anyone with the link can view and edit these lists live.</p>
   <!-- Whether this night appears in the club's session list. NOT a privacy
-       control: the link works either way (see firestore.rules), which is
-       what the note underneath is for: "Shared" names the listed state, not
-       a different level of access. -->
+       control: the link works either way (see firestore.rules), as the note
+       underneath says. "Shared" names the listed state, not a level of
+       access. -->
   <label class="field">
     <span>Visibility</span>
     <select
@@ -193,11 +189,11 @@
     </select>
   </label>
   <p class="note">Anyone with the link can open it either way.</p>
-  <!-- Whether the request link below still takes tunes (#86). Named after
-       that LINK, not after "requests", and its states describe what the link
-       does: "Requests: Closed" above a button offering to share a request
-       link read as a contradiction, and to an organiser as the club having
-       stopped taking requests at all, when the whiteboard carries on. -->
+  <!-- Whether the request link below takes tunes (#86). Named after that
+       LINK, not "requests", with states that say what the link does:
+       "Requests: Closed" above a "Share request link" button would read as a
+       contradiction, or as the club having stopped taking requests while the
+       whiteboard carries on. -->
   <label class="field" bind:this={requestsField}>
     <span>Request link</span>
     <select
@@ -257,11 +253,8 @@
     Use default
   </button>
   <Presence roster={session.id ? session.roster : []} />
-  <!-- The room link (#86) opens the room view: it's what goes to the club's
-       WhatsApp group, distinct from the full link. This note says what that
-       link does RIGHT NOW: a fixed promise that people can add tunes would be
-       a lie for half the switch's states, and it's also where the organiser
-       is told the whiteboard is unaffected. -->
+  <!-- What the room link (#86, for the club's WhatsApp group) does right
+       now: see requestNote in request-window.ts. -->
   <p class="note" id="share-request-note">
     {requestNote(session.meta.requestsOpen, session.link)}
   </p>

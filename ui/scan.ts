@@ -63,8 +63,8 @@ export interface ScanPlan {
 
 /**
  * Confident matches skip the queue (#80): on a mostly-legible board,
- * reviewing rows that need no review was the bulk of the tap work. Only the
- * flagged rows (needs_review / conflict / unmatched) go to review;
+ * reviewing rows that need no review would be the bulk of the tap work. Only
+ * the flagged rows (needs_review / conflict / unmatched) go to review;
  * crossed-out-but-confirmed rows auto-add with their flag.
  *
  * Duplicate gate (#52): a re-scan must not double the night, so confident

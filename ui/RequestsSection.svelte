@@ -1,9 +1,7 @@
 <!--
   "Requests": the incoming pool. Everything added by name or snapped off the
   board lands here first, then gets promoted up into the set. Most wanted
-  first (#83), for display only: the stored order stays arrival order,
-  because rewriting that whole-array last-writer-wins field on every vote
-  would fight every concurrent edit in the room.
+  first (#83), for display only (see sortForDisplay in votes.ts).
 
   It renders the night (night.svelte.ts) and hands every change back through
   `actions`. The camera and songbook buttons open the scan flow and the
@@ -34,8 +32,6 @@
   } = $props();
 
   const visible = $derived(night.requests.filter((e) => !e.binned));
-  // The sort is stable, so a tie keeps arrival order rather than reshuffling
-  // the pool under the MC's thumb.
   const sorted = $derived(sortForDisplay(visible, night.votes));
 
   // The empty note mentions snapping the board, but the room has no camera:
@@ -81,10 +77,10 @@
       <Icon name="camera" /><span class="btn-label">Snap the board</span>
     </button>
   </div>
-  <!-- What replaces the add button once the request link closes (#86). Room
+  <!-- Takes the add button's place once the request link closes (#86). Room
        mode only, and shown purely by the mode CSS (no hidden attribute) so a
        room device that loads a closed session never flashes a control it
-       can't use. The pool below stays: the room still gets to watch. -->
+       can't use. The pool below remains: the room gets to watch. -->
   <p id="requests-closed-note" class="requests-closed-note note">
     Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
   </p>

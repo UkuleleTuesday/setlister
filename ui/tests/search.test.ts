@@ -1,4 +1,4 @@
-// Songbook search: what the type-ahead and the room's songbook sheet find. The
+// Songbook search: what the review picker and the songbook sheet find. The
 // decisions under test: any-order accent-free words, a bare number finds the
 // page, and a shallow stable ranking (page, title prefix, rest; book order
 // within each).

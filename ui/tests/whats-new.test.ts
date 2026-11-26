@@ -12,7 +12,7 @@ import {
   whatsNewDateLabel,
 } from "../whats-new.js";
 
-// Tuesday 4 August 2026, 21:00 — same pinned clock as session-index.test.js.
+// Tuesday 4 August 2026, 21:00: same pinned clock as session-index.test.ts.
 const NOW = new Date(2026, 7, 4, 21, 0);
 
 describe("entryDate", () => {

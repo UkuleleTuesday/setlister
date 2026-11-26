@@ -8,7 +8,7 @@
 // (sessionTimeLabel), never a stored formatted string.
 //
 // Un-marking DELETES the key rather than setting undefined: serialize() hands
-// the live row object straight to updateDoc, and the Firestore SDK rejects
+// the row object straight to updateDoc, and the Firestore SDK rejects
 // undefined values. Deleting also keeps an un-marked row shaped exactly like a
 // row that was never marked, which is what every legacy row looks like.
 //

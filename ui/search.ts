@@ -1,5 +1,5 @@
-// Songbook search, shared by the inline type-ahead and the room's songbook
-// sheet so the two can't disagree about what "42" or "let" finds.
+// Songbook search, shared by the review sheet's type-ahead (SongPicker) and
+// the songbook sheet so the two can't disagree about what "42" or "let" finds.
 //
 // - Every word must appear in title + artist, any order, accent-insensitive
 //   (normalizeText mirrors the backend matcher, so "sara" finds "Sarà").

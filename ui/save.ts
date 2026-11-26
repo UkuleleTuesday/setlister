@@ -12,7 +12,7 @@ export function persist() {
   writeSavedState({
     ...lists,
     name: night.name,
-    // So a reload silently rejoins (main.ts routes to it).
+    // Never read back: a reload rejoins from the URL's ?session= (main.ts).
     sessionId: sync.getSessionId(),
     settings: settingsSnapshot(),
   });
