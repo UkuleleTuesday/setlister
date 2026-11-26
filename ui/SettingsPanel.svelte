@@ -91,8 +91,7 @@
       id="player-name"
       placeholder="e.g. Alex"
       autocomplete="name"
-      value={night.name}
-      oninput={(event) => onName(event.currentTarget.value)}
+      bind:value={() => night.name, onName}
     />
   </label>
   <!-- The name shows in three places a player might not expect: song
@@ -103,11 +102,7 @@
        new-session sheet owns the choice there). -->
   <label class="field" id="edition-setting" hidden={view.page === "home"}>
     <span>Songbook edition</span>
-    <select
-      id="edition"
-      value={catalogue.editionId}
-      onchange={(event) => onEdition(event.currentTarget.value)}
-    >
+    <select id="edition" bind:value={() => catalogue.editionId, onEdition}>
       {#each editionOptions as option (option.id)}
         <option value={option.id}>{option.label}</option>
       {/each}
@@ -118,8 +113,7 @@
     <input
       type="checkbox"
       id="show-suggestions"
-      checked={settings.showSuggestions}
-      onchange={(event) => set("showSuggestions", event.currentTarget.checked)}
+      bind:checked={() => settings.showSuggestions, (v) => set("showSuggestions", v)}
     />
     <span>Show alternative suggestions</span>
   </label>
@@ -127,8 +121,7 @@
     <input
       type="checkbox"
       id="include-crossed"
-      checked={settings.includeCrossed}
-      onchange={(event) => set("includeCrossed", event.currentTarget.checked)}
+      bind:checked={() => settings.includeCrossed, (v) => set("includeCrossed", v)}
     />
     <span>Include crossed-out rows in export</span>
   </label>
@@ -185,11 +178,7 @@
     <summary>Advanced</summary>
     <label class="field">
       <span>Model</span>
-      <select
-        id="model"
-        value={settings.model}
-        onchange={(event) => set("model", event.currentTarget.value)}
-      >
+      <select id="model" bind:value={() => settings.model, (v) => set("model", v)}>
         <option value="">default (gemini-2.5-flash)</option>
         <option value="gemini-2.5-flash">gemini-2.5-flash</option>
         <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
@@ -199,8 +188,7 @@
       <input
         type="checkbox"
         id="disable-thinking"
-        checked={settings.disableThinking}
-        onchange={(event) => set("disableThinking", event.currentTarget.checked)}
+        bind:checked={() => settings.disableThinking, (v) => set("disableThinking", v)}
       />
       <span>Disable model thinking (faster)</span>
     </label>
@@ -208,11 +196,12 @@
       <input
         type="checkbox"
         id="send-catalogue"
-        checked={settings.sendCatalogue}
-        onchange={(event) => set("sendCatalogue", event.currentTarget.checked)}
+        bind:checked={() => settings.sendCatalogue, (v) => set("sendCatalogue", v)}
       />
       <span>Send songbook to model (better handwriting reads)</span>
     </label>
+    <!-- Not bind:value: a number input would hand back a number, on every
+         keystroke; the setting is a string, saved on commit. -->
     <label class="field">
       <span>Max image edge (px)</span>
       <input
