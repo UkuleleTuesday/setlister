@@ -26,7 +26,7 @@ The UI is mobile-first.
 
 - Keep runtime deps minimal and justified.
 - **User-visible changes are capture via the "What's New" feature, in the same PR.** The in-app
-  changelog. Shape enforced by `ui/tests/whats-new.test.js`.
+  changelog.
   - One short sentence per item, for players at the club, not commit readers.
     Skip refactors, fixes to unreleased work, and internal tooling.
   - Dates are ISO `YYYY-MM-DD`; the label renders via `Intl` at view time. Never
