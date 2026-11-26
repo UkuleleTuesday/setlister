@@ -55,16 +55,15 @@ whoever started them, plus a button to start tonight's. A session is shared and
 live — everyone in the room edits the same lists and can see who else is
 connected — and stays in the history afterwards.
 
-Nights name themselves. A session is labelled from its date — *Tonight*,
-*Tomorrow*, *Yesterday*, *Thursday*, *Next Friday*, *28 July*,
-*Thursday 16 December 2025* —
-rendered in each viewer's own locale rather than frozen into a stored string,
-so the label stays true as it ages. There are no custom titles: the date IS the
-identity. Starting a session asks for its date (prefilled with today), so a
-missed night can be backfilled and next Tuesday's set prepped in advance.
+Nights name themselves. A session is labelled from its date (*Tonight*,
+*Tomorrow*, *Yesterday*, *Thursday*, *Next Friday*, *28 July*, *Thursday 16
+December 2025*), rendered in each viewer's locale at view time, so the label
+stays true as it ages. There are no custom titles: the date IS the identity.
+Starting a session asks for its date (prefilled with today), so a missed night
+can be backfilled and next Tuesday's set prepped in advance.
 
 Visibility is **Shared** or **Unlisted**. Unlisted keeps a night out of the
-club's list — the share link still opens it, so this is discoverability, not
+club's list, but the share link opens it, so this is discoverability, not
 privacy. There is no private mode: every session is readable by anyone holding
 its id.
 
@@ -76,17 +75,16 @@ songbook, add them with their name on them, and follow the running order — Up
 next and the played count. The songbook opens as the whole book in page order
 (search by title, artist or page), each tune tagged if it's played, queued or
 requested tonight; tapping one already asked for gives it a thumbs up instead.
-That thumbs up is the only mark a room phone leaves on the set: anything still
-to be played can be wanted, on either list, but nothing is reordered, ticked off
-or binned from there. A phone that arrived through it stays in that
+That thumbs up is the only mark a room phone leaves on the set: any unplayed
+tune on either list can be wanted, but nothing is reordered, ticked off or
+binned from there. A phone that arrived through the request link stays in that
 view across reloads. Each request is confirmed before it lands, and one phone
 waits a minute between requests, so a single keen person can't fill the night.
 
 The share panel switches that link between **Taking requests** and **View
-only**. On view only the pool is still there to watch, it just stops accepting
-tunes and points people back at the whiteboard. Like Unlisted, this is a view
-rather than a permission: anyone holding the plain share link has the full app
-either way.
+only**. View only shows the pool but accepts no tunes, and points people at the
+whiteboard. Like Unlisted, this is a view rather than a permission: anyone
+holding the plain share link has the full app either way.
 
 ## Mobile-first
 
@@ -101,10 +99,10 @@ incidental case.
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+, plus Node for the
 UI (CI uses 22).
 
-Gemini runs through Vertex AI over Application Default Credentials — no API
-key needed. Authenticate once with `gcloud auth application-default login`
-(uses the shared `songbook-generator` GCP project, same as `tabby` and
-songbook-generator).
+Gemini runs through Vertex AI over Application Default Credentials, so no API
+key is needed: authenticate once with `gcloud auth application-default login`.
+It uses the shared `songbook-generator` GCP project, like `tabby` and
+songbook-generator.
 
 ```bash
 uv sync
@@ -125,9 +123,8 @@ cd ui && npm ci && npm run dev                             # UI on :3000
 npx --yes firebase-tools emulators:start --only firestore  # Firestore on :8081
 ```
 
-On localhost the UI always talks to the emulator, never production Firestore.
-Since everything happens inside a session, the emulator is required rather than
-optional.
+On localhost the UI talks to the emulator, never production Firestore. The
+emulator is required: everything happens inside a session.
 
 ## Development
 
@@ -143,15 +140,15 @@ uv run ruff format .
 The `ui/` app is [Svelte 5](https://svelte.dev/) and strict TypeScript, bundled
 by [Vite](https://vite.dev/) and managed with npm. `index.html` is a bare page
 and `App.svelte` the whole of it, one component per screen, sheet and panel.
-The state they show lives in `*.svelte.ts` modules (`night`, `session`,
-`catalogue`, `settings`, `view`, `history`, and `overlays` / `notices` for
-what's open and said) that components read directly; each sheet and popover
-is mounted only while it's open. Changes go through action modules by concern
-(`adds`, `rows`, `routing`, `sharing`, `live` for sync and presence, `save`),
-and `main.ts` only boots. The logic that doesn't need a page (sync, presence,
-session index, dedupe, the request window, downscaling) lives in plain,
-unit-tested `.ts` modules; shared shapes are in `ui/types.ts`. `firebase`,
-`lucide` and `svelte` are the only runtime dependencies.
+Components read state directly from `*.svelte.ts` modules (`night`, `session`,
+`catalogue`, `settings`, `view`, `history`, `overlays` / `notices` for what's
+open and said, `lists` for what the lists derive); each sheet and popover is
+mounted only while open. Changes go through action modules by concern (`adds`,
+`rows`, `routing`, `sharing`, `live` for sync and presence, `save`, `player`
+for the player's name), and `main.ts` only boots. Logic that doesn't need a
+page (sync, presence, session index, dedupe, the request window, downscaling)
+lives in plain, unit-tested `.ts` modules; shared shapes are in `ui/types.ts`.
+`firebase`, `lucide` and `svelte` are the only runtime dependencies.
 
 ```bash
 cd ui
@@ -165,27 +162,27 @@ npm run build         # production bundle into ui/dist
 npm run preview       # serve that build locally
 ```
 
-`ui/tests/rules.test.js` runs against the Firestore emulator and covers
-[`firestore.rules`](./firestore.rules) — the app's entire access-control layer,
-since the browser writes Firestore directly. `npm test` alone will fail it with
-a connection error, which is deliberate: a skipped security suite must not look
-like a passing one. CI runs `test:emulator`.
+`ui/tests/rules.test.ts` runs against the Firestore emulator and covers
+[`firestore.rules`](./firestore.rules), the app's entire access-control layer
+(the browser writes Firestore directly). `npm test` alone fails it with a
+connection error, deliberately: a skipped security suite must not look like a
+passing one. CI runs `test:emulator`.
 
 `npm run test:e2e` drives the production build (`vite preview`) on a 390px
 touch screen against the Firestore emulator: the session history, a night run
-end to end, the lists' gestures, the panels and sheets, the room's request
-link on a second phone, and the photo scan. The
-Python API is stubbed with `page.route` (`ui/e2e/api.ts`), so no Gemini call is
-made, and any console error fails the test. Tests select by the app's ids and
-accessible names, so markup changes must keep those. Run it once with
-`npx playwright install chromium` if Playwright has no browser yet.
+end to end, the lists' gestures, the panels and sheets, the room's request link
+on a second phone, and the photo scan. The Python API is stubbed with
+`context.route` (`ui/e2e/api.ts`), so no Gemini call is made, and any console
+error fails the test. Tests select by the app's ids and accessible names, so
+markup changes must keep those. If Playwright has no browser yet, run
+`npx playwright install chromium` once.
 
-New flows still get a look by hand: drive the real page in a phone-sized,
+Check new flows by hand too: drive the real page in a phone-sized,
 touch-enabled browser (the e2e project's settings in `ui/playwright.config.ts`)
 and confirm there are no console errors.
 
-User-visible changes also need an entry in `ui/whats-new.json`, the in-app
-changelog — see [AGENTS.md](./AGENTS.md) for that and the rest of the
+User-visible changes need an entry in `ui/whats-new.json`, the in-app
+changelog. See [AGENTS.md](./AGENTS.md) for that and the rest of the
 contributor guidance.
 
 ## Deployment
@@ -216,9 +213,8 @@ merged or closed.
 
 The endpoint is public but guarded: uploads are capped at 20 MB, `/api/parse`
 is rate-limited per IP (8 requests per minute, in-process fixed window), and
-the function runs with `--max-instances 1` to bound worst-case Vertex AI spend
-(expected traffic is a handful of photos per club night, so one instance is
-plenty).
+the function runs with `--max-instances 1` to bound worst-case Vertex AI spend.
+A club night sends a handful of photos, so one instance is plenty.
 
 ### Sessions in Firestore
 
@@ -229,17 +225,17 @@ club's history, and short-lived `presence` heartbeats for "who's here". The
 browser reads and writes all of it directly via the Firebase Web SDK, so
 [`firestore.rules`](./firestore.rules) is the entire access-control layer —
 deliberately unauthenticated, defended by a closed schema and deny-by-default,
-and covered by `ui/tests/rules.test.js`.
+and covered by `ui/tests/rules.test.ts`.
 
-**Sessions are kept forever** — the app opens on past nights, so nothing
-expires them, and no client can ever delete a session document.
+**Sessions are kept forever:** the app opens on past nights, so nothing expires
+them, and no client can delete a session document.
 
-Accepted risks, unchanged in kind but larger in blast radius now that documents
-are immortal: anyone with the app URL can read the session list, open any
-session, edit it, or un-list it. The real fix is authentication; until then the
-bounds are the closed schema, the bounded string fields, the 60-day cap on
-future-dated sessions, the 60-entry list query, and the budget alert below —
-which should now cover Firestore, not just Vertex AI.
+Accepted risks, made larger by documents never expiring: anyone with the app
+URL can read the session list, open any session, edit it, or un-list it. The
+real fix is authentication; until then the bounds are the closed schema, the
+bounded string fields, the 60-day cap on future-dated sessions, the 60-entry
+list query, and the budget alert below, which should cover Firestore as well as
+Vertex AI.
 
 ### One-time setup
 
