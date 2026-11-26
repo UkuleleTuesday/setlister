@@ -8,6 +8,9 @@ import { searchSongs } from "./search.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { mount } from "svelte";
 import Home from "./Home.svelte";
+import RoomRequestSheet from "./RoomRequestSheet.svelte";
+import SongbookSheet from "./SongbookSheet.svelte";
+import { catalogueEmptyMessage, tonightTagLabel } from "./songbook.js";
 import SettingsPanel from "./SettingsPanel.svelte";
 import SharePanel from "./SharePanel.svelte";
 import { editionLabel } from "./editions.js";
@@ -80,23 +83,6 @@ const settingsToggle = document.getElementById("settings-toggle");
 const shareToggle = document.getElementById("share-toggle");
 const requestsOpeningSoonNote = document.getElementById("requests-opening-soon-note");
 const shareCountBadge = document.getElementById("share-count-badge");
-const requestSheet = document.getElementById("room-request-sheet");
-const requestSheetTitle = document.getElementById("room-request-title");
-const requestSheetSong = document.getElementById("room-request-song");
-const requestSheetNameField = document.getElementById("room-request-name-field");
-const requestSheetName = document.getElementById("room-request-name");
-const requestSheetCommentField = document.getElementById("room-request-comment-field");
-const requestSheetComment = document.getElementById("room-request-comment");
-const requestSheetError = document.getElementById("room-request-error");
-const requestSheetConfirm = document.getElementById("room-request-confirm");
-const requestSheetCancel = document.getElementById("room-request-cancel");
-const songbookSheet = document.getElementById("songbook-sheet");
-const songbookWait = document.getElementById("songbook-wait");
-const songbookSearch = document.getElementById("songbook-search");
-const songbookStatus = document.getElementById("songbook-status");
-const songbookList = document.getElementById("songbook-list");
-const songbookEmpty = document.getElementById("songbook-empty");
-const songbookClose = document.getElementById("songbook-close");
 const roomIdentity = document.getElementById("room-identity");
 const roomAddHost = document.getElementById("room-add");
 const roomWindow = document.getElementById("room-window");
@@ -191,6 +177,20 @@ const settingsPanel = mount(SettingsPanel, {
     onOpenChange: (open) => settingsToggle.setAttribute("aria-expanded", String(open)),
   },
 });
+// The add-by-name pair, with the other sheets. What a pick or a confirm DOES
+// to the night stays here (onSongbookPick / onRequestSheetConfirm).
+const requestSheetMount = document.getElementById("room-request-mount");
+const requestSheet = mount(RoomRequestSheet, {
+  target: requestSheetMount.parentNode,
+  anchor: requestSheetMount,
+  props: { onConfirm: onRequestSheetConfirm },
+});
+const songbookMount = document.getElementById("songbook-mount");
+const songbookSheet = mount(SongbookSheet, {
+  target: songbookMount.parentNode,
+  anchor: songbookMount,
+  props: { onPick: onSongbookPick },
+});
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
 const nameResetName = document.getElementById("name-reset-name");
@@ -267,60 +267,21 @@ function renderRoomIdentity() {
   if (name) roomIdentityText.textContent = `As ${name}`;
 }
 
-// The request this sheet will submit, or null when it was opened from
-// "change" — same sheet, nothing to add, just a rename.
-let requestSheetEntry = null;
-
-// One sheet, doing as little as the situation needs: it always confirms the
-// request (a mis-tap in a dark pub shouldn't land a tune for the whole room),
-// and adds the name field only while there's no name to put on it.
+// RoomRequestSheet.svelte confirms a pick (and asks the name on the first
+// one); `null` opens it as a plain rename, from "change".
 function openRequestSheet(entry) {
-  requestSheetEntry = entry;
-  const askName = !app.name.trim() || !entry;
-  requestSheetTitle.textContent = entry
-    ? app.name.trim()
-      ? "Add this request?"
-      : "Who’s asking?"
-    : "Your name";
-  requestSheetSong.textContent = entry ? entry.display : "";
-  requestSheetSong.hidden = !entry;
-  requestSheetNameField.hidden = !askName;
-  // The comment belongs to a request, so the rename-only sheet drops it.
-  // Always starts empty: it's about this tune, not a sticky preference.
-  requestSheetCommentField.hidden = !entry;
-  requestSheetComment.value = "";
-  requestSheetError.hidden = true;
-  requestSheetName.value = app.name;
-  // The button says what will actually happen: a request is waiting on this
-  // sheet, a rename isn't.
-  requestSheetConfirm.replaceChildren(document.createTextNode(entry ? "Add request" : "Save"));
-  requestSheet.hidden = false;
-  // Only raise the keyboard when there's typing to do; a confirm-only sheet
-  // puts the thumb on the button instead.
-  if (askName) requestSheetName.focus();
-  else requestSheetConfirm.focus();
+  requestSheet.open(entry, app.name);
 }
 
 function closeRequestSheet() {
-  requestSheet.hidden = true;
-  requestSheetEntry = null;
+  requestSheet.close();
 }
 
 // Confirming: the name is committed here, not per keystroke, so an abandoned
 // sheet leaves app.name untouched. The request then goes in as part of the
 // same tap — it can't be lost between the two.
-function onRequestSheetConfirm() {
-  const askedName = !requestSheetNameField.hidden;
-  if (askedName && !requestSheetName.value.trim()) {
-    requestSheetError.textContent = "Add a name so the room knows whose request it is.";
-    requestSheetError.hidden = false;
-    requestSheetName.focus();
-    return;
-  }
-  if (askedName) setPlayerName(requestSheetName.value);
-  const entry = requestSheetEntry;
-  const comment = requestSheetComment.value;
-  closeRequestSheet();
+function onRequestSheetConfirm({ entry, name, comment }) {
+  if (name !== null) setPlayerName(name);
   renderRoomIdentity();
   // The door can shut (or the window can lapse) while this sheet is open.
   // applyRequestsOpen() dismisses it when that happens, but a tap racing the
@@ -343,23 +304,7 @@ function onRequestSheetConfirm() {
   }
 }
 
-requestSheetConfirm.addEventListener("click", onRequestSheetConfirm);
-requestSheetCancel.addEventListener("click", closeRequestSheet);
-requestSheetName.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") onRequestSheetConfirm();
-});
-requestSheetComment.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") onRequestSheetConfirm();
-});
 roomIdentityChange.addEventListener("click", () => openRequestSheet(null));
-// Same forgiving dismissal as the other sheets: tap the backdrop, or Escape.
-// Dismissing is a "no" — the request simply doesn't happen.
-requestSheet.addEventListener("click", (event) => {
-  if (event.target === requestSheet) closeRequestSheet();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !requestSheet.hidden) closeRequestSheet();
-});
 
 // Settings live in a panel behind the gear icon (SettingsPanel.svelte, which
 // closes itself on an outside tap or Escape, like a normal popover). The
@@ -672,10 +617,10 @@ function applyRequestsOpen() {
   // A phone left holding the confirm sheet when the organiser closed up would
   // otherwise still land its request on the next tap. Dismissing is the same
   // "no" as tapping the backdrop.
-  if (!open && viewMode === "room" && !requestSheet.hidden) closeRequestSheet();
+  if (!open && viewMode === "room" && requestSheet.isSheetOpen()) closeRequestSheet();
   // Same for the songbook: with the door shut it would only offer taps that
   // can't land.
-  if (!open && viewMode === "room" && !songbookSheet.hidden) closeSongbook();
+  if (!open && viewMode === "room" && songbookSheet.isSheetOpen()) closeSongbook();
 }
 
 // The link's state, worded once for both views: the request view's rules line
@@ -1314,22 +1259,6 @@ function searchCatalogue(query, limit = 8) {
   return searchSongs(app.catalogue, query, { limit });
 }
 
-// Explain an empty result list instead of showing nothing: no catalogue yet,
-// catalogue unreachable, or a genuine no-match. Shared by the dropdown and the
-// songbook sheet, so silence never reads as "that song isn't in the book".
-function catalogueEmptyMessage(query) {
-  if (catalogueStatus === "loading") return "Loading the songbook…";
-  if (catalogueStatus === "error") return "Couldn't load the songbook. Check your connection";
-  return query.trim() ? `No matches for “${query.trim()}”` : "This songbook has no tunes in it yet";
-}
-
-// Tonight's state for a song, as a short tag next to it in any song list:
-// what's already played or asked for, seen BEFORE the tap rather than as a
-// refusal after it.
-function tonightTagLabel(where) {
-  return { played: "played", upnext: "up next", requests: "requested" }[where];
-}
-
 // Open pickers re-run their query when the catalogue (finally) arrives — text
 // typed during a slow load must not silently read as "no such song". Entries
 // self-prune once their input leaves the DOM (rows re-render constantly).
@@ -1337,7 +1266,7 @@ const pickerRefreshers = new Set();
 
 function refreshPickers() {
   for (const refresh of pickerRefreshers) refresh();
-  if (!songbookSheet.hidden) renderSongbook();
+  refreshSongbook();
 }
 
 // A tap that we fully handle at pointerdown still leaves the browser to
@@ -1419,7 +1348,7 @@ function makeCombobox({ placeholder, onPick }) {
       if (!input.value.trim()) return close();
       const status = document.createElement("li");
       status.className = "song-picker-status";
-      status.textContent = catalogueEmptyMessage(input.value);
+      status.textContent = catalogueEmptyMessage(catalogueStatus, input.value);
       menu.replaceChildren(status);
       setMenuOpen(true);
       input.setAttribute("aria-expanded", "true");
@@ -1556,119 +1485,36 @@ function buildSongbookTrigger(label) {
 }
 
 // --- The songbook sheet ------------------------------------------------------
-// The whole book, browsable, with tonight's state on every tune (see the
-// #songbook-sheet comment in index.html for why). A tap does whatever actually
-// helps: a new tune goes to the confirm sheet, one already asked for gets this
-// phone's thumbs up, a played one says so and stays put.
+// SongbookSheet.svelte: the whole book, browsable, with tonight's state on
+// every tune. A tap does whatever actually helps: a new tune goes to the
+// confirm sheet, one already asked for gets this phone's thumbs up, a played
+// one says so and stays put. Those decisions are app state, so they're here.
 
-let songbookNoteTimer;
-let songbookWaitTimer;
-let songbookRenderQueued = false;
+function songbookData() {
+  return {
+    catalogue: app.catalogue,
+    catalogueStatus,
+    upNext: app.upNext,
+    requests: app.requests,
+    votes: app.votes,
+    clientId: presence.getClientId(),
+    room: viewMode === "room",
+  };
+}
 
 function openSongbook() {
-  songbookSearch.value = "";
-  songbookStatus.hidden = true;
-  songbookSheet.hidden = false;
-  renderSongbook();
-  songbookList.scrollTop = 0;
-  // Not the search field: focusing it raises the keyboard over the list, and
-  // browsing is the point. Typing is one tap away at the top.
-  songbookClose.focus({ preventScroll: true });
+  songbookSheet.setData(songbookData());
+  songbookSheet.open();
 }
 
 function closeSongbook() {
-  songbookSheet.hidden = true;
-  songbookSearch.blur();
-  clearTimeout(songbookNoteTimer);
-  clearTimeout(songbookWaitTimer);
+  songbookSheet.close();
 }
 
-// Peers keep adding, voting and playing while the sheet is open, and every
-// such change re-renders both lists back to back: coalesce them into one
-// repaint of the book.
-function scheduleSongbookRender() {
-  if (songbookSheet.hidden || songbookRenderQueued) return;
-  songbookRenderQueued = true;
-  queueMicrotask(() => {
-    songbookRenderQueued = false;
-    if (!songbookSheet.hidden) renderSongbook();
-  });
-}
-
-function renderSongbook() {
-  const query = songbookSearch.value;
-  const songs = query.trim() ? searchSongs(app.catalogue, query) : app.catalogue;
-  const tonight = indexTonight(app.upNext, app.requests);
-  // A live repaint must not throw the reader back to page 1 mid-scroll.
-  const scroll = songbookList.scrollTop;
-  songbookList.replaceChildren(
-    ...songs.map((entry) => renderSongbookRow(entry, tonight.get(matchKey(entry)))),
-  );
-  songbookList.scrollTop = scroll;
-  songbookEmpty.hidden = songs.length > 0;
-  if (!songs.length) songbookEmpty.textContent = catalogueEmptyMessage(query);
-  renderSongbookWait();
-}
-
-function renderSongbookRow(entry, existing) {
-  const li = document.createElement("li");
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "songbook-song";
-
-  const text = document.createElement("span");
-  text.className = "songbook-text";
-  const title = document.createElement("span");
-  title.className = "songbook-title";
-  title.textContent = entry.title || entry.display;
-  text.append(title);
-  if (entry.artist) {
-    const artist = document.createElement("span");
-    artist.className = "songbook-artist";
-    artist.textContent = entry.artist;
-    text.append(artist);
-  }
-
-  const side = document.createElement("span");
-  side.className = "songbook-side";
-  let state = "";
-  if (existing) {
-    button.classList.add(existing.where);
-    const tag = document.createElement("span");
-    tag.className = "tonight-tag";
-    if (existing.where === "played") {
-      tag.textContent = tonightTagLabel("played");
-      state = ", played tonight";
-    } else {
-      // The thumbs count says "tapping this adds to something", which is what
-      // a tap on an asked-for tune now does.
-      const count = voteCount(app.votes, existing.row.uid);
-      const mine = hasVoted(app.votes, existing.row.uid, presence.getClientId());
-      if (mine) tag.classList.add("voted");
-      tag.append(
-        icon("want"),
-        document.createTextNode(` ${count} · ${tonightTagLabel(existing.where)}`),
-      );
-      state =
-        `, ${existing.where === "upnext" ? "in Up next" : "requested"}, ` +
-        `${count} ${count === 1 ? "person wants" : "people want"} it` +
-        (mine ? ", including you" : "");
-    }
-    side.append(tag);
-  }
-  const page = document.createElement("span");
-  page.className = "page-badge";
-  page.textContent = `p.${entry.page}`;
-  side.append(page);
-
-  button.setAttribute("aria-label", `${entry.display}, page ${entry.page}${state}`);
-  button.append(text, side);
-  // click, not the dropdown's pointerdown: in a list you scroll with the same
-  // finger, and a pick on touch-down would fire on every scroll that starts on
-  // a row.
-  button.onclick = () => onSongbookPick(entry);
-  li.append(button);
-  return li;
+// Peers keep adding, voting and playing while the sheet is open: re-tag the
+// book with the night as it now stands. Svelte batches back-to-back calls.
+function refreshSongbook() {
+  if (songbookSheet.isSheetOpen()) songbookSheet.setData(songbookData());
 }
 
 // The same flow in both modes. The one room-only part is the request link's
@@ -1685,7 +1531,7 @@ function onSongbookPick(entry) {
   }
   const existing = findDuplicate(app.upNext, app.requests, matchKey(entry));
   if (existing?.where === "played") {
-    songbookNote(`“${entry.title}” was played earlier tonight. Pick another?`);
+    songbookSheet.note(`“${entry.title}” was played earlier tonight. Pick another?`);
     return;
   }
   if (existing) {
@@ -1713,64 +1559,12 @@ function onSongbookPick(entry) {
   // browsing carry on through it.
   const waiting = room ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
   if (waiting) {
-    songbookNote(`One at a time! You can add another in ${cooldownLabel(waiting)}.`);
+    songbookSheet.note(`One at a time! You can add another in ${cooldownLabel(waiting)}.`);
     return;
   }
   closeSongbook();
   openRequestSheet(entry);
 }
-
-// Why a tap didn't add, said in the sheet the person is looking at.
-// Self-retiring like flashNote, but on the sheet's own timer so closing the
-// sheet cancels it. It stands in for the wait line while shown: the cooldown
-// note says the same thing with the number in it.
-function songbookNote(message) {
-  songbookStatus.textContent = message;
-  songbookStatus.hidden = false;
-  songbookWait.hidden = true;
-  clearTimeout(songbookNoteTimer);
-  songbookNoteTimer = setTimeout(() => {
-    songbookStatus.hidden = true;
-    renderSongbookWait();
-  }, 6000);
-}
-
-// The wait between requests, told up front rather than discovered on a tap.
-// No number in it: a figure that sat still for a minute would be wrong, and a
-// ticking one would chatter at screen readers. The exact wait comes with the
-// tap (songbookNote). Re-checked once, when the wait runs out.
-function renderSongbookWait() {
-  clearTimeout(songbookWaitTimer);
-  const waiting = viewMode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
-  songbookWait.hidden = !waiting || !songbookStatus.hidden;
-  if (waiting) songbookWaitTimer = setTimeout(renderSongbookWait, waiting + 50);
-}
-
-songbookSearch.addEventListener("input", () => {
-  renderSongbook();
-  songbookList.scrollTop = 0;
-});
-// The keyboard's search key means "show me": drop the keyboard so the
-// results it was covering come into view.
-songbookSearch.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") songbookSearch.blur();
-});
-// Dragging the list means reading it, so put the keyboard away. touchmove,
-// not scroll: the list also scrolls programmatically as you type.
-songbookList.addEventListener(
-  "touchmove",
-  () => {
-    if (document.activeElement === songbookSearch) songbookSearch.blur();
-  },
-  { passive: true },
-);
-songbookClose.addEventListener("click", closeSongbook);
-songbookSheet.addEventListener("click", (event) => {
-  if (event.target === songbookSheet) closeSongbook();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !songbookSheet.hidden) closeSongbook();
-});
 
 // Returns whether a row was actually added, so the request sheet can tell a
 // completed pick from a refusal. `comment` reuses the row's `notes` slot — the
@@ -2186,7 +1980,7 @@ function renderUpNext() {
   renderEditionNote();
   updateSessionMode();
   updateExportButtons();
-  scheduleSongbookRender();
+  refreshSongbook();
   // Played and binned rows are lifted out into their collapsed groups, so the
   // empty note keys off the rows still *visible* in the running order.
   const visible = app.upNext.filter((e) => !e.binned && !e.played);
@@ -2251,7 +2045,7 @@ function renderUpNext() {
 function renderRequests() {
   updateSessionMode();
   updateExportButtons();
-  scheduleSongbookRender();
+  refreshSongbook();
   const visible = app.requests.filter((e) => !e.binned);
   requestsEmpty.hidden = visible.length > 0;
   // The empty note mentions snapping the board, but room mode has no camera —
