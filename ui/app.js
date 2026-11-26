@@ -3,14 +3,15 @@ import * as presence from "./presence.js";
 import { isValidSessionId } from "./session-id.js";
 import { pageTitle, sessionDateLabel, sessionTimeLabel } from "./session-index.js";
 import { icon, iconLabel } from "./icons.js";
-import { duplicateLabel, findDuplicate, indexTonight, matchKey, rowKey } from "./dupes.js";
-import { searchSongs } from "./search.js";
+import { duplicateLabel, findDuplicate, matchKey } from "./dupes.js";
 import { downscaleImage, resolveMaxEdge } from "./downscale.js";
 import { mount } from "svelte";
 import Home from "./Home.svelte";
+import PhotoLightbox from "./PhotoLightbox.svelte";
+import ScanFlow from "./ScanFlow.svelte";
+import { planScan, requestParse } from "./scan.js";
 import RoomRequestSheet from "./RoomRequestSheet.svelte";
 import SongbookSheet from "./SongbookSheet.svelte";
-import { catalogueEmptyMessage, tonightTagLabel } from "./songbook.js";
 import SettingsPanel from "./SettingsPanel.svelte";
 import SharePanel from "./SharePanel.svelte";
 import { editionLabel } from "./editions.js";
@@ -54,12 +55,6 @@ import {
   putCachedCatalogue,
 } from "./catalogue-cache.js";
 
-const photoInput = document.getElementById("photo-input");
-const preview = document.getElementById("preview");
-const previewWrap = document.getElementById("preview-wrap");
-const scanOverlay = document.getElementById("scan-overlay");
-const errorBox = document.getElementById("error");
-const addSection = document.getElementById("add");
 const manualAddHost = document.getElementById("manual-add");
 const upnextRows = document.getElementById("upnext-rows");
 const upnextEmpty = document.getElementById("upnext-empty");
@@ -71,13 +66,7 @@ const copyButton = document.getElementById("copy");
 const downloadButton = document.getElementById("download");
 const playedGroup = document.getElementById("played-group");
 const binGroup = document.getElementById("bin-group");
-const reviewSection = document.getElementById("review");
-const reviewNote = document.getElementById("review-note");
-const reviewRows = document.getElementById("review-rows");
-const scanResult = document.getElementById("scan-result");
 const addFeedback = document.getElementById("add-feedback");
-const reviewConfirm = document.getElementById("review-confirm");
-const reviewCancel = document.getElementById("review-cancel");
 const editionNote = document.getElementById("edition-note");
 const settingsToggle = document.getElementById("settings-toggle");
 const shareToggle = document.getElementById("share-toggle");
@@ -92,12 +81,7 @@ const upnextHint = document.getElementById("upnext-hint");
 const requestsHint = document.getElementById("requests-hint");
 const roomIdentityText = document.getElementById("room-identity-text");
 const roomIdentityChange = document.getElementById("room-identity-change");
-const photoLightbox = document.getElementById("photo-lightbox");
-const photoLightboxImg = document.getElementById("photo-lightbox-img");
-const photoLightboxClose = document.getElementById("photo-lightbox-close");
 const cameraButton = document.getElementById("camera-button");
-const scanStatusText = document.getElementById("scan-status-text");
-const scanCancel = document.getElementById("scan-cancel");
 const homeSection = document.getElementById("home");
 const sessionView = document.getElementById("session-view");
 const backHomeButton = document.getElementById("back-home");
@@ -191,6 +175,25 @@ const songbookSheet = mount(SongbookSheet, {
   anchor: songbookMount,
   props: { onPick: onSongbookPick },
 });
+// The scan flow (#add + #review) where the sections were, and the photo
+// viewer with the other overlays. What a scan does to the night is runScan()
+// and onReviewConfirm() below.
+const scanFlowMount = document.getElementById("scan-flow-mount");
+const scanFlow = mount(ScanFlow, {
+  target: scanFlowMount.parentNode,
+  anchor: scanFlowMount,
+  props: {
+    scan: runScan,
+    onConfirm: onReviewConfirm,
+    onShowPhoto: (imageUrl) => photoLightbox.open(imageUrl),
+    onReviewChange,
+  },
+});
+const photoLightboxMount = document.getElementById("photo-lightbox-mount");
+const photoLightbox = mount(PhotoLightbox, {
+  target: photoLightboxMount.parentNode,
+  anchor: photoLightboxMount,
+});
 const nameResetSheet = document.getElementById("name-reset-sheet");
 const nameResetMessage = document.getElementById("name-reset-message");
 const nameResetName = document.getElementById("name-reset-name");
@@ -201,7 +204,6 @@ const nameResetLater = document.getElementById("name-reset-later");
 // the module runs (index.html ships text-only fallbacks).
 settingsToggle.replaceChildren(icon("settings"));
 shareToggle.replaceChildren(icon("share"));
-photoLightboxClose.replaceChildren(icon("close"));
 cameraButton.replaceChildren(...iconLabel("camera", "Snap the board"));
 backHomeButton.replaceChildren(...iconLabel("back", "All sessions"));
 // Icon-only (their names live in aria-label/title): they share the "Up next"
@@ -239,7 +241,6 @@ let app = {
   // rather than stored on it — see the header in votes.ts for why that is a
   // correctness requirement and not a preference.
   votes: {},
-  review: null,
   // Whether the collapsed played/bin groups are expanded. Pure UI state: not
   // persisted (a reload starts collapsed) and not synced (each peer keeps
   // their own view).
@@ -523,8 +524,7 @@ function roomSessionUrl(id) {
 }
 
 function showSessionError(message) {
-  errorBox.textContent = message;
-  errorBox.hidden = false;
+  scanFlow.showError(message);
 }
 
 function showHomeError(message) {
@@ -920,7 +920,7 @@ function onShareTap(event) {
 // link keeps working, which the note under the dropdown says out loud. The
 // panel shows the pick at once and reverts it if this rejects.
 async function changeVisibility(listed) {
-  errorBox.hidden = true;
+  scanFlow.clearError();
   try {
     await sync.setSessionListed(listed);
   } catch (err) {
@@ -936,7 +936,7 @@ async function changeVisibility(listed) {
 // Same optimistic-then-revert shape as visibility, since all three are one
 // tap that has to survive a flaky pub wifi.
 async function changeRequestsMode(mode) {
-  errorBox.hidden = true;
+  scanFlow.clearError();
   try {
     await sync.setRequestsMode(mode);
   } catch (err) {
@@ -951,7 +951,7 @@ async function changeRequestsMode(mode) {
 // The two override time fields (#NEW). The panel always sends both sides'
 // current values, so one save can't silently clear the other.
 async function changeRequestsWindow({ opensAt, closesAt }) {
-  errorBox.hidden = true;
+  scanFlow.clearError();
   try {
     await sync.setRequestsWindow({ opensAt, closesAt });
   } catch (err) {
@@ -1252,217 +1252,12 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") refreshCatalogueIfStale();
 });
 
-// The matching rules live in search.ts, shared with the songbook sheet.
-// The dropdown keeps a short list: it hangs under a field the keyboard is
-// already squeezing.
-function searchCatalogue(query, limit = 8) {
-  return searchSongs(app.catalogue, query, { limit });
-}
-
-// Open pickers re-run their query when the catalogue (finally) arrives — text
-// typed during a slow load must not silently read as "no such song". Entries
-// self-prune once their input leaves the DOM (rows re-render constantly).
-const pickerRefreshers = new Set();
-
+// Open pickers re-run their query when the catalogue (finally) arrives: text
+// typed during a slow load must not silently read as "no such song". The
+// review sheet's pickers and the songbook both follow the data they're given.
 function refreshPickers() {
-  for (const refresh of pickerRefreshers) refresh();
+  scanFlow.refresh(scanContext());
   refreshSongbook();
-}
-
-// A tap that we fully handle at pointerdown still leaves the browser to
-// synthesize a trailing click from the same gesture, tens to hundreds of
-// milliseconds later. By then onPick may have put something new under that
-// point — room mode's name sheet does — and the stray click lands on it as a
-// phantom second tap (it was closing the sheet on its own backdrop). One
-// gesture is one interaction: swallow that trailing click.
-function swallowNextClick() {
-  let timer;
-  const swallow = (event) => {
-    event.stopPropagation();
-    event.preventDefault();
-    clearTimeout(timer);
-    document.removeEventListener("click", swallow, true);
-  };
-  document.addEventListener("click", swallow, true);
-  // Nothing to swallow when the pick came from the keyboard — retire quietly.
-  timer = setTimeout(() => document.removeEventListener("click", swallow, true), 700);
-}
-
-// A small custom combobox. We rolled our own instead of a native <datalist>
-// because datalist support is unreliable on the mobile browsers this app
-// targets (no dropdown on iOS Safari, flaky on Android). Used by the review
-// sheet's per-row correction picker.
-let comboboxSeq = 0;
-function makeCombobox({ placeholder, onPick }) {
-  const wrap = document.createElement("div");
-  wrap.className = "song-picker";
-
-  const menuId = `song-picker-menu-${++comboboxSeq}`;
-
-  const input = document.createElement("input");
-  input.className = "song-picker-input";
-  input.type = "text";
-  input.placeholder = placeholder;
-  input.autocomplete = "off";
-  input.setAttribute("role", "combobox");
-  input.setAttribute("aria-autocomplete", "list");
-  input.setAttribute("aria-expanded", "false");
-  input.setAttribute("aria-controls", menuId);
-
-  const menu = document.createElement("ul");
-  menu.className = "song-picker-menu";
-  menu.id = menuId;
-  menu.setAttribute("role", "listbox");
-  menu.hidden = true;
-
-  let matches = [];
-  let active = -1;
-
-  // The dropdown has to escape its row card, but `.row-body` carries a z-index
-  // for the swipe layer — which makes every card its own stacking context, so
-  // the *next* card paints over this menu no matter how high its own z-index
-  // is. Lift the whole card for as long as the menu is open; the swipe
-  // layering inside it is untouched.
-  function setMenuOpen(open) {
-    menu.hidden = !open;
-    wrap.closest(".row-card")?.classList.toggle("picker-open", open);
-  }
-
-  function close() {
-    setMenuOpen(false);
-    menu.replaceChildren();
-    input.setAttribute("aria-expanded", "false");
-    input.removeAttribute("aria-activedescendant");
-    active = -1;
-  }
-
-  function pick(entry) {
-    input.value = "";
-    close();
-    swallowNextClick(); // see above: one gesture, one interaction
-    onPick(entry);
-  }
-
-  function renderMenu() {
-    if (!matches.length) {
-      if (!input.value.trim()) return close();
-      const status = document.createElement("li");
-      status.className = "song-picker-status";
-      status.textContent = catalogueEmptyMessage(catalogueStatus, input.value);
-      menu.replaceChildren(status);
-      setMenuOpen(true);
-      input.setAttribute("aria-expanded", "true");
-      input.removeAttribute("aria-activedescendant");
-      return;
-    }
-    const tonight = indexTonight(app.upNext, app.requests);
-    menu.replaceChildren(
-      ...matches.map((entry, i) => {
-        const li = document.createElement("li");
-        li.id = `${menuId}-opt-${i}`;
-        li.className = "song-picker-option" + (i === active ? " active" : "");
-        li.setAttribute("role", "option");
-        li.setAttribute("aria-selected", i === active ? "true" : "false");
-        const name = document.createElement("span");
-        name.className = "song-picker-name";
-        name.textContent = entry.display;
-        const page = document.createElement("span");
-        page.className = "page-badge";
-        page.textContent = `p.${entry.page}`;
-        const existing = tonight.get(matchKey(entry));
-        if (existing) {
-          const tag = document.createElement("span");
-          tag.className = "tonight-tag";
-          tag.textContent = tonightTagLabel(existing.where);
-          li.append(name, tag, page);
-        } else {
-          li.append(name, page);
-        }
-        // pointerdown fires before the input's blur, so the pick registers
-        // instead of the field closing first (works for mouse and touch).
-        li.addEventListener("pointerdown", (ev) => {
-          ev.preventDefault();
-          pick(entry);
-        });
-        return li;
-      }),
-    );
-    setMenuOpen(true);
-    input.setAttribute("aria-expanded", "true");
-    // Screen readers track the arrow-key highlight through this.
-    if (active >= 0) input.setAttribute("aria-activedescendant", `${menuId}-opt-${active}`);
-    else input.removeAttribute("aria-activedescendant");
-  }
-
-  input.addEventListener("input", () => {
-    matches = searchCatalogue(input.value);
-    active = -1;
-    renderMenu();
-  });
-
-  pickerRefreshers.add(function refresh() {
-    if (!input.isConnected) {
-      pickerRefreshers.delete(refresh);
-      return;
-    }
-    // Only refresh a picker the user is actually in — don't pop menus open
-    // under an unfocused field.
-    if (document.activeElement !== input || !input.value.trim()) return;
-    matches = searchCatalogue(input.value);
-    active = -1;
-    renderMenu();
-  });
-
-  input.addEventListener("keydown", (ev) => {
-    if (menu.hidden) return;
-    if (ev.key === "ArrowDown") {
-      ev.preventDefault();
-      active = Math.min(active + 1, matches.length - 1);
-      renderMenu();
-    } else if (ev.key === "ArrowUp") {
-      ev.preventDefault();
-      active = Math.max(active - 1, 0);
-      renderMenu();
-    } else if (ev.key === "Enter" && active >= 0) {
-      ev.preventDefault();
-      pick(matches[active]);
-    } else if (ev.key === "Escape") {
-      close();
-    }
-  });
-
-  // Delay so a pending option pointerdown can win the race with blur.
-  input.addEventListener("blur", () => setTimeout(close, 120));
-
-  wrap.append(input, menu);
-  return wrap;
-}
-
-function buildSongPicker(row) {
-  return makeCombobox({
-    placeholder: "Correct song…",
-    onPick: (entry) => setMatch(row, entry),
-  });
-}
-
-// The collapsed form of the picker, for review rows we matched confidently:
-// one button that swaps itself for the real picker in place. Deliberately not a
-// re-render — rebuilding the sheet would collapse it again and lose the tap, so
-// the row keeps its expanded picker until the next render (a correction, which
-// re-renders anyway, or closing the sheet).
-function buildPickerToggle(row) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "picker-toggle";
-  button.appendChild(icon("edit"));
-  button.title = "Change song";
-  button.setAttribute("aria-label", `Change song for “${row.raw_title}”`);
-  button.onclick = () => {
-    const picker = buildSongPicker(row);
-    button.replaceWith(picker);
-    picker.querySelector("input").focus();
-  };
-  return button;
 }
 
 // Adding by name opens the songbook in both modes. The request view's button
@@ -1621,6 +1416,9 @@ function setMatch(row, entry) {
 }
 
 // --- Photo scan -> review sheet --------------------------------------------
+// ScanFlow.svelte owns the screens (photo, overlay, cancel and timeout,
+// errors, the review sheet); this is what a scan does to the night.
+
 function rowToEntry(row) {
   return {
     ...row,
@@ -1633,199 +1431,90 @@ function rowToEntry(row) {
   };
 }
 
-// The camera control is a real <button> for keyboard/switch access; forward
-// activation to the hidden file input.
-cameraButton.addEventListener("click", () => photoInput.click());
+// The camera control is a real <button> for keyboard/switch access; it opens
+// the scan flow's hidden file input.
+cameraButton.addEventListener("click", () => scanFlow.pickPhoto());
 
-// Long waits (cold start + parse) feel shorter with signs of life. The copy
-// advances rather than cycling, and stops on the last message.
-const SCAN_MESSAGES = [
-  "Reading the board…",
-  "Deciphering the handwriting…",
-  "Matching against the songbook…",
-  "Nearly there…",
-];
-let scanMessageTimer = null;
-function startScanStatus() {
-  let i = 0;
-  scanStatusText.textContent = SCAN_MESSAGES[0];
-  scanMessageTimer = setInterval(() => {
-    i = Math.min(i + 1, SCAN_MESSAGES.length - 1);
-    scanStatusText.textContent = SCAN_MESSAGES[i];
-  }, 4000);
-}
-function stopScanStatus() {
-  clearInterval(scanMessageTimer);
-  scanMessageTimer = null;
-}
-
-// A hung request used to sweep the beam forever with no way out but a reload
-// (#44). Two escapes now: this ceiling — generous, because a cold Cloud
-// Function plus a thinking model legitimately takes tens of seconds — and the
-// Cancel button on the overlay.
-const SCAN_TIMEOUT_MS = 90000;
-// Which of the two aborted the scan, since fetch reports both as AbortError.
-let scanAbort = null;
-let scanEndedBy = null;
-
-function abortScan(reason) {
-  if (!scanAbort) return;
-  scanEndedBy = reason;
-  scanAbort.abort();
-}
-scanCancel.addEventListener("click", () => abortScan("cancel"));
-
-photoInput.addEventListener("change", async () => {
-  const file = photoInput.files[0];
-  if (!file) return;
-  // A fresh scan replaces the previous photo — release the old object URL
-  // before minting a new one (they otherwise live until the tab closes).
-  if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
-  // Keep the object URL around: the review sheet lets you re-open this photo
-  // (via a row's ⚠️ icon) to eyeball a match against the actual handwriting.
-  const imageUrl = URL.createObjectURL(file);
-  preview.src = imageUrl;
-  previewWrap.hidden = false;
-  errorBox.hidden = true;
-  scanResult.hidden = true;
-  scanOverlay.hidden = false;
-  startScanStatus();
-  // Bring the photo (and its scanning animation) into view — it can sit below
-  // the setlist, so scroll to it while the board is being read.
-  previewWrap.scrollIntoView({ behavior: "smooth", block: "center" });
-
-  scanEndedBy = null;
-  scanAbort = new AbortController();
-  const timeout = setTimeout(() => abortScan("timeout"), SCAN_TIMEOUT_MS);
-
-  try {
-    // The long edge governs the upload now, not just the server's resize — the
-    // camera's 3–8MB original would be thrown away server-side anyway (#44).
-    const maxEdge = resolveMaxEdge(settingsPanel.settings().maxImageEdge);
-    const upload = await downscaleImage(file, { maxEdge });
-
-    const form = new FormData();
-    form.append("image", upload);
-    // The session's book, not the raw select: app.edition is the source of
-    // truth and the two only diverge for the beat before the select syncs.
-    form.append("edition", app.edition?.id || settingsPanel.selectedEdition());
-    // Tuning knobs from the settings panel — the API clamps/ignores anything out
-    // of range and falls back to its configured defaults.
-    const { model, disableThinking, sendCatalogue } = settingsPanel.settings();
-    if (model) form.append("model", model);
-    form.append("thinking_budget", disableThinking ? "0" : "1024");
-    form.append("catalogue_in_prompt", sendCatalogue ? "true" : "false");
-    // Sent anyway: a browser that couldn't downscale still gets the size it
-    // asked for, and when the shrink worked this is a no-op on a photo that
-    // already fits.
-    form.append("max_image_edge", String(maxEdge));
-    const res = await fetch(`${API_BASE}/api/parse`, {
-      method: "POST",
-      body: form,
-      signal: scanAbort.signal,
-    });
-    if (!res.ok) {
-      const detail = (await res.json().catch(() => ({}))).detail;
-      throw new Error(detail || `Server error (${res.status})`);
-    }
-    const data = await res.json();
-    // Refresh catalogue/edition metadata from the parse response.
-    app.edition = data.edition;
-    app.catalogue = data.catalogue;
-    app.catalogueGeneratedAt = data.catalogue_generated_at;
-    catalogueStatus = "ready";
-    saveCatalogueCache();
-    refreshPickers();
-    // Confident matches skip the queue (#80): on a mostly-legible board,
-    // reviewing rows that need no review was the bulk of the tap work. Only
-    // the flagged rows (needs_review / conflict / unmatched) go to the review
-    // sheet; crossed-out-but-confirmed rows auto-add with their flag, same as
-    // they used to land after a manual confirm.
-    const entries = data.rows.map(rowToEntry);
-    const confirmed = entries.filter((e) => e.status === "confirmed");
-    const flagged = entries.filter((e) => e.status !== "confirmed");
-    // Duplicate gate (#52): a re-scan of the board must not double the night.
-    // Keep only confirmed rows whose song is neither already on the lists nor
-    // earlier in this same batch (boards repeat songs too).
-    const seen = new Set();
-    const fresh = [];
-    let skipped = 0;
-    for (const entry of confirmed) {
-      const key = rowKey(entry);
-      if (seen.has(key) || findDuplicate(app.upNext, app.requests, key)) {
-        skipped++;
-        continue;
-      }
-      seen.add(key);
-      fresh.push(entry);
-    }
-    if (fresh.length) {
-      app.requests.push(...fresh);
-      // Whoever wrote each of these on the board counts as its asker, so board
-      // requests start level with app ones (#83). Anonymous, not attributed to
-      // the person holding the camera: one photo makes many rows and they asked
-      // for none of them.
-      for (const row of fresh) app.votes = seedAsker(app.votes, row.uid, ASKER);
-      renderRequests();
-      persist();
-    }
-    if (flagged.length) {
-      // Flagged rows that duplicate the lists arrive pre-removed: the review
-      // sheet's existing remove/restore mechanic IS the "offer to skip on
-      // confirm" — restore opts a copy back in deliberately.
-      for (const entry of flagged) {
-        if (entry.match && findDuplicate(app.upNext, app.requests, rowKey(entry))) {
-          entry.removed = true;
-        }
-      }
-      app.review = { entries: flagged, autoAdded: fresh.length, autoSkipped: skipped, imageUrl };
-      openReview();
-    } else {
-      // Nothing to check: no review sheet, just say what happened. The photo
-      // has no reachable viewer without a review, so release it.
-      URL.revokeObjectURL(imageUrl);
-      previewWrap.hidden = true;
-      const skippedNote = skipped ? ` · skipped ${skipped} already listed` : "";
-      let message;
-      if (fresh.length) message = `Added ${fresh.length} from the board${skippedNote}`;
-      else if (skipped) message = "Nothing new. Everything on the board is already listed.";
-      else message = "Couldn't read any songs off that photo. Try a closer, straighter shot.";
-      showScanResult(message);
-    }
-  } catch (err) {
-    // Both escapes from a hung scan land here as AbortError (#44); only the
-    // timeout is a failure worth an error box — a deliberate cancel just puts
-    // the camera back, with a line confirming nothing was read.
-    if (err.name === "AbortError") {
-      URL.revokeObjectURL(imageUrl);
-      previewWrap.hidden = true;
-      if (scanEndedBy === "timeout") {
-        errorBox.textContent = "That scan took too long. Check your signal and snap it again.";
-        errorBox.hidden = false;
-      } else {
-        showScanResult("Scan cancelled. Nothing was added.");
-      }
-    } else {
-      // A fetch that never reached the server rejects with a TypeError and an
-      // unhelpful message ("Failed to fetch") — translate it for humans. Server
-      // errors carry a user-facing `detail` and pass through.
-      errorBox.textContent =
-        err instanceof TypeError
-          ? "Couldn't reach the server. Check your signal and try again."
-          : err.message;
-      errorBox.hidden = false;
-    }
-  } finally {
-    clearTimeout(timeout);
-    scanAbort = null;
-    stopScanStatus();
-    scanOverlay.hidden = true;
-    // Reset so re-selecting the same file re-fires `change`.
-    photoInput.value = "";
+// One photo, start to finish: shrink it, send it, take the catalogue it
+// brings back, and add the confident rows straight to Requests. Returns what's
+// left for review. Rejects (abort included) for ScanFlow to word.
+async function runScan(file, signal) {
+  // The long edge governs the upload now, not just the server's resize — the
+  // camera's 3–8MB original would be thrown away server-side anyway (#44).
+  const { maxImageEdge, model, disableThinking, sendCatalogue } = settingsPanel.settings();
+  const maxEdge = resolveMaxEdge(maxImageEdge);
+  const upload = await downscaleImage(file, { maxEdge });
+  const data = await requestParse(
+    API_BASE,
+    upload,
+    {
+      // The session's book, not the raw select: app.edition is the source of
+      // truth and the two only diverge for the beat before the select syncs.
+      edition: app.edition?.id || settingsPanel.selectedEdition(),
+      // Tuning knobs from the settings panel — the API clamps/ignores
+      // anything out of range and falls back to its configured defaults.
+      model,
+      disableThinking,
+      sendCatalogue,
+      maxImageEdge: maxEdge,
+    },
+    signal,
+  );
+  // Refresh catalogue/edition metadata from the parse response.
+  app.edition = data.edition;
+  app.catalogue = data.catalogue;
+  app.catalogueGeneratedAt = data.catalogue_generated_at;
+  catalogueStatus = "ready";
+  saveCatalogueCache();
+  refreshPickers();
+  const { fresh, flagged, skipped } = planScan(data.rows.map(rowToEntry), app.upNext, app.requests);
+  if (fresh.length) {
+    app.requests.push(...fresh);
+    // Whoever wrote each of these on the board counts as its asker, so board
+    // requests start level with app ones (#83). Anonymous, not attributed to
+    // the person holding the camera: one photo makes many rows and they asked
+    // for none of them.
+    for (const row of fresh) app.votes = seedAsker(app.votes, row.uid, ASKER);
+    renderRequests();
+    persist();
   }
-});
+  return { flagged, autoAdded: fresh.length, autoSkipped: skipped };
+}
 
-// Transient inline feedback ("Added 7 from the board", "Already in Up next").
+// What review kept goes to Requests, each row its board asker's vote.
+function onReviewConfirm(kept) {
+  app.requests.push(...kept);
+  for (const row of kept) app.votes = seedAsker(app.votes, row.uid, ASKER);
+  renderRequests();
+  persist();
+}
+
+// Whether the review sheet is up: an in-flight review means songs are
+// coming, so the session view leaves its fresh (camera hero) state.
+let reviewing = false;
+function onReviewChange(open) {
+  reviewing = open;
+  // The photo is only reachable from the review sheet.
+  if (!open) photoLightbox.close();
+  updateSessionMode();
+}
+
+function closeReview() {
+  scanFlow.closeReview();
+}
+
+// The night as review rows need it: duplicates, the picker, suggestions.
+function scanContext() {
+  return {
+    upNext: app.upNext,
+    requests: app.requests,
+    catalogue: app.catalogue,
+    catalogueStatus,
+    showSuggestions: settingsPanel.settings().showSuggestions,
+  };
+}
+
+// Transient inline feedback ("Already in Up next", "Added “Jolene”").
 // Self-retiring per element: long enough to read across the room, gone before
 // it reads as a permanent fixture.
 const flashTimers = new Map();
@@ -1840,101 +1529,12 @@ function flashNote(el, message) {
     }, 8000),
   );
 }
-const showScanResult = (message) => flashNote(scanResult, message);
-
-function openReview() {
-  addSection.hidden = true;
-  reviewSection.hidden = false;
-  // Orientation first: say how many rows skipped the queue (and how many were
-  // already listed, #52), so "the sheet shows 3 but the board had 12" reads as
-  // the feature it is, not a bug.
-  const auto = app.review?.autoAdded ?? 0;
-  const dupes = app.review?.autoSkipped ?? 0;
-  if (auto) {
-    const dupesNote = dupes ? ` (${dupes} already listed)` : "";
-    reviewNote.textContent =
-      `${auto} clear ${auto === 1 ? "match" : "matches"} went straight to ` +
-      `Requests${dupesNote}. These need a look first.`;
-  } else if (dupes) {
-    reviewNote.textContent = `${dupes} from the board ${dupes === 1 ? "was" : "were"} already listed. These need a look first.`;
-  } else {
-    reviewNote.textContent =
-      "Fix any misreads, drop what you don't want, then add them to Requests.";
-  }
-  // An in-flight scan means songs are coming: leave the fresh state so the
-  // review sheet appears in the full layout.
-  updateSessionMode();
-  renderReview();
-  reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function closeReview() {
-  reviewSection.hidden = true;
-  addSection.hidden = false;
-  previewWrap.hidden = true;
-  closePhotoLightbox();
-  // The photo is only reachable from the review sheet — release it with it.
-  if (app.review?.imageUrl) URL.revokeObjectURL(app.review.imageUrl);
-  app.review = null;
-  updateSessionMode();
-}
-
-// The scanned board is hidden during review, but a flagged row (⚠️) may need a
-// second look at the handwriting. Clicking the icon pops the photo full-screen
-// so the match can be checked by eye, then dismissed.
-function openPhotoLightbox() {
-  const src = app.review?.imageUrl;
-  if (!src) return;
-  photoLightboxImg.src = src;
-  photoLightbox.hidden = false;
-}
-
-function closePhotoLightbox() {
-  photoLightbox.hidden = true;
-}
-
-// Mobile-first dismissal: there's no Escape key on a phone and "tap the
-// backdrop but not the photo" is a fiddly target, so tapping ANYWHERE on the
-// overlay closes it. The ✕ stays as the obvious, thumb-sized affordance;
-// Escape is just a harmless desktop bonus.
-photoLightbox.addEventListener("click", closePhotoLightbox);
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !photoLightbox.hidden) closePhotoLightbox();
-});
-
-function renderReview() {
-  if (!app.review) return;
-  const kept = app.review.entries.filter((e) => !e.removed).length;
-  reviewConfirm.replaceChildren(...iconLabel("add", `Add ${kept} to Requests`));
-  reviewConfirm.disabled = kept === 0;
-  reviewRows.replaceChildren(...app.review.entries.map((e, i) => renderRow(e, i, "review")));
-}
-
-reviewConfirm.addEventListener("click", () => {
-  if (!app.review) return;
-  const kept = app.review.entries.filter((e) => !e.removed);
-  app.requests.push(...kept);
-  for (const row of kept) app.votes = seedAsker(app.votes, row.uid, ASKER);
-  closeReview();
-  renderRequests();
-  persist();
-});
-
-// Cancelling throws away the flagged rows (and the wait for the scan) — one
-// stray tap shouldn't do that silently. With auto-add (#80) the clear matches
-// are already safe in Requests, and the prompt says so.
-reviewCancel.addEventListener("click", () => {
-  const message = app.review?.autoAdded
-    ? "Discard the rows still needing a check? The clear matches already added stay in Requests."
-    : "Discard this scan?";
-  if (confirm(message)) closeReview();
-});
 
 // --- Rendering -------------------------------------------------------------
 function rerender() {
   renderUpNext();
   renderRequests();
-  if (app.review) renderReview();
+  scanFlow.refresh(scanContext());
 }
 
 // A session with no songs at all has exactly one job — get the board in — so
@@ -1947,7 +1547,7 @@ function updateSessionMode() {
   // Never in room mode: the fresh state is a camera hero, and room mode has no
   // camera — an empty pool there shows the combobox and the empty note.
   const fresh =
-    app.upNext.length === 0 && app.requests.length === 0 && !app.review && viewMode !== "room";
+    app.upNext.length === 0 && app.requests.length === 0 && !reviewing && viewMode !== "room";
   sessionView.classList.toggle("fresh", fresh);
 }
 
@@ -2212,12 +1812,11 @@ function renderRow(row, index, context) {
   // clipping frame (see wireSwipe / the CSS).
   const body = document.createElement("div");
   body.className = "row-body";
-  // On the working lists the text content lives in its own column so the
-  // action buttons can sit beside it, vertically centred — a whole row of
-  // card given over to two icons was most of what made each card tall. The
-  // review sheet keeps the stacked layout: its tools row carries the
-  // full-width song picker.
-  if (context !== "review") body.classList.add("compact");
+  // The text content lives in its own column so the action buttons can sit
+  // beside it, vertically centred — a whole row of card given over to two
+  // icons was most of what made each card tall. (Review rows keep the stacked
+  // layout; they're ReviewRow.svelte.)
+  body.classList.add("compact");
   const main = document.createElement("div");
   main.className = "row-main";
   body.appendChild(main);
@@ -2227,106 +1826,46 @@ function renderRow(row, index, context) {
   const title = document.createElement("span");
   title.className = "match-title";
   title.textContent = row.match ? row.match.display : `“${row.raw_title}”`;
-  // The warning icon, the "reasons" explanation, and the correct-song picker are
-  // validation affordances — they belong to the review sheet only. The setlist
-  // is the clean final running order, so they're omitted there.
-  if (context === "review" && row.match && row.status !== "confirmed") {
-    const warn = document.createElement("button");
-    warn.type = "button";
-    warn.className = "warn-icon";
-    warn.appendChild(icon("warn"));
-    const reason = row.explanation || "Needs a check";
-    warn.title = `${reason}. Tap to see the photo`;
-    warn.setAttribute("aria-label", `${reason}. Show the scanned photo to check this match.`);
-    warn.onclick = () => openPhotoLightbox();
-    title.append(" ", warn);
-  }
   top.appendChild(title);
-  // On the working lists the page leads the info line instead (below): beside
-  // the title it took the width the thumbs pill and the row tools need, and
-  // long titles wrapped a word per line.
-  if (row.match && context === "review") top.appendChild(pageBadge(row.match.page));
   main.appendChild(top);
 
-  if (context === "review") {
-    // The review sheet is the validation surface: always show what the board
-    // said, so a match can be judged against the handwriting.
-    const raw = document.createElement("div");
-    raw.className = "raw";
-    raw.textContent =
-      `wrote: “${row.raw_title}”` +
-      (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
-      (row.notes ? ` · ${row.notes}` : "") +
-      (row.crossed_out ? " · crossed out" : "");
-    main.appendChild(raw);
-
-    // Provenance: who added this tune and where it came from. Name it only
-    // when we have one (a legacy or name-less entry shows just the source).
-    const origin = sourceLabel(row.source);
-    const provenance = document.createElement("div");
-    provenance.className = "added-by";
-    provenance.textContent = row.addedBy ? `Added by ${row.addedBy} · ${origin}` : origin;
-    main.appendChild(provenance);
-
-    if (row.explanation) {
-      const explanation = document.createElement("div");
-      explanation.className = "explanation";
-      const confidence = row.confidence ? ` (${Math.round(row.confidence * 100)}%)` : "";
-      explanation.textContent = row.explanation + (row.status === "confirmed" ? confidence : "");
-      main.appendChild(explanation);
+  // One quiet line: provenance, plus only the facts that still need saying.
+  // Repeating the matched title and page as `wrote: …` under every row said
+  // nothing on the happy path — the board text earns its place only when it
+  // differs from the match. The page leads the line: beside the title it took
+  // the width the thumbs pill and the row tools need.
+  const parts = [];
+  if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
+  if (row.source !== "manual") parts.push(sourceLabel(row.source));
+  else if (!row.addedBy) parts.push("added manually");
+  if (row.match) {
+    if (row.raw_title && row.raw_title !== row.match.display) {
+      parts.push(`wrote “${row.raw_title}”`);
     }
-
-    // Duplicate call-out (#52), computed live so a correction to an
-    // already-listed song surfaces immediately. Rows that were duplicates at
-    // scan time arrive pre-removed; this line is why, and the restore button
-    // is the deliberate way back in.
-    if (row.match) {
-      const existing = findDuplicate(app.upNext, app.requests, rowKey(row));
-      if (existing) {
-        const dupNote = document.createElement("div");
-        dupNote.className = "dup-note";
-        dupNote.textContent = duplicateLabel(existing.where);
-        main.appendChild(dupNote);
-      }
+    if (row.raw_page && row.raw_page !== row.match.page) {
+      parts.push(`board says p.${row.raw_page}`);
     }
   } else {
-    // The working lists get one quiet line: provenance, plus only the facts
-    // that still need saying. Repeating the matched title and page as
-    // `wrote: …` under every row said nothing on the happy path — the board
-    // text earns its place only when it differs from the match.
-    const parts = [];
-    if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
-    if (row.source !== "manual") parts.push(sourceLabel(row.source));
-    else if (!row.addedBy) parts.push("added manually");
-    if (row.match) {
-      if (row.raw_title && row.raw_title !== row.match.display) {
-        parts.push(`wrote “${row.raw_title}”`);
-      }
-      if (row.raw_page && row.raw_page !== row.match.page) {
-        parts.push(`board says p.${row.raw_page}`);
-      }
-    } else {
-      // No stripe colour out here (see style.css) — say it in words instead.
-      parts.push("not in the songbook");
-    }
-    if (row.notes) parts.push(row.notes);
-    if (row.crossed_out) parts.push("crossed out");
-    // When it was ticked off or binned, in the viewer's own clock. Only in the
-    // two groups: on the working lists the row isn't in that state. Rows
-    // marked before times were recorded simply show none.
-    const playedAt =
-      context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
-    if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
-    const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
-    if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
-    if (parts.length || row.match) {
-      const meta = document.createElement("div");
-      meta.className = "row-meta";
-      if (row.match) meta.appendChild(pageBadge(row.match.page));
-      const text = parts.join(" · ");
-      meta.append(text.charAt(0).toUpperCase() + text.slice(1));
-      main.appendChild(meta);
-    }
+    // No stripe colour out here (see style.css) — say it in words instead.
+    parts.push("not in the songbook");
+  }
+  if (row.notes) parts.push(row.notes);
+  if (row.crossed_out) parts.push("crossed out");
+  // When it was ticked off or binned, in the viewer's own clock. Only in the
+  // two groups: on the working lists the row isn't in that state. Rows
+  // marked before times were recorded simply show none.
+  const playedAt =
+    context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
+  if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
+  const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
+  if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
+  if (parts.length || row.match) {
+    const meta = document.createElement("div");
+    meta.className = "row-meta";
+    if (row.match) meta.appendChild(pageBadge(row.match.page));
+    const text = parts.join(" · ");
+    meta.append(text.charAt(0).toUpperCase() + text.slice(1));
+    main.appendChild(meta);
   }
 
   if (settingsPanel.settings().showSuggestions && row.alternatives?.length && !row.removed) {
@@ -2401,15 +1940,6 @@ function renderRow(row, index, context) {
     tools.append(promoteButton);
   }
 
-  // The correct-song picker is a review-only affordance. A confident match
-  // rarely needs correcting, and the picker is a full-width field that roughly
-  // doubles a row's height — on a 25-row board that buries the two rows that do
-  // need attention. So confirmed rows collapse it behind a button and only the
-  // flagged ones open expanded.
-  if (context === "review") {
-    tools.append(row.status === "confirmed" ? buildPickerToggle(row) : buildSongPicker(row));
-  }
-
   // In the bin group, the only action is to lift a song back out — un-binning
   // flips the flag and the row reappears in its home list at its original spot.
   if (context === "bin") {
@@ -2464,17 +1994,6 @@ function renderRow(row, index, context) {
     binButton.onclick = () => toggleBinned(row);
 
     tools.append(binButton);
-  } else if (context === "review") {
-    const removeButton = document.createElement("button");
-    removeButton.appendChild(icon(row.removed ? "restore" : "bin"));
-    removeButton.title = row.removed ? "Restore row" : "Remove row";
-    removeButton.setAttribute("aria-label", removeButton.title);
-    removeButton.onclick = () => {
-      row.removed = !row.removed;
-      rerender();
-      persist();
-    };
-    tools.append(removeButton);
   }
   body.appendChild(tools);
   li.appendChild(body);
