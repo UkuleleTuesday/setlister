@@ -10,6 +10,9 @@
 -->
 <script lang="ts">
   import Icon from "./Icon.svelte";
+  import { catalogue } from "./catalogue.svelte.js";
+  import { editionLabel } from "./editions.js";
+  import { history } from "./history.svelte.js";
   import { defaultWindowLabel } from "./request-window.js";
   import {
     type SessionEntry,
@@ -29,12 +32,6 @@
     editionId: string;
   }
 
-  /** One songbook option, labelled by main.ts (it owns editionLabel). */
-  export interface EditionOption {
-    id: string;
-    label: string;
-  }
-
   let { onStart }: { onStart: (choice: NewSessionChoice) => Promise<void> } = $props();
 
   // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
@@ -51,12 +48,22 @@
   let dateMax = $state("");
   let editionId = $state("current");
   let visibility: "shared" | "unlisted" = $state("shared");
-  let editions: EditionOption[] = $state([{ id: "current", label: "Current" }]);
-  // The soonest upcoming session, or null. One planned night at a time: while
-  // this is set, starting another SHARED session is blocked, and Unlisted
-  // remains the escape hatch. Advisory only (it can be stale, or empty after a
-  // failed load); start() re-checks against Firestore.
-  let planned: SessionEntry | null = $state(null);
+  // Both selects ship a "current" option, so the default path never depends
+  // on /api/editions answering.
+  const editions = $derived(
+    catalogue.editions.length
+      ? catalogue.editions.map((e) => ({ id: e.id, label: editionLabel(e) }))
+      : [{ id: "current", label: "Current" }],
+  );
+  // The soonest upcoming session from the last history load, or null. One
+  // planned night at a time: while this is set, starting another SHARED
+  // session is blocked, and Unlisted remains the escape hatch. Advisory only
+  // (it can be stale, or empty after a failed load); start() re-checks
+  // against Firestore, and a night it finds overrides this until the next
+  // load.
+  let planned: SessionEntry | null = $derived(
+    partitionSessions(history.entries).upcoming[0] ?? null,
+  );
   let busy = $state(false);
   let error = $state("");
 
@@ -89,16 +96,6 @@
   export function close() {
     isOpen = false;
     busy = false;
-  }
-
-  /** The soonest upcoming night from the last history load, or null. */
-  export function setPlanned(entry: SessionEntry | null) {
-    planned = entry;
-  }
-
-  /** The songbook listing, once /api/editions answers. */
-  export function setEditions(options: EditionOption[]) {
-    if (options.length) editions = options;
   }
 
   async function start() {

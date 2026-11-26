@@ -2,26 +2,19 @@
   The settings popover behind the gear: this device's name, the session's
   songbook, two display toggles, and the scan parser's knobs under Advanced.
 
-  main.ts reads the values through settings() (persist(), the scan request,
-  rendering) and restores saved ones with apply(); every change comes back
-  through the props so main.ts can persist and re-render.
+  The device settings live in settings.svelte.ts and are edited in place
+  here; every change is reported through the props so main.ts can persist it
+  (and, for the name, tell the session's peers).
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
+  import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
-  import type { Edition } from "./types.js";
-
-  /** The device settings persist() saves under `settings`. */
-  export interface Settings {
-    model: string;
-    disableThinking: boolean;
-    sendCatalogue: boolean;
-    showSuggestions: boolean;
-    includeCrossed: boolean;
-    maxImageEdge: string;
-  }
+  import { night } from "./night.svelte.js";
+  import { type Settings, settings } from "./settings.svelte.js";
+  import { view } from "./view.svelte.js";
 
   let {
     onName,
@@ -39,76 +32,25 @@
   } = $props();
 
   let isOpen = $state(false);
-  let name = $state("");
-  let model = $state("");
-  let disableThinking = $state(true);
-  let sendCatalogue = $state(true);
-  let showSuggestions = $state(false);
-  let includeCrossed = $state(false);
-  let maxImageEdge = $state("");
+
   // The editions listing (empty until /api/editions answers) and the
   // session's book. A session can name an edition the listing doesn't know
   // (an unlisted book, or the listing failed), so it gets an option anyway:
   // the select shows the truth instead of silently snapping to another book.
-  let editions: Pick<Edition, "id" | "title">[] = $state([]);
-  let editionId = $state("current");
-  let editionVisible = $state(true);
-
   const editionOptions = $derived.by(() => {
-    const known = editions.length ? editions : [{ id: "current" }];
-    const all = known.some((e) => e.id === editionId) ? known : [...known, { id: editionId }];
+    const id = catalogue.editionId;
+    const known = catalogue.editions.length ? catalogue.editions : [{ id: "current" }];
+    const all = known.some((e) => e.id === id) ? known : [...known, { id }];
     return all.map((e) => ({ id: e.id, label: editionLabel(e) }));
   });
 
   let panel: HTMLDivElement | undefined = $state();
 
-  /** The current device settings. */
-  export function settings(): Settings {
-    return {
-      model,
-      disableThinking,
-      sendCatalogue,
-      showSuggestions,
-      includeCrossed,
-      maxImageEdge,
-    };
-  }
-
-  /** Restore saved settings; anything of the wrong type is ignored. */
-  export function apply(saved: unknown) {
-    if (!saved || typeof saved !== "object") return;
-    const s = saved as Record<string, unknown>;
-    if (typeof s.model === "string") model = s.model;
-    if (typeof s.disableThinking === "boolean") disableThinking = s.disableThinking;
-    if (typeof s.sendCatalogue === "boolean") sendCatalogue = s.sendCatalogue;
-    if (typeof s.showSuggestions === "boolean") showSuggestions = s.showSuggestions;
-    if (typeof s.includeCrossed === "boolean") includeCrossed = s.includeCrossed;
-    if (typeof s.maxImageEdge === "string") maxImageEdge = s.maxImageEdge;
-  }
-
-  /** Reflect a name set elsewhere (room mode's sheet, the name amnesty). */
-  export function setName(value: string) {
-    name = value;
-  }
-
-  /** The songbook listing, once /api/editions answers. */
-  export function setEditions(list: Pick<Edition, "id" | "title">[]) {
-    if (list.length) editions = list;
-  }
-
-  /** Point the select at the session's book. */
-  export function selectEdition(id: string) {
-    editionId = id;
-  }
-
-  /** The songbook select, as it stands (before any session names a book). */
-  export function selectedEdition() {
-    return editionId;
-  }
-
-  /** It's a session control, so the home screen hides it. */
-  export function setEditionVisible(visible: boolean) {
-    editionVisible = visible;
+  // Each control writes its setting, then reports it, so the save that
+  // follows sees the new value.
+  function set<K extends keyof Settings>(key: K, value: Settings[K]) {
+    settings[key] = value;
+    onChange(key);
   }
 
   export function setOpen(open: boolean) {
@@ -151,11 +93,8 @@
       id="player-name"
       placeholder="e.g. Alex"
       autocomplete="name"
-      value={name}
-      oninput={(event) => {
-        name = event.currentTarget.value;
-        onName(name);
-      }}
+      value={night.name}
+      oninput={(event) => onName(event.currentTarget.value)}
     />
   </label>
   <!-- The name shows in three places a player might not expect: song
@@ -164,15 +103,12 @@
   <!-- Session control, not a device setting: it changes THIS session's
        songbook for everyone in it, so it's hidden on the home screen (the
        new-session sheet owns the choice there). -->
-  <label class="field" id="edition-setting" hidden={!editionVisible}>
+  <label class="field" id="edition-setting" hidden={view.page === "home"}>
     <span>Songbook edition</span>
     <select
       id="edition"
-      value={editionId}
-      onchange={(event) => {
-        editionId = event.currentTarget.value;
-        onEdition(editionId);
-      }}
+      value={catalogue.editionId}
+      onchange={(event) => onEdition(event.currentTarget.value)}
     >
       {#each editionOptions as option (option.id)}
         <option value={option.id}>{option.label}</option>
@@ -184,11 +120,8 @@
     <input
       type="checkbox"
       id="show-suggestions"
-      checked={showSuggestions}
-      onchange={(event) => {
-        showSuggestions = event.currentTarget.checked;
-        onChange("showSuggestions");
-      }}
+      checked={settings.showSuggestions}
+      onchange={(event) => set("showSuggestions", event.currentTarget.checked)}
     />
     <span>Show alternative suggestions</span>
   </label>
@@ -196,11 +129,8 @@
     <input
       type="checkbox"
       id="include-crossed"
-      checked={includeCrossed}
-      onchange={(event) => {
-        includeCrossed = event.currentTarget.checked;
-        onChange("includeCrossed");
-      }}
+      checked={settings.includeCrossed}
+      onchange={(event) => set("includeCrossed", event.currentTarget.checked)}
     />
     <span>Include crossed-out rows in export</span>
   </label>
@@ -213,11 +143,8 @@
       <span>Model</span>
       <select
         id="model"
-        value={model}
-        onchange={(event) => {
-          model = event.currentTarget.value;
-          onChange("model");
-        }}
+        value={settings.model}
+        onchange={(event) => set("model", event.currentTarget.value)}
       >
         <option value="">default (gemini-2.5-flash)</option>
         <option value="gemini-2.5-flash">gemini-2.5-flash</option>
@@ -228,11 +155,8 @@
       <input
         type="checkbox"
         id="disable-thinking"
-        checked={disableThinking}
-        onchange={(event) => {
-          disableThinking = event.currentTarget.checked;
-          onChange("disableThinking");
-        }}
+        checked={settings.disableThinking}
+        onchange={(event) => set("disableThinking", event.currentTarget.checked)}
       />
       <span>Disable model thinking (faster)</span>
     </label>
@@ -240,11 +164,8 @@
       <input
         type="checkbox"
         id="send-catalogue"
-        checked={sendCatalogue}
-        onchange={(event) => {
-          sendCatalogue = event.currentTarget.checked;
-          onChange("sendCatalogue");
-        }}
+        checked={settings.sendCatalogue}
+        onchange={(event) => set("sendCatalogue", event.currentTarget.checked)}
       />
       <span>Send songbook to model (better handwriting reads)</span>
     </label>
@@ -257,11 +178,8 @@
         max="4096"
         step="128"
         placeholder="1600"
-        value={maxImageEdge}
-        onchange={(event) => {
-          maxImageEdge = event.currentTarget.value;
-          onChange("maxImageEdge");
-        }}
+        value={settings.maxImageEdge}
+        onchange={(event) => set("maxImageEdge", event.currentTarget.value)}
       />
     </label>
     <!-- This knob governs the upload, not just the server's resize (#44):

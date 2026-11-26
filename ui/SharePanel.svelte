@@ -3,11 +3,11 @@
   night is called, its visibility, the request link's mode and window, who's
   here, and the two links.
 
-  It renders what main.ts hands it through update() / setRoster() /
-  setRequestNote(), and hands every change back through the props. Session
-  metadata (listed, requestsOpen, the window) is written by main.ts through
-  sync.ts's own metadata writes, never the debounced row push (see the sync.ts
-  header); the panel only owns the optimistic-then-revert dance around them.
+  It renders the session as sync last reported it (session.svelte.ts) and
+  hands every change back through the props. Session metadata (listed,
+  requestsOpen, the window) is written by main.ts through sync.ts's own
+  metadata writes, never the debounced row push (see the sync.ts header); the
+  panel only owns the optimistic-then-revert dance around them.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -16,19 +16,9 @@
   import { tick } from "svelte";
   import Icon from "./Icon.svelte";
   import Presence from "./Presence.svelte";
-  import type { RosterEntry } from "./presence.js";
-  import { fromDateTimeInputValue, resolveWindow, toDateTimeInputValue } from "./request-window.js";
-  import type { SessionMeta } from "./types.js";
-
-  export type RequestsMode = "auto" | "open" | "closed";
-
-  /** What the panel shows, from sync's current state. */
-  export interface ShareView {
-    id: string | null;
-    label: string;
-    meta: SessionMeta;
-    createdAt: Date | null;
-  }
+  import { fromDateTimeInputValue, requestNote, toDateTimeInputValue } from "./request-window.js";
+  import { session } from "./session.svelte.js";
+  import type { RequestsSwitch, SessionMeta } from "./types.js";
 
   let {
     onVisibility,
@@ -42,7 +32,7 @@
     /** Write `listed`; reject if it didn't land (the select reverts). */
     onVisibility: (listed: boolean) => Promise<void>;
     /** Write the request link's mode; reject if it didn't land. */
-    onRequestsMode: (mode: RequestsMode) => Promise<void>;
+    onRequestsMode: (mode: RequestsSwitch) => Promise<void>;
     /** Write the window overrides (null clears a side); reject if it didn't land. */
     onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
     /** Offer the full-app link; true when it was copied rather than shared. */
@@ -54,32 +44,12 @@
     openers: () => Element[];
   } = $props();
 
-  // The markup carries the open wording so the panel reads correctly before
-  // the first render.
-  const OPEN_NOTE =
-    "The request link is a view for the room: people can add tunes and follow the set, not change it.";
-
   let isOpen = $state(false);
-  let view: ShareView = $state({
-    id: null,
-    label: "",
-    meta: {
-      createdBy: "",
-      listed: false,
-      requestsOpen: null,
-      requestsOpensAt: null,
-      requestsClosesAt: null,
-      legacy: false,
-    },
-    createdAt: null,
-  });
-  let roster: RosterEntry[] = $state([]);
-  let requestNote = $state(OPEN_NOTE);
 
   // The two selects are optimistic: they show the pick at once and revert if
-  // the write doesn't land, so they hold their own value between updates.
-  let visibility: "shared" | "unlisted" = $state("unlisted");
-  let requestsMode: RequestsMode = $state("auto");
+  // the write doesn't land. Each follows the stored value until then.
+  let visibility: "shared" | "unlisted" = $derived(session.meta.listed ? "shared" : "unlisted");
+  let requestsMode: RequestsSwitch = $derived(modeOf(session.meta));
   let visibilityBusy = $state(false);
   let requestsBusy = $state(false);
   // Which share button is showing "Link copied".
@@ -96,40 +66,13 @@
   // "Use default" shows only on a side that has an override to clear. All
   // hidden outside auto mode: a forced open/closed makes the window inert,
   // and live-looking fields for a schedule that isn't in effect would lie.
-  const auto = $derived(view.meta.requestsOpen === null);
-  const resolved = $derived(
-    resolveWindow({
-      sessionCreatedAt: view.createdAt,
-      opensAtOverride: view.meta.requestsOpensAt,
-      closesAtOverride: view.meta.requestsClosesAt,
-    }),
-  );
+  const auto = $derived(session.meta.requestsOpen === null);
+  const resolved = $derived(session.link.window);
   const openTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.opensAt) : "");
   const closeTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.closesAt) : "");
 
-  function modeOf(meta: SessionMeta): RequestsMode {
+  function modeOf(meta: SessionMeta): RequestsSwitch {
     return meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
-  }
-
-  /** Re-render from sync's state (a peer's flip, a write landing, a route). */
-  export function update(next: ShareView) {
-    view = next;
-    visibility = next.meta.listed ? "shared" : "unlisted";
-    requestsMode = modeOf(next.meta);
-    // A failed window write leaves the input showing the rejected value;
-    // putting back what's stored is the revert. The fields are one-way bound,
-    // so an unchanged value wouldn't reach the DOM on its own.
-    if (openTimeInput) openTimeInput.value = openTimeValue;
-    if (closeTimeInput) closeTimeInput.value = closeTimeValue;
-  }
-
-  export function setRoster(next: RosterEntry[]) {
-    roster = next;
-  }
-
-  /** What the request link does right now (main.ts resolves it against the clock). */
-  export function setRequestNote(text: string) {
-    requestNote = text;
   }
 
   export function setOpen(open: boolean) {
@@ -166,7 +109,7 @@
 
   // Auto / Taking requests / View only. The previous value is remembered
   // rather than inferred: a 3-way revert can't be read off "not this".
-  async function changeRequestsMode(previous: RequestsMode) {
+  async function changeRequestsMode(previous: RequestsSwitch) {
     requestsBusy = true;
     try {
       await onRequestsMode(requestsMode);
@@ -183,14 +126,18 @@
   // (a cleared picker, or "Use default") clears that side's override.
   async function changeWindow(side: "open" | "close") {
     const opensAt =
-      side === "open" ? fromDateTimeInputValue(openTimeInput?.value) : view.meta.requestsOpensAt;
+      side === "open" ? fromDateTimeInputValue(openTimeInput?.value) : session.meta.requestsOpensAt;
     const closesAt =
-      side === "close" ? fromDateTimeInputValue(closeTimeInput?.value) : view.meta.requestsClosesAt;
+      side === "close"
+        ? fromDateTimeInputValue(closeTimeInput?.value)
+        : session.meta.requestsClosesAt;
     try {
       await onWindow({ opensAt, closesAt });
     } catch {
-      // main.ts re-renders through update() on failure, which puts the stored
-      // value back in the field.
+      // Put back what's stored. The fields are one-way bound, so an unchanged
+      // value wouldn't reach the DOM on its own.
+      if (openTimeInput) openTimeInput.value = openTimeValue;
+      if (closeTimeInput) closeTimeInput.value = closeTimeValue;
     }
   }
 
@@ -237,9 +184,9 @@
   <!-- Lead with what the night is called; the raw id is just the link slug,
        demoted to a footnote so it can still be matched against the URL read
        out across the table. -->
-  <p class="share-session-name" id="share-session-name">{view.label}</p>
+  <p class="share-session-name" id="share-session-name">{session.label}</p>
   <p class="share-session-label note">
-    Session id: <strong id="share-session-id">{view.id ?? ""}</strong>
+    Session id: <strong id="share-session-id">{session.id ?? ""}</strong>
   </p>
   <p class="note">Anyone with the link can view and edit these lists live.</p>
   <!-- Whether this night appears in the club's session list. NOT a privacy
@@ -272,7 +219,7 @@
       disabled={requestsBusy}
       onchange={(event) => {
         const previous = requestsMode;
-        requestsMode = event.currentTarget.value as RequestsMode;
+        requestsMode = event.currentTarget.value as RequestsSwitch;
         changeRequestsMode(previous);
       }}
     >
@@ -298,7 +245,7 @@
     type="button"
     id="share-requests-open-reset"
     class="link-button"
-    hidden={!auto || view.meta.requestsOpensAt === null}
+    hidden={!auto || session.meta.requestsOpensAt === null}
     onclick={() => resetSide("open")}
   >
     Use default
@@ -317,18 +264,20 @@
     type="button"
     id="share-requests-close-reset"
     class="link-button"
-    hidden={!auto || view.meta.requestsClosesAt === null}
+    hidden={!auto || session.meta.requestsClosesAt === null}
     onclick={() => resetSide("close")}
   >
     Use default
   </button>
-  <Presence roster={view.id ? roster : []} />
+  <Presence roster={session.id ? session.roster : []} />
   <!-- The room link (#86) opens the room view: it's what goes to the club's
        WhatsApp group, distinct from the full link. This note says what that
        link does RIGHT NOW: a fixed promise that people can add tunes would be
        a lie for half the switch's states, and it's also where the organiser
        is told the whiteboard is unaffected. -->
-  <p class="note" id="share-request-note">{requestNote}</p>
+  <p class="note" id="share-request-note">
+    {requestNote(session.meta.requestsOpen, session.link)}
+  </p>
   <div class="actions">
     <button id="share-link" onclick={() => share("link")}>
       {#if flashing === "link"}<Icon name="check" /><span class="btn-label">

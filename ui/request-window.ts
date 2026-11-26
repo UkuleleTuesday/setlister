@@ -14,6 +14,7 @@
 // branch is testable with a pinned clock (see session-index.ts's tests).
 
 import { NIGHT_BOUNDARY_HOUR, sessionTimeLabel, startOfNight } from "./session-index.js";
+import type { SessionMeta } from "./types.js";
 
 /** When the room's request link takes tunes on its own. */
 export interface RequestWindow {
@@ -176,4 +177,73 @@ export function fromDateTimeInputValue(value: string | null | undefined): Date |
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || "");
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+}
+
+// --- The link as the UI shows it --------------------------------------------
+
+/** Everything the UI says about the request link at one instant. */
+export interface LinkState {
+  /** Taking tunes right now. */
+  open: boolean;
+  /** Minutes until an auto window opens, within the notice period; else null. */
+  soonMinutes: number | null;
+  window: RequestWindow | null;
+  /** The pill both views show. */
+  status: { state: WindowState; at: Date | null };
+}
+
+type LinkMeta = Pick<SessionMeta, "requestsOpen" | "requestsOpensAt" | "requestsClosesAt">;
+
+// The one composed answer to "is the room's request link taking tunes": a
+// forced override always wins, otherwise the window decides. Every gating
+// site asks this with a single `now`, so a slow tap can't straddle two
+// answers.
+export function linkState(meta: LinkMeta, sessionCreatedAt: Date | null, now: Date): LinkState {
+  const win = resolveWindow({
+    sessionCreatedAt,
+    opensAtOverride: meta.requestsOpensAt,
+    closesAtOverride: meta.requestsClosesAt,
+  });
+  const mode = meta.requestsOpen;
+  const open = effectiveRequestsOpen({ mode, window: win, now });
+  // Only auto mode has a meaningful "opening soon": a forced-closed room
+  // isn't about to open whatever the clock says.
+  const soonMinutes = !open && mode === null ? minutesUntilOpen(win, now) : null;
+  return { open, soonMinutes, window: win, status: windowStatus({ mode, window: win, now }) };
+}
+
+const OPEN_NOTE =
+  "The request link is a view for the room: people can add tunes and follow the set, not change it.";
+const CLOSED_NOTE =
+  "View only: people can open tonight's pool and set and watch them, but can't add to them. The whiteboard carries on as usual.";
+
+// The share panel's note describes the link's CURRENT state, so the panel
+// can't promise people can add tunes while the switch says they can't.
+// Forced open/closed get fixed copy; auto names the resolved boundary so the
+// organiser sees the schedule without opening the time fields.
+export function requestNote(mode: RequestsMode, link: LinkState): string {
+  if (mode === true) return OPEN_NOTE;
+  if (mode === false || !link.window) return link.open ? OPEN_NOTE : CLOSED_NOTE;
+  return link.open
+    ? `Auto: taking requests until ${sessionTimeLabel(link.window.closesAt)}. People can add tunes and follow the set, not change it.`
+    : `Auto: not open yet, opens at ${sessionTimeLabel(link.window.opensAt)}. View only until then.`;
+}
+
+// The link's state, worded once for both views: the full app's chip names
+// the link the organiser controls; the request view's rules line says what
+// the room can do (it only shows while requests are open).
+export function windowChipText({ state, at }: LinkState["status"]): string {
+  const time = at ? sessionTimeLabel(at) : "";
+  if (state === "open") return time ? `Request link open until ${time}` : "Request link open";
+  if (state === "later") return `Request link opens at ${time}`;
+  return "Request link is view only";
+}
+
+export function roomWindowText({ state, at }: LinkState["status"]): string {
+  return state === "open" && at ? `Requests open until ${sessionTimeLabel(at)}` : "Requests open";
+}
+
+/** The room's note while the link is about to open. */
+export function openingSoonNote(minutes: number): string {
+  return `Requests open in ${openingSoonLabel(minutes)}. Pop your tune on the whiteboard of wishes for now.`;
 }

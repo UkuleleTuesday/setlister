@@ -3,7 +3,7 @@
   promoted (in order) from the Requests pool below. Played songs collapse into
   a one-line group above the list, so it always starts at the next tune.
 
-  It renders from main.ts's ListsData and hands every change back through
+  It renders the night (night.svelte.ts) and hands every change back through
   `actions`; drag-to-reorder is run here, since it spans the whole list.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
@@ -14,7 +14,9 @@
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
   import RowGroup from "./RowGroup.svelte";
-  import { EMPTY_LISTS, type ListsData, rowVote } from "./lists.js";
+  import { lists, rowVote } from "./lists.svelte.js";
+  import { night } from "./night.svelte.js";
+  import { settings } from "./settings.svelte.js";
 
   let {
     actions,
@@ -29,17 +31,10 @@
     onDownload: () => void;
   } = $props();
 
-  let data: ListsData = $state.raw(EMPTY_LISTS);
-
-  /** Fresh lists from main.ts. */
-  export function setData(next: ListsData) {
-    data = next;
-  }
-
   // Played and binned rows are lifted out (played into the group above,
   // binned into the bin at the foot), so the list shows what's still to play.
-  const visible = $derived(data.upNext.filter((e) => !e.binned && !e.played));
-  const played = $derived(data.upNext.filter((e) => e.played));
+  const visible = $derived(night.upNext.filter((e) => !e.binned && !e.played));
+  const played = $derived(night.upNext.filter((e) => e.played));
   // While a drag is in flight the list shows its order, not the stored one.
   let dragOrder: string[] | null = $state(null);
   let dragUid: string | null = $state(null);
@@ -145,7 +140,7 @@
        job is adding a tune. -->
 <section
   id="upnext"
-  class:empty={visible.length === 0 && !data.upNext.some((e) => e.played && !e.binned)}
+  class:empty={visible.length === 0 && !night.upNext.some((e) => e.played && !e.binned)}
 >
   <div class="setlist-head">
     <h2>
@@ -164,7 +159,7 @@
         type="button"
         title="Copy list"
         aria-label="Copy the setlist to the clipboard"
-        disabled={data.exportEmpty}
+        disabled={lists.exportEmpty}
         onclick={copy}
       >
         <Icon name={copied ? "check" : "copy"} />
@@ -174,7 +169,7 @@
         type="button"
         title="Download JSON"
         aria-label="Download the setlist as JSON"
-        disabled={data.exportEmpty}
+        disabled={lists.exportEmpty}
         onclick={onDownload}
       >
         <Icon name="download" />
@@ -192,9 +187,9 @@
     iconName="played"
     noun="played"
     rows={played}
-    context={data.room ? "room-played" : "played"}
+    context={lists.room ? "room-played" : "played"}
     {actions}
-    showSuggestions={data.showSuggestions}
+    showSuggestions={settings.showSuggestions}
   />
   <!-- Room mode watches the set and can want a tune, nothing else: no
          handle, no buttons, no swipe. -->
@@ -202,12 +197,12 @@
     {#each shown as row (row.uid)}
       <RowCard
         {row}
-        context={data.room ? "room-upnext" : "upnext"}
+        context={lists.room ? "room-upnext" : "upnext"}
         {actions}
-        vote={rowVote(data, row)}
+        vote={rowVote(row)}
         isNext={row.uid === nextUid}
         dragging={row.uid === dragUid}
-        showSuggestions={data.showSuggestions}
+        showSuggestions={settings.showSuggestions}
         onDragStart={startDrag}
       />
     {/each}
@@ -215,6 +210,6 @@
   <!-- The full app's note points at promote, a control the room doesn't
          have. -->
   <p id="upnext-empty" class="note" hidden={visible.length > 0}>
-    {data.room ? "Nothing queued yet" : "Nothing queued yet. Promote a request from below."}
+    {lists.room ? "Nothing queued yet" : "Nothing queued yet. Promote a request from below."}
   </p>
 </section>

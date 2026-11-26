@@ -45,7 +45,15 @@ import type { Firestore, Unsubscribe } from "firebase/firestore";
 import { type Fx, getFirestore } from "./firebase.js";
 import { generateSessionId } from "./session-id.js";
 import { INDEX_COLLECTION, indexEntryData, timestampToDate } from "./session-index.js";
-import type { Edition, ListState, Row, SessionMeta, SyncFields, Votes } from "./types.js";
+import type {
+  Edition,
+  ListState,
+  RequestsSwitch,
+  Row,
+  SessionMeta,
+  SyncFields,
+  Votes,
+} from "./types.js";
 
 /** What main.ts hands over to push: votes and edition may be missing. */
 export type LocalState = Pick<ListState, "upNext" | "requests"> &
@@ -450,7 +458,7 @@ export async function setSessionListed(listed: boolean): Promise<void> {
 // third sentinel value, so a session nobody has ever overridden keeps costing
 // nothing extra to read — exactly the absent-means-X convention `listed` and
 // the window overrides below already follow.
-export async function setRequestsMode(mode: "open" | "closed" | "auto"): Promise<void> {
+export async function setRequestsMode(mode: RequestsSwitch): Promise<void> {
   if (!sessionId) return;
   const id = sessionId;
   const { db, fx } = await getFirestore();

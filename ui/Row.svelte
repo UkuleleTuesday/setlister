@@ -12,7 +12,7 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script module lang="ts">
-  import type { RowVote } from "./lists.js";
+  import type { RowVote } from "./lists.svelte.js";
   import type { CatalogueEntry } from "./types.js";
 
   export type RowContext =

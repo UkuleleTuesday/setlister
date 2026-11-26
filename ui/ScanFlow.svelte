@@ -25,8 +25,10 @@
   import Icon from "./Icon.svelte";
   import ReviewRow from "./ReviewRow.svelte";
   import { findDuplicate, rowKey } from "./dupes.js";
+  import { catalogue } from "./catalogue.svelte.js";
+  import { night } from "./night.svelte.js";
   import { reviewNote, scanResultMessage } from "./scan.js";
-  import type { CatalogueStatus } from "./songbook.js";
+  import { settings } from "./settings.svelte.js";
   import type { CatalogueEntry, Row } from "./types.js";
 
   /** What a finished scan left for review (main.ts has added the rest). */
@@ -34,15 +36,6 @@
     flagged: Row[];
     autoAdded: number;
     autoSkipped: number;
-  }
-
-  /** The night as review rows need it: duplicates, the picker, suggestions. */
-  export interface ScanContext {
-    upNext: Row[];
-    requests: Row[];
-    catalogue: CatalogueEntry[];
-    catalogueStatus: CatalogueStatus;
-    showSuggestions: boolean;
   }
 
   type Phase =
@@ -89,13 +82,6 @@
   // The flagged rows under review; deep state, since remove/restore and
   // corrections edit them in place.
   let entries: Row[] = $state([]);
-  let context: ScanContext = $state.raw({
-    upNext: [],
-    requests: [],
-    catalogue: [],
-    catalogueStatus: "loading",
-    showSuggestions: false,
-  });
   let error = $state("");
   let result = $state("");
   let statusIndex = $state(0);
@@ -125,11 +111,6 @@
 
   export function clearError() {
     error = "";
-  }
-
-  /** Fresh lists or catalogue from main.ts. */
-  export function refresh(next: ScanContext) {
-    context = next;
   }
 
   /** Drop the review (and its photo), back to idle. */
@@ -315,12 +296,12 @@
     {#each entries as row (row.uid)}
       <ReviewRow
         {row}
-        duplicate={row.match ? findDuplicate(context.upNext, context.requests, rowKey(row)) : null}
-        showSuggestions={context.showSuggestions}
-        catalogue={context.catalogue}
-        catalogueStatus={context.catalogueStatus}
-        upNext={context.upNext}
-        requests={context.requests}
+        duplicate={row.match ? findDuplicate(night.upNext, night.requests, rowKey(row)) : null}
+        showSuggestions={settings.showSuggestions}
+        catalogue={catalogue.entries}
+        catalogueStatus={catalogue.status}
+        upNext={night.upNext}
+        requests={night.requests}
         onShowPhoto={() => imageUrl && onShowPhoto(imageUrl)}
         onSetMatch={(entry) => setMatch(row, entry)}
         onToggleRemoved={() => (row.removed = !row.removed)}

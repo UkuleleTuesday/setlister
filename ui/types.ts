@@ -67,6 +67,9 @@ export interface Row {
   binnedAt?: string;
 }
 
+/** The share panel's request link switch, as sync.ts writes it. */
+export type RequestsSwitch = "auto" | "open" | "closed";
+
 /** `{ [rowUid]: { [clientId]: true } }`, see votes.ts. */
 export type Votes = Record<string, Record<string, true>>;
 

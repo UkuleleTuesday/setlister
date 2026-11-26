@@ -5,7 +5,7 @@
   because rewriting that whole-array last-writer-wins field on every vote
   would fight every concurrent edit in the room.
 
-  It renders from main.ts's ListsData and hands every change back through
+  It renders the night (night.svelte.ts) and hands every change back through
   `actions`. The camera and songbook buttons open the scan flow and the
   songbook, which live elsewhere.
 
@@ -15,7 +15,9 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
-  import { EMPTY_LISTS, type ListsData, rowVote } from "./lists.js";
+  import { lists, rowVote } from "./lists.svelte.js";
+  import { night } from "./night.svelte.js";
+  import { settings } from "./settings.svelte.js";
   import { sortForDisplay } from "./votes.js";
 
   let {
@@ -34,30 +36,24 @@
   // fixture.
   const FLASH_MS = 8000;
 
-  let data: ListsData = $state.raw(EMPTY_LISTS);
   let feedback = $state("");
   let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const visible = $derived(data.requests.filter((e) => !e.binned));
+  const visible = $derived(night.requests.filter((e) => !e.binned));
   // The sort is stable, so a tie keeps arrival order rather than reshuffling
   // the pool under the MC's thumb.
-  const sorted = $derived(sortForDisplay(visible, data.votes));
+  const sorted = $derived(sortForDisplay(visible, night.votes));
 
   // The empty note mentions snapping the board, but the room has no camera:
   // there, adding by name is the only door, and once requests are closed
   // (#86) there's no door at all, so pointing at one would be a lie.
   const emptyText = $derived(
-    data.room
-      ? data.roomOpen
+    lists.room
+      ? lists.roomOpen
         ? "No requests yet. Be the first: tap Request a tune."
         : "No requests yet."
       : "No requests yet. Snap the board, or add one above.",
   );
-
-  /** Fresh lists from main.ts. */
-  export function setData(next: ListsData) {
-    data = next;
-  }
 
   /** Why a quick add did or didn't land ("Already in Up next", #52). */
   export function flash(message: string) {
@@ -78,9 +74,9 @@
   <p
     id="requests-hint"
     class="list-hint"
-    hidden={visible.length === 0 || (data.room && !data.roomOpen)}
+    hidden={visible.length === 0 || (lists.room && !lists.roomOpen)}
   >
-    {data.room
+    {lists.room
       ? "Thumbs up the ones you want to hear."
       : "Most wanted first. Move one up when it's time."}
   </p>
@@ -108,7 +104,7 @@
   <!-- 30 minutes before the window opens, room devices see this instead of
        the closed note above: same mode-CSS swap, one extra state. -->
   <p id="requests-opening-soon-note" class="requests-opening-soon-note note">
-    {data.openingSoon}
+    {lists.openingSoon}
   </p>
   <!-- Why a quick add didn't add a row, or that it did. aria-live so it
        reaches screen readers without moving focus. -->
@@ -118,10 +114,10 @@
     {#each sorted as row (row.uid)}
       <RowCard
         {row}
-        context={data.room ? "room" : "requests"}
+        context={lists.room ? "room" : "requests"}
         {actions}
-        vote={rowVote(data, row)}
-        showSuggestions={data.showSuggestions}
+        vote={rowVote(row)}
+        showSuggestions={settings.showSuggestions}
       />
     {/each}
   </ul>

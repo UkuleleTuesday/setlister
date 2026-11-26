@@ -1,13 +1,19 @@
 // The session lists (UpNextSection / RequestsSection / BinGroup / Row): the
 // gestures, the reorder, votes, the "Next" tag, the groups and export.
 import type { Locator, Page } from "@playwright/test";
-import { expect, test } from "./fixtures.js";
+import { bySong } from "./api.js";
+import { expect, storedRowCount, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
 const requestRow = (page: Page, title: string) =>
   page.locator("#requests-rows > li").filter({ hasText: title });
 const upNextRow = (page: Page, title: string) =>
   page.locator("#upnext-rows > li").filter({ hasText: title });
+// A 1x1 PNG: small enough that downscale.ts sends it as is.
+const PHOTO = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 const upNextTitles = (page: Page) => page.locator("#upnext-rows .match-title").allTextContents();
 
 // A horizontal swipe across a card, with pointer events like a thumb's.
@@ -177,4 +183,40 @@ test("export copies and downloads the night, and goes inert when empty", async (
   expect(body.rows).toHaveLength(1);
   expect(body.rows[0].match.title).toBe("Jolene");
   expect(body.rows[0]).not.toHaveProperty("uid");
+});
+
+test("export follows the include-crossed-out setting (#185)", async ({ phone, parseRows }) => {
+  // One confident row the board had crossed out: in the night, but not in the
+  // export until the setting says so.
+  parseRows.current = [
+    {
+      raw_title: "Jolene",
+      raw_page: bySong("Jolene").page,
+      crossed_out: true,
+      status: "confirmed",
+      method: "high_confidence",
+      confidence: 0.97,
+      match: bySong("Jolene"),
+      alternatives: [],
+      explanation: "Title and page agree",
+    },
+  ];
+  const page = await phone();
+  const id = await startSession(page);
+  await page.locator("#photo-input").setInputFiles({
+    name: "board.png",
+    mimeType: "image/png",
+    buffer: PHOTO,
+  });
+  await expect(requestRow(page, "Jolene")).toContainText("crossed out");
+  await expect(page.locator("#copy")).toBeDisabled();
+  // Let the row's own push land first, so its snapshot can't redraw the
+  // buttons for the setting and hide whether the setting does.
+  await expect.poll(() => storedRowCount(id)).toBe(1);
+  await page.waitForTimeout(500);
+
+  await page.locator("#settings-toggle").tap();
+  await page.locator("#include-crossed").tap();
+  await expect(page.locator("#copy")).toBeEnabled();
+  await expect(page.locator("#download")).toBeEnabled();
 });
