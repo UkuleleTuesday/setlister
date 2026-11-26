@@ -16,6 +16,7 @@
   import Icon from "./Icon.svelte";
   import { history, loadHistory } from "./history.svelte.js";
   import { notices } from "./notices.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
   import { type SessionEntry, disambiguate, partitionSessions } from "./session-index.js";
 
   let {
@@ -57,7 +58,9 @@
         ? "Couldn’t load sessions."
         : history.entries.length
           ? ""
-          : "No sessions yet. Start one above.",
+          : organiserStatus.isOrganiser
+            ? "No sessions yet. Start one above."
+            : "No sessions yet.",
   );
 
   function startedBy(entry: SessionEntry) {
@@ -86,17 +89,20 @@
   </li>
 {/snippet}
 
-<!-- While a night is coming up, starting ANOTHER session is a secondary act,
-     so the button steps back to a quiet style; otherwise it's the hero. -->
-<button
-  id="new-session"
-  class="primary-action"
-  class:secondary-new={Boolean(next)}
-  type="button"
-  onclick={onNewSession}
->
-  <Icon name="add" /><span class="btn-label">New session</span>
-</button>
+<!-- Organisers only (#152). While a night is coming up, starting ANOTHER
+     session is a secondary act, so the button steps back to a quiet style;
+     otherwise it's the hero. -->
+{#if organiserStatus.isOrganiser}
+  <button
+    id="new-session"
+    class="primary-action"
+    class:secondary-new={Boolean(next)}
+    type="button"
+    onclick={onNewSession}
+  >
+    <Icon name="add" /><span class="btn-label">New session</span>
+  </button>
+{/if}
 <div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
 
 <!-- The joinable nights, above the history. The next one leads as a big card

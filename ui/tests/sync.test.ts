@@ -5,7 +5,15 @@
 // costs a club its setlist, quietly. Neither needs Firestore.
 
 import { describe, expect, it } from "vitest";
-import { deserialize, diff, readMeta, serialize } from "../sync.js";
+import {
+  deserialize,
+  diff,
+  isPermissionDenied,
+  readMeta,
+  roomRequestUpdates,
+  roomVoteUpdates,
+  serialize,
+} from "../sync.js";
 import type { Row, SyncFields, Votes } from "../types.js";
 import { row as baseRow } from "./fixtures.js";
 
@@ -275,5 +283,42 @@ describe("diff", () => {
       const updates = diff(pooled, promoted, fx);
       expect(updates).toEqual({ upNextOrder: ["a"], requestsOrder: [] });
     });
+  });
+});
+
+// The room's two writes (#152): the exact shapes firestore.rules' isRoomWrite
+// accepts, which tests/rules.test.ts replays against the emulator.
+describe("room writes", () => {
+  const roomFx = {
+    arrayUnion: (...values: unknown[]) => ({ union: values }),
+    serverTimestamp: () => "NOW",
+    deleteField: () => DELETED,
+  } as unknown as Parameters<typeof roomRequestUpdates>[2] & Parameters<typeof roomVoteUpdates>[3];
+
+  it("adds one row, appends its uid and seeds the asker's vote", () => {
+    const row = { ...baseRow({ uid: "n1" }), source: "room" as const };
+    expect(roomRequestUpdates(row, "c1", roomFx)).toEqual({
+      "rows.n1": row,
+      requestsOrder: { union: ["n1"] },
+      "votes.n1.c1": true,
+      updatedAt: "NOW",
+    });
+  });
+
+  it("sets or deletes one vote leaf", () => {
+    expect(roomVoteUpdates("r1", "c1", true, roomFx)).toEqual({
+      "votes.r1.c1": true,
+      updatedAt: "NOW",
+    });
+    expect(roomVoteUpdates("r1", "c1", false, roomFx)).toEqual({
+      "votes.r1.c1": DELETED,
+      updatedAt: "NOW",
+    });
+  });
+
+  it("knows a rules refusal", () => {
+    expect(isPermissionDenied({ code: "permission-denied" })).toBe(true);
+    expect(isPermissionDenied({ code: "unavailable" })).toBe(false);
+    expect(isPermissionDenied(null)).toBe(false);
   });
 });

@@ -27,7 +27,7 @@ async function openForRequests(organiser: Page): Promise<string> {
 // Acting earlier races the same debounce (#153): Jolene's snapshot would land
 // on top of the room's own unpushed request.
 async function joinRoom(room: Page, id: string) {
-  await room.goto(`/?session=${id}&mode=request`);
+  await room.goto(`/?session=${id}`);
   await expect(room.locator("#room-window")).toHaveText(/requests open/i);
   await expect(
     room.locator("#requests-rows").getByRole("listitem").filter({ hasText: "Jolene" }),
@@ -39,7 +39,7 @@ test("the room requests a tune and backs another", async ({ phone }) => {
   const id = await openForRequests(organiser);
   await addByName(organiser, "Jolene", { name: "Alex" });
 
-  const room = await phone();
+  const room = await phone({ room: true });
   await joinRoom(room, id);
 
   await addByName(room, "Let It Be", { name: "Sam" });
@@ -72,7 +72,7 @@ test("a tune already asked for gets a thumbs up instead of a copy", async ({ pho
   const id = await openForRequests(organiser);
   await addByName(organiser, "Jolene", { name: "Alex" });
 
-  const room = await phone();
+  const room = await phone({ room: true });
   await joinRoom(room, id);
   await room.locator(".songbook-trigger:visible").tap();
   await room

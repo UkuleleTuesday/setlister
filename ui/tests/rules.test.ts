@@ -28,6 +28,7 @@ import {
   setDoc,
   updateDoc,
   deleteField,
+  arrayUnion,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -46,6 +47,9 @@ const modular = (compat: unknown) => compat as Firestore;
 type Doc = Record<string, unknown>;
 
 const NOW = Timestamp.fromMillis(1_770_000_000_000); // fixed, well in the past
+
+const ORGANISER = "org";
+const CURRENT_KEY = "0123456789abcdef0123456789abcdef";
 
 // A minimal valid session doc. Spread and override to build the failing cases,
 // so each test states only what it is actually testing.
@@ -78,9 +82,8 @@ beforeAll(async () => {
     projectId: "demo-setlister",
     firestore: { rules: readFileSync(RULES, "utf8"), host: "127.0.0.1", port: 8081 },
   });
-  // Unauthenticated: the app has no auth at all, so this is the only context
-  // that matters.
-  db = modular(testEnv.unauthenticatedContext().firestore());
+  // An organiser's phone (#150): the row seeded below makes it one.
+  db = modular(testEnv.authenticatedContext(ORGANISER).firestore());
 });
 
 afterAll(async () => {
@@ -89,6 +92,14 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
+  await seed(async (adminDb) => {
+    await setDoc(doc(adminDb, "clubConfig", "organiserKey"), { key: CURRENT_KEY });
+    await setDoc(doc(adminDb, "organisers", ORGANISER), {
+      name: "Org",
+      createdAt: NOW,
+      key: CURRENT_KEY,
+    });
+  });
 });
 
 // Bypasses rules — for seeding the "already exists" state an update test needs.
@@ -319,6 +330,178 @@ describe("sessionIndex/{id}", () => {
   it("allows a delete — this is how a session gets un-listed", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "misty-banjo")));
+  });
+});
+
+// Who may write a session (#152). The room (unauthenticated, signed in without
+// a row, or holding a retired key) may only add one request and toggle votes,
+// in the shapes sync.ts writes them; organisers may do anything valid.
+describe("session writes: organisers and the room", () => {
+  const ID = "misty-banjo";
+  const OLD_KEY = "ffffffffffffffffffffffffffffffff";
+
+  const contexts = () => ({
+    anonymous: modular(testEnv.unauthenticatedContext().firestore()),
+    signedIn: modular(testEnv.authenticatedContext("guest").firestore()),
+    retired: modular(testEnv.authenticatedContext("old").firestore()),
+  });
+
+  const existing = (uid: string): Doc => ({
+    uid,
+    source: "scan",
+    raw_title: "Jolene",
+    removed: false,
+    played: false,
+    binned: false,
+  });
+
+  // What adds.ts builds for a room request.
+  const roomRow = (uid: string, overrides: Doc = {}): Doc => ({
+    uid,
+    source: "room",
+    addedBy: "Sam",
+    raw_title: "Creep",
+    raw_page: 12,
+    notes: null,
+    crossed_out: false,
+    status: "confirmed",
+    method: "none",
+    confidence: 1,
+    match: { title: "Creep", page: 12 },
+    alternatives: [],
+    explanation: "Added manually",
+    removed: false,
+    played: false,
+    binned: false,
+    ...overrides,
+  });
+
+  // sync.ts roomRequestUpdates().
+  const addRequest = (client: Firestore, uid: string, row: Doc = roomRow(uid)) =>
+    updateDoc(doc(client, "sessions", ID), {
+      [`rows.${uid}`]: row,
+      requestsOrder: arrayUnion(uid),
+      [`votes.${uid}.c1`]: true,
+      updatedAt: serverTimestamp(),
+    });
+
+  // sync.ts roomVoteUpdates().
+  const vote = (client: Firestore, uid: string, on: boolean) =>
+    updateDoc(doc(client, "sessions", ID), {
+      [`votes.${uid}.c1`]: on ? true : deleteField(),
+      updatedAt: serverTimestamp(),
+    });
+
+  const write = (client: Firestore, updates: Doc) =>
+    updateDoc(doc(client, "sessions", ID), { ...updates, updatedAt: serverTimestamp() });
+
+  beforeEach(() =>
+    seed(async (adminDb) => {
+      await setDoc(doc(adminDb, "organisers", "old"), { name: "Ex", createdAt: NOW, key: OLD_KEY });
+      await setDoc(
+        doc(adminDb, "sessions", ID),
+        session({
+          rows: { r1: existing("r1"), r2: existing("r2") },
+          requestsOrder: ["r1", "r2"],
+          votes: { r1: { asker: true } },
+        }),
+      );
+    }),
+  );
+
+  it("lets the room add one request with its vote, and toggle a vote", async () => {
+    for (const [name, client] of Object.entries(contexts())) {
+      const uid = `new-${name}`;
+      await assertSucceeds(addRequest(client, uid));
+      await assertSucceeds(vote(client, "r2", true));
+      await assertSucceeds(vote(client, "r2", false));
+    }
+  });
+
+  it("lets the room add to a legacy session with no votes field", async () => {
+    const legacy = session({ expiresAt: NOW });
+    delete legacy.votes;
+    delete legacy.listed;
+    await seed((adminDb) => setDoc(doc(adminDb, "sessions", ID), legacy));
+    const { anonymous } = contexts();
+    await assertSucceeds(addRequest(anonymous, "fresh"));
+  });
+
+  it("refuses a room request that isn't one plain new row", async () => {
+    const { anonymous } = contexts();
+    const bad: Doc[] = [
+      roomRow("x", { admin: true }),
+      roomRow("x", { source: "manual" }),
+      roomRow("x", { played: true }),
+      roomRow("x", { binned: true }),
+      roomRow("x", { removed: true }),
+      roomRow("x", { raw_title: 42 }),
+      roomRow("x", { raw_title: "x".repeat(201) }),
+      roomRow("x", { addedBy: "x".repeat(61) }),
+      roomRow("x", { notes: "x".repeat(121) }),
+      roomRow("not-x"),
+    ];
+    for (const row of bad) await assertFails(addRequest(anonymous, "x", row));
+    // Two rows at once.
+    await assertFails(
+      write(anonymous, {
+        "rows.a": roomRow("a"),
+        "rows.b": roomRow("b"),
+        requestsOrder: arrayUnion("a", "b"),
+      }),
+    );
+    // A row with no place in the order.
+    await assertFails(write(anonymous, { "rows.a": roomRow("a") }));
+  });
+
+  it("refuses every other room write", async () => {
+    const { anonymous, signedIn, retired } = contexts();
+    const writes: Doc[] = [
+      { "rows.r1.played": true },
+      { "rows.r1": deleteField() },
+      { votes: {} },
+      { "votes.r1.c1": true, "votes.r2.c1": true },
+      { "votes.r1": deleteField() },
+      { "votes.ghost.c1": true },
+      { requestsOrder: ["r2", "r1"] },
+      { requestsOrder: [] },
+      { upNextOrder: ["r1"] },
+      { edition: { id: "x" } },
+      { listed: false },
+      { requestsOpen: false },
+      { requestsOpensAt: NOW },
+      { requestsClosesAt: NOW },
+    ];
+    for (const client of [anonymous, signedIn, retired]) {
+      for (const updates of writes) await assertFails(write(client, updates));
+      await assertFails(
+        updateDoc(doc(client, "sessions", ID), { "votes.r2.c1": true, updatedAt: NOW }),
+      );
+      await assertFails(setDoc(doc(client, "sessions", "other-night"), session()));
+      await assertFails(setDoc(doc(client, "sessionIndex", "other-night"), indexEntry()));
+      await assertFails(deleteDoc(doc(client, "sessionIndex", ID)));
+    }
+  });
+
+  it("lets an organiser do all of it", async () => {
+    await assertSucceeds(addRequest(db, "org-row"));
+    await assertSucceeds(write(db, { "rows.r1.played": true }));
+    await assertSucceeds(write(db, { "rows.r2": deleteField() }));
+    await assertSucceeds(write(db, { requestsOrder: ["org-row"], upNextOrder: ["r1"] }));
+    await assertSucceeds(write(db, { votes: {}, listed: false, requestsOpen: true }));
+    await assertSucceeds(setDoc(doc(db, "sessions", "other-night"), session()));
+    await assertSucceeds(setDoc(doc(db, "sessionIndex", "other-night"), indexEntry()));
+    await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "other-night")));
+  });
+
+  it("treats an organiser as the room once the key changes", async () => {
+    await seed((adminDb) =>
+      setDoc(doc(adminDb, "clubConfig", "organiserKey"), {
+        key: "a-brand-new-key-0000000000000000",
+      }),
+    );
+    await assertFails(write(db, { listed: false }));
+    await assertSucceeds(addRequest(db, "still-room"));
   });
 });
 

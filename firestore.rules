@@ -4,11 +4,10 @@ rules_version = '2';
 // reads/writes sessions/{id} directly via the Firebase Web SDK — there is no
 // backend sync endpoint, so these rules are the ENTIRE access-control layer.
 //
-// Deliberately unauthenticated (see the epic's "accepted risks"): anyone can
-// read any session, and anyone who knows/guesses an id can write it. The
-// defence is a closed schema (hasOnly locks the key set) + deny-by-default
-// everywhere else. Organiser phones sign in anonymously to register
-// (`organisers`); sessions don't check that until #152.
+// Anyone can read any session. Writes are organisers' (#150): a phone signed
+// in anonymously with a current `organisers` row. Everyone else may only add
+// one request and toggle votes (isRoomWrite). A closed schema (hasOnly locks
+// the key set) and deny-by-default cover the rest.
 //
 // Sessions are now KEPT FOREVER (#77): the app opens on the club's session
 // history, so a night that disappears after 30 days is a bug, not a feature.
@@ -27,7 +26,8 @@ service cloud.firestore {
 
     match /sessions/{id} {
       allow read: if true;                        // public by design
-      allow create, update: if isValidSession(id);
+      allow create: if isValidSession(id) && isOrganiser();
+      allow update: if isValidSession(id) && (isOrganiser() || isRoomWrite());
       allow delete: if false;                     // history is kept forever
 
       // Ephemeral presence heartbeats. Same unauthenticated posture as the
@@ -52,18 +52,14 @@ service cloud.firestore {
     // every other session. Unlisted means "not advertised in the club's list".
     match /sessionIndex/{id} {
       allow read: if true;                        // public by design, like sessions
-      allow create: if isValidIndexEntry(id);
-      // Nothing user-facing is mutable — provenance is not rewritable. Update
-      // stays open (with the same immutability pins) because re-listing a
-      // session set()s over any row a racing client already wrote.
-      allow update: if isValidIndexEntry(id)
+      allow create: if isValidIndexEntry(id) && isOrganiser();
+      // Provenance is not rewritable. Update stays possible because re-listing
+      // set()s over any row a racing client already wrote.
+      allow update: if isValidIndexEntry(id) && isOrganiser()
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy;
-      // Needed so a session can be un-listed after the fact. Accepted risk, and
-      // the same trust model as "anyone can edit any session" — but strictly
-      // weaker: the session doc itself is `delete: if false`, so only the
-      // listing can be lost here, never the setlist.
-      allow delete: if true;
+      // Un-listing. The session doc itself can't be deleted.
+      allow delete: if isOrganiser();
     }
 
     // The key in the write is the credential (#151). update = re-registering
@@ -90,7 +86,7 @@ service cloud.firestore {
     }
 
     // A row counts only while its key is current, so changing the key
-    // de-registers everyone. Used from #152.
+    // de-registers everyone.
     function isOrganiser() {
       return request.auth != null && hasCurrentRow(request.auth.uid);
     }
@@ -98,6 +94,51 @@ service cloud.firestore {
     function hasCurrentRow(uid) {
       let path = /databases/$(database)/documents/organisers/$(uid);
       return exists(path) && get(path).data.key == currentKey();
+    }
+
+    // The room's only write (sync.ts roomRequestUpdates / roomVoteUpdates):
+    // add one request, or toggle vote leaves, plus updatedAt. Existing rows
+    // and both orders are untouched.
+    function isRoomWrite() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let rows = after.rows.diff(before.rows);
+      return after.diff(before).affectedKeys().hasOnly(['rows', 'requestsOrder', 'votes', 'updatedAt'])
+        && after.updatedAt == request.time
+        && rows.removedKeys().size() == 0
+        && rows.changedKeys().size() == 0
+        && ((rows.addedKeys().size() == 0 && after.requestsOrder == before.requestsOrder)
+            || isNewRoomRequest(before, after))
+        && roomVotesOk(before, after);
+    }
+
+    // The new row's uid is requestsOrder's last element (arrayUnion appends):
+    // sets have no element access, so that's how the rule finds it.
+    function isNewRoomRequest(before, after) {
+      let order = after.requestsOrder;
+      let uid = order[order.size() - 1];
+      let row = after.rows[uid];
+      return order.size() == before.requestsOrder.size() + 1
+        && order.hasAll(before.requestsOrder)
+        && after.rows.diff(before.rows).addedKeys().hasOnly([uid])
+        && row.keys().hasOnly(['uid', 'source', 'addedBy', 'raw_title', 'raw_page', 'notes',
+             'crossed_out', 'status', 'method', 'confidence', 'match', 'alternatives',
+             'explanation', 'removed', 'played', 'binned'])
+        && row.uid == uid
+        && row.source == 'room'
+        && row.removed == false && row.played == false && row.binned == false
+        && row.raw_title is string && row.raw_title.size() <= 200
+        && row.addedBy is string && row.addedBy.size() <= 60
+        && (row.notes == null || (row.notes is string && row.notes.size() <= 120));
+    }
+
+    // At most one row's votes change, that row exists, and no row's votes go.
+    // Who voted inside a row stays on trust.
+    function roomVotesOk(before, after) {
+      let v = after.get('votes', {}).diff(before.get('votes', {}));
+      return v.removedKeys().size() == 0
+        && v.affectedKeys().size() <= 1
+        && v.affectedKeys().hasOnly(after.rows.keys());
     }
 
     // Deny-by-default: everything not matched above is closed.

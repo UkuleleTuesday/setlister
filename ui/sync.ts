@@ -35,6 +35,10 @@
 // content, whole-array last-write-wins for the two order arrays, per-leaf
 // merge for votes (see diff).
 //
+// Only organiser phones push the debounced diff. The room writes nothing but
+// the two narrow updates firestore.rules allows it (addRoomRequest,
+// setRoomVote) and takes everything else from snapshots.
+//
 // Firestore's default in-memory cache, not persistentLocalCache: writes made
 // while briefly offline queue in memory and flush on reconnect, enough for a
 // live-in-the-room session. persistentLocalCache (surviving a reload while
@@ -560,6 +564,62 @@ export function setGestureActive(active: boolean): void {
   } else if (!active) {
     deferredSnapshot = null;
   }
+}
+
+/** The rules said no: for an organiser, the key changed. */
+export function isPermissionDenied(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === "permission-denied";
+}
+
+/** Re-read the doc after a denied write, so local state drops what didn't land. */
+export async function refresh(): Promise<void> {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  const snap = await fx.getDoc(fx.doc(db, "sessions", id));
+  if (sessionId === id && snap.exists()) applyRemote(snap.data());
+}
+
+// --- Room writes -------------------------------------------------------------
+// The only shapes firestore.rules (isRoomWrite) accepts from a non-organiser.
+export function roomRequestUpdates(
+  row: Row,
+  clientId: string,
+  fx: Pick<Fx, "arrayUnion" | "serverTimestamp">,
+): Updates {
+  return {
+    [`rows.${row.uid}`]: row,
+    requestsOrder: fx.arrayUnion(row.uid),
+    [`votes.${row.uid}.${clientId}`]: true,
+    updatedAt: fx.serverTimestamp(),
+  };
+}
+
+export function roomVoteUpdates(
+  uid: string,
+  clientId: string,
+  on: boolean,
+  fx: Pick<Fx, "deleteField" | "serverTimestamp">,
+): Updates {
+  return {
+    [`votes.${uid}.${clientId}`]: on ? true : fx.deleteField(),
+    updatedAt: fx.serverTimestamp(),
+  };
+}
+
+export async function addRoomRequest(row: Row, clientId: string): Promise<void> {
+  await roomWrite((fx) => roomRequestUpdates(row, clientId, fx));
+}
+
+export async function setRoomVote(uid: string, clientId: string, on: boolean): Promise<void> {
+  await roomWrite((fx) => roomVoteUpdates(uid, clientId, on, fx));
+}
+
+async function roomWrite(build: (fx: Fx) => Updates): Promise<void> {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  await fx.updateDoc(fx.doc(db, "sessions", id), build(fx));
 }
 
 // --- Push (local -> remote) ------------------------------------------------

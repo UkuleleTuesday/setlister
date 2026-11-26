@@ -15,26 +15,15 @@ import { persist } from "./save.js";
 import { isValidSessionId } from "./session-id.js";
 import { readSync } from "./session.svelte.js";
 import * as sync from "./sync.js";
-import { readStoredMode, resolveMode, writeStoredMode } from "./view-mode.js";
+import { loseOrganiserAccess } from "./organiser.svelte.js";
 import { view } from "./view.svelte.js";
 
 export function currentRouteId(): string | null {
   return new URLSearchParams(location.search).get("session");
 }
 
-// Which view of a session this device gets: the full app or the read-mostly
-// room view (#86). Resolved from the URL plus the sticky flag on every route
-// change, so `?mode=request` / `?mode=full` links work whenever they arrive
-// and a room device stays a room device across plain-link reloads.
-export function applyViewMode() {
-  const resolved = resolveMode(new URLSearchParams(location.search), readStoredMode());
-  writeStoredMode(resolved.store);
-  view.mode = resolved.mode;
-}
-
 export function setView(page: "home" | "session") {
   view.page = page;
-  applyViewMode();
   if (page === "home") overlays.share = false;
   overlays.settings = false; // reachable in both views, just closed
 }
@@ -94,8 +83,8 @@ async function applyRoute(id: string | null): Promise<void> {
     setView("session");
     // Sessions predating visibility have no listing row: give them one. A
     // no-op for everything else, crucially a session someone deliberately
-    // unlisted. Best-effort, never blocks opening.
-    sync.backfillListing();
+    // unlisted. Best-effort, never blocks opening; organisers only.
+    if (view.mode === "full") sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
     notices.home.show(
@@ -135,11 +124,20 @@ export async function startSession({ createdAt, listed, editionId }: NewSessionC
     title: "",
     description: "",
   };
-  const id = await sync.createSession(
-    () => ({ upNext: [], requests: [], edition: chosenEdition }),
-    applyRemoteState,
-    { createdBy: presence.displayName(night.name), listed, createdAt },
-  );
+  let id: string;
+  try {
+    id = await sync.createSession(
+      () => ({ upNext: [], requests: [], edition: chosenEdition }),
+      applyRemoteState,
+      { createdBy: presence.displayName(night.name), listed, createdAt },
+    );
+  } catch (err) {
+    if (sync.isPermissionDenied(err)) {
+      overlays.newSession = false;
+      loseOrganiserAccess();
+    }
+    throw err;
+  }
   night.edition = chosenEdition;
   scopeCatalogueToEdition(editionId);
   night.upNext = [];

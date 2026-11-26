@@ -69,22 +69,22 @@ its id.
 
 ## Requests from the room
 
-A session has two links. The **share link** opens the full app. The **request
-link** opens a view meant for the room's own phones: they find tunes in the
-songbook, add them with their name on them, and follow the running order — Up
-next and the played count. The songbook opens as the whole book in page order
+A session has one link. Organisers' phones get the full app; everyone else gets
+the request view: they find tunes in the songbook, add them with their name on
+them, and follow the running order — Up next and the played count. The songbook opens as the whole book in page order
 (search by title, artist or page), each tune tagged if it's played, queued or
 requested tonight; tapping one already asked for gives it a thumbs up instead.
 That thumbs up is the only mark a room phone leaves on the set: any unplayed
 tune on either list can be wanted, but nothing is reordered, ticked off or
-binned from there. A phone that arrived through the request link stays in that
-view across reloads. Each request is confirmed before it lands, and one phone
-waits a minute between requests, so a single keen person can't fill the night.
+binned from there, and the rules enforce it. Each request is confirmed before it
+lands, and one phone waits a minute between requests, so a single keen person
+can't fill the night. To see what the room sees, open the link in a private
+tab.
 
 The share panel switches that link between **Taking requests** and **View
 only**. View only shows the pool but accepts no tunes, and points people at the
-whiteboard. Like Unlisted, this is a view rather than a permission: anyone
-holding the plain share link has the full app either way.
+whiteboard. The rules don't enforce it: a determined phone could still add a
+request.
 
 ## Mobile-first
 
@@ -225,27 +225,29 @@ Every setlist is a realtime collaborative session stored as
 (who started it, when its night is) that the home screen queries to show the
 club's history, and short-lived `presence` heartbeats for "who's here". The
 browser reads and writes all of it directly via the Firebase Web SDK, so
-[`firestore.rules`](./firestore.rules) is the entire access-control layer —
-deliberately unauthenticated, defended by a closed schema and deny-by-default,
-and covered by `ui/tests/rules.test.ts`.
+[`firestore.rules`](./firestore.rules) is the entire access-control layer,
+covered by `ui/tests/rules.test.ts`: organisers write sessions, the room may
+only add a request or toggle a vote, and a closed schema and deny-by-default
+cover the rest.
 
 **Sessions are kept forever:** the app opens on past nights, so nothing expires
 them, and no client can delete a session document.
 
-Accepted risks, made larger by documents never expiring: anyone with the app
-URL can read the session list, open any session, edit it, or un-list it. The
-real fix is authentication; until then the bounds are the closed schema, the
-bounded string fields, the 60-day cap on future-dated sessions, the 60-entry
-list query, and the budget alert below, which should cover Firestore as well as
-Vertex AI.
+Accepted risks: anyone with the app URL can read every session, add requests
+and vote (votes are on trust). PR previews and other UkuleleTuesday Pages
+sites share production's origin, so their code could act as a signed-in
+organiser; only people with push access to an org repo can ship that. The
+bounds are the closed schema, the bounded string fields, the 60-day cap on
+future-dated sessions, the 60-entry list query, and the budget alert below,
+which should cover Firestore as well as Vertex AI.
 
 ### Organiser access
 
 Organisers register a phone by tapping the organiser link,
 `https://ukuleletuesday.github.io/setlister/#organise=<key>`, pinned in their
 chat (#150). The phone signs in anonymously and writes `organisers/{uid}`; the
-rules accept it only if the key matches `clubConfig/organiserKey`. Nothing is
-locked yet (#152).
+rules accept it only if the key matches `clubConfig/organiserKey`. Only
+organisers can start, run or change a night.
 
 Pin it with: "Tap this on the phone you run nights from. If you use Setlister
 from your home screen, paste it in Settings → Organisers instead." (A tapped
@@ -255,7 +257,8 @@ link opens in the browser, and an iPhone home-screen app has its own storage.)
 - **Check a phone:** Settings → Organisers. Safari can drop the sign-in after
   7 days unused; re-tap the link.
 - **Remove someone, or a leaked link:** change the key and re-pin. Deleting a
-  row removes no one: the old link still works until the key changes.
+  row removes no one: the old link still works until the key changes. A phone
+  on the old key drops to the request view on its next write.
 - **Who's registered:** `organisers` in the Firebase console. `createdAt` is
   the latest registration.
 - A missing `clubConfig/organiserKey` shows as "This link has been retired".

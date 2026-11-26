@@ -14,7 +14,8 @@
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { night } from "./night.svelte.js";
-  import { organiser, registerFromPaste } from "./organiser.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
+  import { registerFromPaste } from "./organiser.svelte.js";
   import { type Settings, settings } from "./settings.svelte.js";
   import { view } from "./view.svelte.js";
 
@@ -126,9 +127,11 @@
   <!-- Status, or paste the link: a tapped link can't reach a home-screen app (#151). -->
   <details class="advanced" id="organiser-setting">
     <summary>Organisers</summary>
-    {#if organiser.isOrganiser}
+    {#if organiserStatus.isOrganiser}
       <p id="organiser-status" class="note">
-        This phone is on the organiser list{organiser.name ? `, as ${organiser.name}` : ""}.
+        This phone is on the organiser list{organiserStatus.name
+          ? `, as ${organiserStatus.name}`
+          : ""}.
       </p>
     {:else}
       <label class="field">

@@ -41,7 +41,6 @@
     changeRequestsMode,
     changeRequestsWindow,
     changeVisibility,
-    shareRoomLink,
     shareSessionLink,
   } from "./sharing.js";
   import { view } from "./view.svelte.js";
@@ -203,7 +202,6 @@
       onRequestsMode={changeRequestsMode}
       onWindow={changeRequestsWindow}
       onShareLink={shareSessionLink}
-      onShareRoomLink={shareRoomLink}
       openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
     />
   {/if}

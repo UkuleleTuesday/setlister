@@ -1,7 +1,7 @@
 <!--
   The in-session share popover, anchored under the share button: what the
   night is called, its visibility, the request link's mode and window, who's
-  here, and the two links.
+  here, and the session link.
 
   It renders the session as sync last reported it (session.svelte.ts) and
   hands every change back through the props; sharing.ts writes the metadata.
@@ -22,7 +22,6 @@
     onRequestsMode,
     onWindow,
     onShareLink,
-    onShareRoomLink,
     at,
     onclose,
     openers,
@@ -33,10 +32,8 @@
     onRequestsMode: (mode: RequestsSwitch) => Promise<void>;
     /** Write the window overrides (null clears a side); reject if it didn't land. */
     onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
-    /** Offer the full-app link; true when it was copied rather than shared. */
+    /** Offer the session link; true when it was copied rather than shared. */
     onShareLink: () => Promise<boolean>;
-    /** Offer the room's request link; true when it was copied. */
-    onShareRoomLink: () => Promise<boolean>;
     /** Where to open: the top, or scrolled to the request link. */
     at: "top" | "requests";
     onclose: () => void;
@@ -50,8 +47,8 @@
   let requestsMode: RequestsSwitch = $derived(modeOf(session.meta));
   let visibilityBusy = $state(false);
   let requestsBusy = $state(false);
-  // Which share button is showing "Link copied".
-  let flashing: "link" | "room" | null = $state(null);
+  // The share button is showing "Link copied".
+  let flashing = $state(false);
   let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
   let panel: HTMLDivElement | undefined = $state();
@@ -132,12 +129,11 @@
     changeWindow(side);
   }
 
-  async function share(which: "link" | "room") {
-    const copied = await (which === "link" ? onShareLink() : onShareRoomLink());
-    if (!copied) return;
+  async function share() {
+    if (!(await onShareLink())) return;
     clearTimeout(flashTimer);
-    flashing = which;
-    flashTimer = setTimeout(() => (flashing = null), 1500);
+    flashing = true;
+    flashTimer = setTimeout(() => (flashing = false), 1500);
   }
 
   // Forgiving dismissal: a tap anywhere outside closes it, except on the
@@ -171,7 +167,9 @@
   <p class="share-session-label note">
     Session id: <strong id="share-session-id">{session.id ?? ""}</strong>
   </p>
-  <p class="note">Anyone with the link can view and edit these lists live.</p>
+  <p class="note">
+    Anyone with the link can follow the night and add requests. Only organisers can run it.
+  </p>
   <!-- Whether this night appears in the club's session list. NOT a privacy
        control: the link works either way (see firestore.rules), as the note
        underneath says. "Shared" names the listed state, not a level of
@@ -253,21 +251,16 @@
     Use default
   </button>
   <Presence roster={session.id ? session.roster : []} />
-  <!-- What the room link (#86, for the club's WhatsApp group) does right
+  <!-- What the link does for the room (#86) right
        now: see requestNote in request-window.ts. -->
   <p class="note" id="share-request-note">
     {requestNote(session.meta.requestsOpen, session.link)}
   </p>
   <div class="actions">
-    <button id="share-link" onclick={() => share("link")}>
-      {#if flashing === "link"}<Icon name="check" /><span class="btn-label">
-          Link copied
-        </span>{:else}<Icon name="share" /><span class="btn-label">Share link</span>{/if}
-    </button>
-    <button id="share-room-link" class="secondary" onclick={() => share("room")}>
-      {#if flashing === "room"}<Icon name="check" /><span class="btn-label">
-          Link copied
-        </span>{:else}<Icon name="share" /><span class="btn-label">Share request link</span>{/if}
+    <button id="share-link" onclick={share}>
+      {#if flashing}<Icon name="check" /><span class="btn-label">Link copied</span>{:else}<Icon
+          name="share"
+        /><span class="btn-label">Share link</span>{/if}
     </button>
   </div>
 </div>

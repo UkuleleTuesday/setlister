@@ -11,6 +11,7 @@
     registerAs,
     reloadToRegister,
   } from "./organiser.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
 
   let name = $state("");
   let heading: HTMLHeadingElement | undefined = $state();
@@ -67,8 +68,7 @@
   {:else if organiser.sheet === "done"}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>You’re on the organiser list</h2>
     <p id="organiser-message" class="note" role="status">
-      Registered as {organiser.name}. Nothing changes yet: when running nights becomes
-      organisers-only, this phone is ready.
+      Registered as {organiserStatus.name}. This phone can now run nights.
     </p>
     <div class="actions">
       <button id="organiser-ok" onclick={() => closeOrganiserSheet()}>OK</button>

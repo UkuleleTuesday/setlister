@@ -1,6 +1,5 @@
 // Organiser registration (#151): sign in anonymously, write
-// `organisers/{uid}` with the link's key. Nothing is gated on it until #152.
-// Room phones never load Auth.
+// `organisers/{uid}` with the link's key. Room phones never load Auth.
 
 import { getAuth, getFirestore } from "./firebase.js";
 import { night } from "./night.svelte.js";
@@ -12,30 +11,28 @@ import {
   stripHash,
   withTimeout,
 } from "./organiser-link.js";
+import { notices } from "./notices.svelte.js";
+import { organiserStatus, setOrganiser } from "./organiser-status.svelte.js";
 import { overlays } from "./overlays.svelte.js";
 import { setPlayerName } from "./player.js";
+import * as sync from "./sync.js";
 
 export type OrganiserStep = "name" | "working" | "done" | "stale" | "error";
 
 class Organiser {
-  /** Has a row; whether its key is still current shows only as a denied
-   * write (#152). */
-  isOrganiser = $state(false);
-  name = $state("");
   sheet = $state<OrganiserStep | null>(null);
   failure = $state<RegistrationError | null>(null);
 }
 
 export const organiser = new Organiser();
 
-// Set once registered: the only reason to load Auth at boot.
-const ORGANISER_KEY = "setlister.organiser.v1";
 // The link's key until it registers or is cancelled, so a reload resumes.
 const PENDING_KEY = "setlister.organiseKey.v1";
 
 const REGISTER_TIMEOUT_MS = 15_000;
 
 let linkKey: string | null = null;
+let registeredThisLoad = false;
 
 /** Boot, first: strip the key from the URL, or resume a pending one. */
 export function takeOrganiseLink(): void {
@@ -97,6 +94,16 @@ export function reloadToRegister(): void {
   location.reload();
 }
 
+/** A write was denied: the key changed, so this phone is the room's now. */
+export function loseOrganiserAccess(): void {
+  if (!organiserStatus.isOrganiser) return;
+  setOrganiser(false);
+  const message = "Organiser access has changed. Tap the latest organiser link.";
+  notices.requests.show(message);
+  notices.home.show(message);
+  sync.refresh().catch(() => {});
+}
+
 export async function register(): Promise<void> {
   const key = linkKey;
   const name = night.name.trim().slice(0, 60);
@@ -105,11 +112,10 @@ export async function register(): Promise<void> {
   organiser.failure = null;
   try {
     await withTimeout(writeRow(key, name), REGISTER_TIMEOUT_MS);
-    writeRegistered(true);
     writePending(null);
     linkKey = null;
-    organiser.isOrganiser = true;
-    organiser.name = name;
+    registeredThisLoad = true;
+    setOrganiser(true, name);
     organiser.sheet = "done";
   } catch (err) {
     console.warn("Organiser registration failed:", err);
@@ -133,39 +139,22 @@ async function writeRow(key: string, name: string): Promise<void> {
   });
 }
 
-/** Boot: read back this phone's row, if it registered before. */
+/** Boot: read back this phone's row, if it registered before. Offline keeps
+ * the stored status. */
 export async function restoreOrganiser(): Promise<void> {
-  if (!readRegistered()) return;
+  if (!organiserStatus.isOrganiser) return;
   try {
     const [{ auth }, { db, fx }] = await Promise.all([getAuth(), getFirestore()]);
     if (!auth.currentUser) {
       // Sign-in lost, e.g. Safari wiped the site's storage.
-      writeRegistered(false);
+      setOrganiser(false);
       return;
     }
     const row = await fx.getDoc(fx.doc(db, "organisers", auth.currentUser.uid));
-    if (organiser.isOrganiser) return;
-    organiser.isOrganiser = row.exists();
-    organiser.name = String(row.data()?.name ?? "");
+    if (registeredThisLoad) return;
+    setOrganiser(row.exists(), String(row.data()?.name ?? ""));
   } catch {
     /* best-effort */
-  }
-}
-
-function readRegistered(): boolean {
-  try {
-    return localStorage.getItem(ORGANISER_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeRegistered(value: boolean): void {
-  try {
-    if (value) localStorage.setItem(ORGANISER_KEY, "1");
-    else localStorage.removeItem(ORGANISER_KEY);
-  } catch {
-    /* storage blocked */
   }
 }
 

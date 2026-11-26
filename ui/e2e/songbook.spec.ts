@@ -84,8 +84,8 @@ test("the room waits a minute between requests, but can still back a tune", asyn
   await organiser.locator("#share-toggle").tap();
   await addByName(organiser, "Jolene", { name: "Alex" });
 
-  const room = await phone();
-  await room.goto(`/?session=${id}&mode=request`);
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
   await expect(room.locator("#requests-rows").getByRole("listitem")).toHaveCount(1);
   await addByName(room, "Let It Be", { name: "Sam" });
   await expect(room.locator("#add-feedback")).toHaveText(
@@ -114,8 +114,8 @@ test("the confirm sheet needs a name, carries a comment, and renames", async ({ 
   await organiser.locator("#share-requests").selectOption("open");
   await organiser.locator("#share-toggle").tap();
 
-  const room = await phone();
-  await room.goto(`/?session=${id}&mode=request`);
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
   await openSongbook(room);
   await songButton(room, "Jolene").tap();
 
