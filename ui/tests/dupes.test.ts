@@ -39,6 +39,12 @@ describe("normalizeText", () => {
     expect(normalizeText("Sarà")).toBe("sara");
     expect(normalizeText("HÉROES")).toBe("heroes");
   });
+
+  it("reads a non-string title from a synced row as text, not a crash", () => {
+    expect(normalizeText(42)).toBe("42");
+    expect(normalizeText(undefined)).toBe("");
+    expect(rowKey(row({ match: null, raw_title: null as unknown as string }))).toBe("");
+  });
 });
 
 describe("matchKey / rowKey", () => {

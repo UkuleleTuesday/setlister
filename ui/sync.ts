@@ -6,9 +6,8 @@
 //
 // It is also the parse boundary for the session doc: Firestore data enters as
 // `unknown` through parseSyncFields() / readMeta() / readCreatedAt(), and
-// leaves as the shapes in types.ts. Nothing past them reads raw doc fields.
-// Row CONTENTS are taken on trust (#157 tracks checking them in
-// parseSyncFields).
+// leaves as the shapes in types.ts. Only diff()'s base reads raw doc fields
+// (see rawSyncFields).
 //
 // firestore.rules (#26) validates the doc's schema: adding a field here means
 // adding it to the rules' hasOnly list in the same change:
@@ -42,7 +41,9 @@
 // offline) is a possible follow-up.
 
 import type { Firestore, Unsubscribe } from "firebase/firestore";
+import { parseEdition } from "./editions.js";
 import { type Fx, getFirestore } from "./firebase.js";
+import { isRow } from "./row-shape.js";
 import { generateSessionId } from "./session-id.js";
 import { INDEX_COLLECTION, indexEntryData, timestampToDate } from "./session-index.js";
 import type {
@@ -276,10 +277,10 @@ export function deserialize(remote: unknown): ListState {
   return { upNext, requests, edition, votes };
 }
 
-// Just the synced content: the diff ignores v, timestamps and metadata. Each
-// field falls back to empty when it's the wrong kind of value; the casts take
-// the contents on trust (#157 tracks real checks).
-function parseSyncFields(data: unknown): SyncFields {
+// The synced content as stored (no v, timestamps or metadata), contents
+// unchecked. Only diff()'s base: keeping what parseSyncFields() skips lets the
+// next push delete it.
+function rawSyncFields(data: unknown): SyncFields {
   const doc = asDoc(data);
   const map = (value: unknown) => (value && typeof value === "object" ? value : {});
   return {
@@ -289,6 +290,17 @@ function parseSyncFields(data: unknown): SyncFields {
     edition: (doc.edition ?? null) as Edition | null,
     votes: map(doc.votes) as Votes,
   };
+}
+
+// What the app runs on (#157): rows filed under their own uid, an edition with
+// a string id. Bad entries are skipped, not repaired. votes.ts checks votes.
+function parseSyncFields(data: unknown): SyncFields {
+  const raw = rawSyncFields(data);
+  const rows: Record<string, Row> = {};
+  for (const [uid, row] of Object.entries(raw.rows as Record<string, unknown>)) {
+    if (isRow(row) && row.uid === uid) rows[uid] = row;
+  }
+  return { ...raw, rows, edition: parseEdition(raw.edition) };
 }
 
 function deepCopy<T>(obj: T): T {
@@ -394,7 +406,7 @@ export async function joinSession(id: string, applyStateFn: ApplyState): Promise
   const remote = snap.data();
   sessionId = id;
   applyState = applyStateFn;
-  lastRemote = deepCopy(parseSyncFields(remote));
+  lastRemote = deepCopy(rawSyncFields(remote));
   applyStateFn(deserialize(remote));
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
@@ -530,7 +542,7 @@ function attachListener(db: Firestore, fx: Fx): void {
 }
 
 function applyRemote(remote: unknown): void {
-  lastRemote = deepCopy(parseSyncFields(remote));
+  lastRemote = deepCopy(rawSyncFields(remote));
   applyState?.(deserialize(remote));
   sessionCreatedAt = readCreatedAt(remote) ?? sessionCreatedAt;
   emitMeta(remote);

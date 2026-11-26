@@ -15,6 +15,7 @@
   import Icon from "./Icon.svelte";
   import SongPicker from "./SongPicker.svelte";
   import { type Duplicate, duplicateLabel } from "./dupes.js";
+  import { alternativesOf } from "./row-shape.js";
   import type { CatalogueStatus } from "./songbook.js";
   import type { CatalogueEntry, Row } from "./types.js";
   import { sourceLabel } from "./view-mode.js";
@@ -60,6 +61,7 @@
   // written at the start of the {#if}.)
   const flagged = $derived(Boolean(row.match) && row.status !== "confirmed");
   const reason = $derived(row.explanation || "Needs a check");
+  const alternatives = $derived(alternativesOf(row));
   const raw = $derived(
     `wrote: “${row.raw_title}”` +
       (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
@@ -119,9 +121,9 @@
       {#if row.match && duplicate}
         <div class="dup-note">{duplicateLabel(duplicate.where)}</div>
       {/if}
-      {#if showSuggestions && row.alternatives?.length && !row.removed}
+      {#if showSuggestions && alternatives.length && !row.removed}
         <div class="chips">
-          {#each row.alternatives as alt, i (i)}
+          {#each alternatives as alt, i (i)}
             <button onclick={() => setMatch(alt.entry)}>
               {alt.entry.title} (p.{alt.entry.page})
             </button>
