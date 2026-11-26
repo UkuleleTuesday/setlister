@@ -406,6 +406,7 @@ footer#edition-note:empty {
 .field input[type="text"],
 .field input[type="date"] {
   width: 100%;
+  min-height: 44px; /* tap target (AGENTS.md) */
   padding: 0.6rem;
   font-size: 1rem;
   border: 1px solid var(--border);
@@ -963,7 +964,8 @@ h2#past-heading {
 .sheet-hint {
   margin: 0.7rem 0 0;
   text-align: center;
-  color: #999;
+  /* --muted, not a lighter grey: AA contrast on white, in a dark pub. */
+  color: var(--muted);
   font-size: 0.8rem;
 }
 #upnext-empty,

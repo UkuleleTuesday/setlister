@@ -386,7 +386,7 @@
   <NameResetSheet onSave={setPlayerName} onclose={() => (overlays.nameReset = false)} />
 {/if}
 {#if organiser.sheet}
-  <OrganiserSheet onclose={() => (organiser.sheet = null)} />
+  <OrganiserSheet />
 {/if}
 {#if overlays.whatsNew}
   <WhatsNewSheet entries={overlays.whatsNew} onclose={() => (overlays.whatsNew = null)} />

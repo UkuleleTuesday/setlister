@@ -1,6 +1,7 @@
 <!--
   The settings popover behind the gear: this device's name, the session's
-  songbook, two display toggles, and the scan parser's knobs under Advanced.
+  songbook, two display toggles, the organiser link (status, or paste it),
+  and the scan parser's knobs under Advanced.
 
   The device settings (settings.svelte.ts) are edited in place here; every
   change is reported through the props so App can persist it (and, for the
@@ -13,6 +14,7 @@
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { night } from "./night.svelte.js";
+  import { organiser, registerFromPaste } from "./organiser.svelte.js";
   import { type Settings, settings } from "./settings.svelte.js";
   import { view } from "./view.svelte.js";
 
@@ -57,6 +59,15 @@
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
     if (target && !panel?.contains(target)) onclose();
+  }
+
+  // Settings → Organisers: the link pasted, for a home-screen app that a
+  // tapped link can't reach (it opens in the browser instead).
+  let organiserLink = $state("");
+  let organiserLinkBad = $state(false);
+
+  function submitOrganiserLink() {
+    organiserLinkBad = !registerFromPaste(organiserLink);
   }
 
   function onKeydown(event: KeyboardEvent) {
@@ -121,6 +132,52 @@
     />
     <span>Include crossed-out rows in export</span>
   </label>
+  <!-- Closed, so it reads as nothing to the room. Open, it's where an
+       organiser checks this phone is registered (#151), or registers a copy
+       of the app a tapped link can't reach. -->
+  <details class="advanced" id="organiser-setting">
+    <summary>Organisers</summary>
+    {#if organiser.isOrganiser}
+      <p id="organiser-status" class="note">
+        This phone is on the organiser list{organiser.name ? `, as ${organiser.name}` : ""}.
+      </p>
+    {:else}
+      <label class="field">
+        <span>Paste your organiser link</span>
+        <input
+          type="text"
+          id="organiser-link"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          enterkeyhint="go"
+          placeholder="https://…#organise=…"
+          bind:value={organiserLink}
+          oninput={() => (organiserLinkBad = false)}
+          onkeydown={(event) => {
+            if (event.key === "Enter") submitOrganiserLink();
+          }}
+        />
+      </label>
+      {#if organiserLinkBad}
+        <p class="error" role="alert">That doesn’t look like an organiser link.</p>
+      {/if}
+      <div class="actions">
+        <button
+          id="organiser-link-register"
+          class="secondary"
+          disabled={!organiserLink.trim()}
+          onclick={submitOrganiserLink}
+        >
+          Register
+        </button>
+      </div>
+      <p class="note">
+        Use this if Setlister lives on your home screen: links from the chat open in your browser
+        instead.
+      </p>
+    {/if}
+  </details>
   <!-- Everything below is vocabulary for whoever is tuning the parser, not a
        ukulele player: it starts closed so the panel reads as four things a
        club member might actually want. -->

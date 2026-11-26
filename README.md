@@ -251,11 +251,24 @@ phones never sign in.
 Nothing is locked on it yet: sessions are as open as described above until
 #152 makes running a night organiser-only.
 
+Suggested pinned message: "Tap this on the phone you run nights from. If you
+use Setlister from your home screen, copy the link and paste it in Settings →
+Organisers instead." A tapped link always opens in the browser, and on iPhone
+a home-screen app keeps its own sign-in, separate from Safari's.
+
 - **Add someone:** send them the link.
+- **Check a phone:** Settings → Organisers says whether it's registered, and
+  as whom. Safari can drop a site's sign-in after 7 days unused; re-tap the
+  link if the line is missing.
 - **Remove someone, or a leaked link:** change the key and re-pin the new link;
   every organiser re-taps it. Deleting a row alone removes no one: they can
-  re-tap the old link still in their chat.
+  re-tap the old link still in their chat. The app strips the key from the
+  address bar, but browser history may still hold it: one more reason to
+  rotate after a leak.
 - **Who's registered:** the `organisers` rows in the Firebase console.
+  `createdAt` is the latest registration, not the first.
+- **"This link has been retired"** is what everyone sees while
+  `clubConfig/organiserKey` doesn't exist, too.
 
 ### One-time setup
 
