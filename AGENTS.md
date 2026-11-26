@@ -9,7 +9,7 @@
 What you must and mustn't do in this repo. `README.md` has what the project is,
 how to run it, and every command; this file doesn't repeat them.
 
-## UI and UX 
+## UI and UX
 
 The UI is mobile-first.
 
@@ -25,7 +25,7 @@ The UI is mobile-first.
 ## Working in `ui/`
 
 - Keep runtime deps minimal and justified.
-- **User-visible changes are capture via the "What's New" feature, in the same PR.** The in-app
+- **User-visible changes are captured via the "What's New" feature, in the same PR.** The in-app
   changelog.
   - One short sentence per item, for players at the club, not commit readers.
     Skip refactors, fixes to unreleased work, and internal tooling.
@@ -37,8 +37,7 @@ The UI is mobile-first.
     the interim states. Lead with the biggest change; three items a day, max.
 - **No em dashes in copy.** Whimsical is fine as long as it stays clear.
 - **Never build anything that destroys other people's work.**
-- *Run `npm run test:emulator` after touching `firestore.rules`.
-
+- Run `npm run test:emulator` after touching `firestore.rules`.
 
 ## Before you push
 
