@@ -67,7 +67,6 @@
   // must not silently read as "no such song" once the book arrives.
   let typing = $state(false);
   let active = $state(-1);
-  let input: HTMLInputElement | undefined = $state();
 
   const matches = $derived(
     query.trim() ? searchSongs(catalogue, query, { limit: LIMIT }) : ([] as CatalogueEntry[]),
@@ -77,10 +76,6 @@
 
   $effect(() => {
     onMenuChange(menuOpen);
-  });
-
-  $effect(() => {
-    if (autofocus) input?.focus();
   });
 
   function close() {
@@ -95,8 +90,8 @@
     onPick(entry);
   }
 
-  function onInput(event: Event) {
-    query = (event.currentTarget as HTMLInputElement).value;
+  function setQuery(value: string) {
+    query = value;
     typing = true;
     active = -1;
   }
@@ -136,9 +131,10 @@
     aria-activedescendant={menuOpen && matches.length && active >= 0
       ? `${menuId}-opt-${active}`
       : undefined}
-    value={query}
-    bind:this={input}
-    oninput={onInput}
+    bind:value={() => query, setQuery}
+    {@attach (el) => {
+      if (autofocus) el.focus();
+    }}
     onkeydown={onKeydown}
     onblur={onBlur}
   />
@@ -150,7 +146,7 @@
              instead of the field closing first (mouse and touch alike). -->
         <li
           id={`${menuId}-opt-${i}`}
-          class={i === active ? "song-picker-option active" : "song-picker-option"}
+          class={["song-picker-option", { active: i === active }]}
           role="option"
           aria-selected={i === active ? "true" : "false"}
           onpointerdown={(event) => {

@@ -5,8 +5,8 @@
   allows; on Up next and Requests it also swipes.
 
   Every change goes up through `actions` (rows.ts changes the lists); this only
-  draws the row and runs its gestures. Drag-to-reorder is the list's job
-  (UpNextSection.svelte): the handle only starts it.
+  draws the row and runs its swipe. Drag-to-reorder is the list's job
+  (UpNextSection.svelte), which catches presses on this row's handle.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -35,6 +35,7 @@
 
 <script lang="ts">
   import { tick } from "svelte";
+  import { on } from "svelte/events";
   import Icon from "./Icon.svelte";
   import { stateTime } from "./gig-state.js";
   import { sessionTimeLabel } from "./session-index.js";
@@ -50,7 +51,6 @@
     isNext = false,
     dragging = false,
     showSuggestions,
-    onDragStart,
   }: {
     row: Row;
     context: RowContext;
@@ -61,8 +61,6 @@
     isNext?: boolean;
     dragging?: boolean;
     showSuggestions: boolean;
-    /** Up next only: a pointer went down on the drag handle. */
-    onDragStart?: (event: PointerEvent, li: HTMLLIElement) => void;
   } = $props();
 
   // A swipe has to travel this far before it's a swipe, not a tap.
@@ -155,68 +153,53 @@
     handle?.focus();
   }
 
-  function onHandlePointerdown(event: PointerEvent) {
-    if (li) onDragStart?.(event, li);
-  }
-
   // Horizontal-swipe sibling of drag (pointer events, so touch works). The
   // body tracks the finger; committing past the threshold fires the list's
   // action. Vertical intent goes back to the page (touch-action: pan-y), so
-  // the list scrolls.
-  function onPointerdown(event: PointerEvent) {
-    if (!swipeable || !li) return;
-    // Buttons and the drag handle own their own gestures.
-    if ((event.target as Element).closest("button")) return;
-    if (event.button != null && event.button !== 0) return; // right/middle click
+  // the list scrolls. An attachment, so a row that unmounts mid-gesture still
+  // drops its document listeners and releases held snapshots.
+  function swipe(card: HTMLLIElement) {
+    // Ends the gesture in flight, if any.
+    let finish: (() => void) | null = null;
 
-    // Hold remote snapshots for the whole touch (a committed swipe, or even a
-    // plain tap) so a peer's change can't re-render the row mid-gesture;
-    // sync applies any held snapshot on release.
-    actions.gesture(true);
-    const card = li;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let engaged = false;
-    let decided = false; // a vertical scroll: we bow out
+    const offDown = on(card, "pointerdown", (event) => {
+      if (!swipeable) return;
+      // A gesture whose release never arrived (it ended outside the window).
+      finish?.();
+      // Buttons and the drag handle own their own gestures.
+      if ((event.target as Element).closest("button")) return;
+      if (event.button != null && event.button !== 0) return; // right/middle click
 
-    const finish = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onCancel);
-      // Any local action has already been applied and pushed by settle().
-      actions.gesture(false);
-    };
+      // Hold remote snapshots for the whole touch (a committed swipe, or even
+      // a plain tap) so a peer's change can't re-render the row mid-gesture;
+      // sync applies any held snapshot on release.
+      actions.gesture(true);
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let engaged = false;
 
-    const reset = () => {
-      swipeDx = null;
-      tracking = false;
-    };
-
-    const settle = (dx: number) => {
-      const commit = COMMIT * card.clientWidth;
-      if (dx >= commit) {
-        if (context === "requests") actions.promote(row.uid);
-        else actions.togglePlayed(row.uid);
-      } else if (dx <= -commit) {
-        if (context === "upnext") actions.demote(row.uid);
-        else actions.toggleBinned(row.uid);
-      }
-      // A committed action takes the row off this list; otherwise it
-      // animates back to rest.
-      reset();
-    };
-
-    const onMove = (e: PointerEvent) => {
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (!engaged) {
-        if (decided) return;
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > ACTIVATE) {
-          decided = true;
-          finish();
-          return;
+      const settle = (dx: number) => {
+        const commit = COMMIT * card.clientWidth;
+        if (dx >= commit) {
+          if (context === "requests") actions.promote(row.uid);
+          else actions.togglePlayed(row.uid);
+        } else if (dx <= -commit) {
+          if (context === "upnext") actions.demote(row.uid);
+          else actions.toggleBinned(row.uid);
         }
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > ACTIVATE) {
+        // A committed action takes the row off this list; otherwise it
+        // animates back to rest.
+        swipeDx = null;
+        tracking = false;
+      };
+
+      const onMove = (e: PointerEvent) => {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!engaged) {
+          // A vertical scroll: we bow out.
+          if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > ACTIVATE) return finish?.();
+          if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) <= ACTIVATE) return;
           engaged = true;
           tracking = true; // follow the finger 1:1 while dragging
           try {
@@ -224,34 +207,42 @@
           } catch {
             /* capture unsupported: document listeners still work */
           }
-        } else {
-          return;
         }
-      }
-      e.preventDefault();
-      swipeDx = dx;
-    };
+        e.preventDefault();
+        swipeDx = dx;
+      };
 
-    const onUp = (e: PointerEvent) => {
-      // Settle before finish(), so the local change is committed and pushed
-      // before any held remote snapshot applies: the two then converge.
-      if (engaged) settle(e.clientX - startX);
-      finish();
-    };
-    const onCancel = () => {
-      if (engaged) settle(0); // a cancelled gesture snaps back
-      finish();
-    };
+      const offs = [
+        on(document, "pointermove", onMove),
+        // Settle before finish(), so the local change is committed and pushed
+        // before any held remote snapshot applies: the two then converge.
+        on(document, "pointerup", (e) => {
+          if (engaged) settle(e.clientX - startX);
+          finish?.();
+        }),
+        on(document, "pointercancel", () => {
+          if (engaged) settle(0); // a cancelled gesture snaps back
+          finish?.();
+        }),
+      ];
+      finish = () => {
+        for (const off of offs) off();
+        finish = null;
+        // Any local action has already been applied and pushed by settle().
+        actions.gesture(false);
+      };
+    });
 
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onCancel);
+    return () => {
+      offDown();
+      finish?.();
+    };
   }
 </script>
 
 <li
   bind:this={li}
-  class={`row-card ${row.status}`}
+  class={["row-card", row.status]}
   class:crossed={row.crossed_out}
   class:removed={row.removed}
   class:played={row.played}
@@ -264,7 +255,7 @@
   class:dragging
   data-uid={row.uid}
   style:--swipe-progress={progress === null ? undefined : progress.toFixed(3)}
-  onpointerdown={onPointerdown}
+  {@attach swipe}
 >
   {#if swipeable}
     <!-- The left half shows on a swipe right, the right half on a swipe left. -->
@@ -294,7 +285,6 @@
         type="button"
         title="Drag or press ↑/↓ to reorder"
         aria-label="Reorder: drag, or press the up and down arrow keys"
-        onpointerdown={onHandlePointerdown}
         onkeydown={onHandleKeydown}
       >
         <Icon name="drag" />
@@ -387,7 +377,7 @@
       {#if context === "upnext"}
         <button
           type="button"
-          class={row.played ? "check-button active" : "check-button"}
+          class={["check-button", { active: row.played }]}
           title={row.played ? "Mark not played" : "Mark played"}
           aria-label={row.played ? "Mark not played" : "Mark played"}
           aria-pressed={row.played ? "true" : "false"}
@@ -398,7 +388,7 @@
       {:else if context === "requests"}
         <button
           type="button"
-          class={row.binned ? "bin-button active" : "bin-button"}
+          class={["bin-button", { active: row.binned }]}
           title={row.binned ? "Un-bin" : "Bin"}
           aria-label={row.binned ? "Un-bin" : "Bin"}
           aria-pressed={row.binned ? "true" : "false"}

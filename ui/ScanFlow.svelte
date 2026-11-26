@@ -21,7 +21,7 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { onDestroy, tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import Icon from "./Icon.svelte";
   import ReviewRow from "./ReviewRow.svelte";
   import { findDuplicate, rowKey } from "./dupes.js";
@@ -106,7 +106,7 @@
   // Leaving the session unmounts this, dropping a review in progress (its
   // rows belong to the night that was showing): release the photo, and stop
   // the session view counting songs as coming.
-  onDestroy(() => {
+  onMount(() => () => {
     if (phase.kind !== "idle") URL.revokeObjectURL(phase.imageUrl);
     if (phase.kind === "reviewing") onReviewChange(false);
   });
