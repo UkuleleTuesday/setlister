@@ -4,10 +4,12 @@
 // player's name, the session id and the settings.
 //
 // What comes back is whatever an older build (or a full disk) left, so it's
-// read field by field: a field of the wrong kind is dropped. What's inside the
-// lists, votes and edition is taken on trust, like the session doc's in
-// sync.ts (#157 tracks real checks for both).
+// read field by field: a field of the wrong kind is dropped, and so is a list
+// entry that isn't a row or an edition without an id, as for the session doc
+// in sync.ts (#157). Votes are read defensively by votes.ts.
 
+import { parseEdition } from "./editions.js";
+import { isRow } from "./row-shape.js";
 import type { Edition, Row, Votes } from "./types.js";
 
 export const STORAGE_KEY = "setlister.v1";
@@ -52,13 +54,16 @@ export function readSavedState(): Partial<SavedState> {
   if (!saved || typeof saved !== "object") return {};
   const s = saved as Record<string, unknown>;
   const out: Partial<SavedState> = {};
-  if (Array.isArray(s.upNext)) out.upNext = s.upNext;
-  if (Array.isArray(s.requests)) out.requests = s.requests;
+  if (Array.isArray(s.upNext)) out.upNext = s.upNext.filter(isRow);
+  if (Array.isArray(s.requests)) out.requests = s.requests.filter(isRow);
   // The pre-split payload: the old single `setlist` was the running order,
   // so it becomes Up next.
-  if (Array.isArray(s.setlist) && !out.upNext && !out.requests) out.upNext = s.setlist;
+  if (Array.isArray(s.setlist) && !out.upNext && !out.requests) {
+    out.upNext = s.setlist.filter(isRow);
+  }
   if (s.votes && typeof s.votes === "object") out.votes = s.votes as Votes;
-  if (s.edition && typeof s.edition === "object") out.edition = s.edition as Edition;
+  const edition = parseEdition(s.edition);
+  if (edition) out.edition = edition;
   if (typeof s.name === "string") out.name = s.name;
   out.settings = s.settings;
   return out;

@@ -31,8 +31,9 @@ export interface Duplicate {
  * Accent-insensitive lowercase form, mirroring the backend's matcher.py, so
  * "sara" equals "Sarà" here just like it does in search.
  */
-export function normalizeText(s: string): string {
-  return s
+export function normalizeText(s: unknown): string {
+  // Coerced: titles come from synced rows, whose contents aren't checked.
+  return String(s ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();

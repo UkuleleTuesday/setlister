@@ -12,9 +12,16 @@ export function editionLabel(e: Pick<Edition, "id"> & Partial<Pick<Edition, "tit
     .join(" ");
 }
 
+/** An edition from storage or the session doc: no string id reads as none. */
+export function parseEdition(value: unknown): Edition | null {
+  return !!value && typeof value === "object" && typeof (value as Edition).id === "string"
+    ? (value as Edition)
+    : null;
+}
+
 /** `/api/editions`: the books on offer. Entries without an id are dropped. */
 export function parseEditions(data: unknown): Edition[] {
   const list = (data as { editions?: unknown } | null)?.editions;
   if (!Array.isArray(list)) return [];
-  return list.filter((e): e is Edition => !!e && typeof e === "object" && typeof e.id === "string");
+  return list.filter((e): e is Edition => parseEdition(e) !== null);
 }

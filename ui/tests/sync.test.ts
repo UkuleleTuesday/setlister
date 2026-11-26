@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { deserialize, diff, readMeta, serialize } from "../sync.js";
-import type { SyncFields, Votes } from "../types.js";
+import type { Row, SyncFields, Votes } from "../types.js";
 import { row as baseRow } from "./fixtures.js";
 
 const row = (uid: string, title: string) => baseRow({ uid, raw_title: title });
@@ -60,6 +60,44 @@ describe("serialize / deserialize", () => {
     const empty = { upNext: [], requests: [], edition: null, votes: {} };
     expect(deserialize(null)).toEqual(empty);
     expect(deserialize({ rows: "nope", upNextOrder: 3, votes: "nope" })).toEqual(empty);
+  });
+
+  // #157: one bad row must cost that row, not the night for every phone.
+  it("skips rows that aren't objects filed under their own uid", () => {
+    const back = deserialize({
+      rows: {
+        a: row("a", "Wagon Wheel"),
+        gone: null,
+        text: "Hey Ya",
+        list: [row("list", "Creep")],
+        noUid: { raw_title: "Hallelujah" },
+        moved: row("elsewhere", "Jolene"),
+      },
+      upNextOrder: ["gone", "a", "text"],
+      requestsOrder: ["list", "noUid", "moved"],
+    });
+    expect(back.upNext.map((r) => r.uid)).toEqual(["a"]);
+    expect(back.requests).toEqual([]);
+  });
+
+  it("reads an edition without a string id as no edition", () => {
+    expect(deserialize({ edition: { id: 7 } }).edition).toBeNull();
+    expect(deserialize({ edition: "current" }).edition).toBeNull();
+    expect(deserialize({ edition: { id: "current" } }).edition).toEqual({ id: "current" });
+  });
+
+  it("deletes skipped rows and a bad edition on the next push", () => {
+    // sync.ts diffs against the doc as stored, so what deserialize skipped is
+    // missing from local state and goes out as a delete.
+    const doc = {
+      rows: { a: row("a", "Wagon Wheel"), gone: null as unknown as Row },
+      upNextOrder: ["a"],
+      requestsOrder: [],
+      edition: { id: 7 } as unknown as SyncFields["edition"],
+      votes: {},
+    };
+    const updates = diff(doc, serialize(deserialize(doc)), fx);
+    expect(updates).toEqual({ "rows.gone": DELETED, edition: null });
   });
 });
 

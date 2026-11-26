@@ -38,6 +38,7 @@
   import Icon from "./Icon.svelte";
   import { stateTime } from "./gig-state.js";
   import { sessionTimeLabel } from "./session-index.js";
+  import { alternativesOf } from "./row-shape.js";
   import type { Row } from "./types.js";
   import { sourceLabel } from "./view-mode.js";
 
@@ -119,6 +120,7 @@
     return text.charAt(0).toUpperCase() + text.slice(1);
   });
   const showMeta = $derived(metaText !== "" || Boolean(row.match));
+  const alternatives = $derived(alternativesOf(row));
 
   // The want button says whose vote it is: "You" (filled) once this device
   // wants the tune, which includes every request it added, and "+1"
@@ -310,9 +312,9 @@
           {#if row.match}<span class="page-badge">p.{row.match.page}</span>{/if}{metaText}
         </div>
       {/if}
-      {#if showSuggestions && row.alternatives?.length && !row.removed}
+      {#if showSuggestions && alternatives.length && !row.removed}
         <div class="chips">
-          {#each row.alternatives as alt, i (i)}
+          {#each alternatives as alt, i (i)}
             <button onclick={() => actions.setMatch(row.uid, alt.entry)}>
               {alt.entry.title} (p.{alt.entry.page})
             </button>
