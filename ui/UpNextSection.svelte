@@ -69,7 +69,7 @@
   // Pointer-events drag so touch works on the mobile browsers this app
   // targets (HTML5 drag-and-drop is desktop-only on touch). The list reorders
   // live as the row crosses its neighbours' midpoints, and the final order
-  // goes back to main.ts on release.
+  // goes out through onReorder on release.
   function startDrag(event: PointerEvent, li: HTMLLIElement) {
     const uid = li.dataset.uid;
     if (!uid) return;

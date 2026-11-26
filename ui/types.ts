@@ -73,7 +73,7 @@ export type RequestsSwitch = "auto" | "open" | "closed";
 /** `{ [rowUid]: { [clientId]: true } }`, see votes.ts. */
 export type Votes = Record<string, Record<string, true>>;
 
-/** What main.ts holds and renders: the two lists in order. */
+/** The synced night: the two lists in order, the book and the votes. */
 export interface ListState {
   upNext: Row[];
   requests: Row[];

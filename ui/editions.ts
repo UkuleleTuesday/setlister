@@ -1,5 +1,5 @@
 // Songbook editions: how one is named in a select, and the listing the API
-// returns. Pure, so main.ts and the Svelte panels agree.
+// returns. Pure, so every select labels a book the same way.
 
 import type { Edition } from "./types.js";
 

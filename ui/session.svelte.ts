@@ -1,6 +1,6 @@
 // The shared session as this phone last heard it from sync.ts: its id,
 // metadata (visibility, the request link's mode and window), when it started,
-// and who's here. main.ts calls readSync() whenever sync reports a change;
+// and who's here. live.ts calls readSync() whenever sync reports a change;
 // everything else only reads.
 //
 // Kept apart from the night's lists on purpose: session metadata travels by

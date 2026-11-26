@@ -3,7 +3,7 @@
   songbook, two display toggles, and the scan parser's knobs under Advanced.
 
   The device settings live in settings.svelte.ts and are edited in place
-  here; every change is reported through the props so main.ts can persist it
+  here; every change is reported through the props so App can persist it
   (and, for the name, tell the session's peers).
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
@@ -20,7 +20,7 @@
     onName,
     onChange,
     onEdition,
-    onOpenChange,
+    open = $bindable(false),
   }: {
     /** The name field changed (every keystroke). */
     onName: (name: string) => void;
@@ -28,10 +28,8 @@
     onChange: (key: keyof Settings) => void;
     /** The session's songbook was switched. */
     onEdition: (editionId: string) => void;
-    onOpenChange: (open: boolean) => void;
+    open?: boolean;
   } = $props();
-
-  let isOpen = $state(false);
 
   // The editions listing (empty until /api/editions answers) and the
   // session's book. A session can name an edition the listing doesn't know
@@ -53,26 +51,16 @@
     onChange(key);
   }
 
-  export function setOpen(open: boolean) {
-    if (isOpen === open) return;
-    isOpen = open;
-    onOpenChange(open);
-  }
-
-  export function isPanelOpen() {
-    return isOpen;
-  }
-
   // Forgiving dismissal: a tap anywhere outside closes it (the gear's own tap
   // stops propagation in App.svelte, so it toggles instead). Escape is a desktop
   // bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
-    if (isOpen && target && !panel?.contains(target)) setOpen(false);
+    if (open && target && !panel?.contains(target)) open = false;
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") setOpen(false);
+    if (event.key === "Escape") open = false;
   }
 </script>
 
@@ -83,7 +71,7 @@
   class="settings-panel"
   role="dialog"
   aria-label="Settings"
-  hidden={!isOpen}
+  hidden={!open}
   bind:this={panel}
 >
   <label class="field">

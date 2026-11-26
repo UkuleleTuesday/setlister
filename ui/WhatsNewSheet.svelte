@@ -2,8 +2,8 @@
   What's new: release notes from whats-new.json, in the same centred sheet
   idiom as starting a night. Two ways in, two amounts of news: the home banner
   opens it on the latest entry alone (an announcement), the footer link on the
-  full history (an archive). App.svelte owns both doors and the "seen" bookkeeping;
-  this component only shows what it's given, via open().
+  full history (an archive). App.svelte owns both doors and the "seen"
+  bookkeeping; this component only shows the entries it's given.
 
   This is the one sheet you read rather than fill in, and the only one that
   can run several screens long, so it carries a real Close button instead of
@@ -15,29 +15,35 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { untrack } from "svelte";
   import { type WhatsNewEntry, whatsNewDateLabel } from "./whats-new.js";
 
-  let entries: WhatsNewEntry[] = $state([]);
-  let isOpen = $state(false);
+  let {
+    entries = $bindable(null),
+  }: {
+    /** The entries on show, newest first as given; null closes the sheet. */
+    entries?: WhatsNewEntry[] | null;
+  } = $props();
+
   let list: HTMLDivElement | undefined = $state();
 
   // Labels are computed when the entries change, in the viewer's locale; the
   // stored date stays ISO (see whats-new.ts).
-  const blocks = $derived(entries.map((entry) => ({ entry, label: whatsNewDateLabel(entry) })));
+  const blocks = $derived(
+    (entries ?? []).map((entry) => ({ entry, label: whatsNewDateLabel(entry) })),
+  );
 
-  /** Show these entries, newest first as given. */
-  export async function open(next: WhatsNewEntry[]) {
-    entries = next;
-    isOpen = true;
-    // Long archives open at the top, not wherever the last visit left the
-    // scroll. After the render, so the new list is the one being reset.
-    await tick();
-    if (list) list.scrollTop = 0;
-  }
+  // Long archives open at the top, not wherever the last visit left the
+  // scroll. After the render, so the new list is the one being reset.
+  $effect(() => {
+    if (!entries) return;
+    untrack(() => {
+      if (list) list.scrollTop = 0;
+    });
+  });
 
-  export function close() {
-    isOpen = false;
+  function close() {
+    entries = null;
   }
 
   // Forgiving dismissal: a tap on the backdrop itself closes, a tap inside
@@ -47,7 +53,7 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && isOpen) close();
+    if (event.key === "Escape" && entries) close();
   }
 </script>
 
@@ -59,7 +65,7 @@
 <div
   id="whats-new-sheet"
   class="sheet-backdrop"
-  hidden={!isOpen}
+  hidden={!entries}
   role="dialog"
   aria-modal="true"
   aria-labelledby="whats-new-title"

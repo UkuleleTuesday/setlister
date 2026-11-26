@@ -11,7 +11,7 @@ import { addByName, startSession } from "./steps.js";
 //
 // Done BEFORE any tune is added, deliberately: a snapshot landing inside
 // sync.ts's 300ms push debounce currently replaces local edits that haven't
-// been pushed yet (applyRemoteState in main.ts re-persists the remote lists),
+// been pushed yet (applyRemoteState in live.ts re-persists the remote lists),
 // and this metadata write's own snapshot is one. Drop the ordering once #153
 // is fixed.
 async function openForRequests(organiser: Page): Promise<string> {

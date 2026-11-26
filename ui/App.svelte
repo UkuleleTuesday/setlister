@@ -1,56 +1,13 @@
 <!--
   The whole page: the header with its two popovers, home (the club's history)
-  and the session view, the sheets and the footnote. main.ts mounts it on the
-  bare index.html and changes the night (the lists, sync, the catalogue,
-  routing); this file draws the chrome from the state modules and wires the
-  parts to each other.
-
-  Wiring that is pure chrome stays here: the header buttons toggling their
-  popovers, the window chip opening the share panel, the photo viewer, the
-  What's new doors. Everything that changes the night goes out through
-  `handlers`. main.ts drives the parts through their exports (parts()).
+  and the session view, the sheets and the footnote. It draws the state
+  modules (*.svelte.ts) and wires each part to the actions that change them
+  (adds.ts, rows.ts, sharing.ts, routing.ts, ...). Which sheet or popover is
+  up is overlays.svelte.ts, bound to each part.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
-<script module lang="ts">
-  import type { NewSessionChoice } from "./NewSessionSheet.svelte";
-  import type { RequestAnswer } from "./RoomRequestSheet.svelte";
-  import type { RowActions } from "./Row.svelte";
-  import type { ScanOutcome } from "./ScanFlow.svelte";
-  import type { Settings } from "./settings.svelte.js";
-  import type { CatalogueEntry, RequestsSwitch, Row } from "./types.js";
-
-  /** What the page asks of main.ts. */
-  export interface AppHandlers {
-    /** "All sessions". */
-    onBack: () => void;
-    /** A night picked on home. */
-    onPickSession: (id: string) => void;
-    onStartSession: (choice: NewSessionChoice) => Promise<void>;
-    /** "Request a tune" (room) and "Add a tune" (full app): the songbook. */
-    onAddTune: () => void;
-    /** The room's "change" next to its name. */
-    onChangeRoomName: () => void;
-    onVisibility: (listed: boolean) => Promise<void>;
-    onRequestsMode: (mode: RequestsSwitch) => Promise<void>;
-    onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
-    onShareLink: () => Promise<boolean>;
-    onShareRoomLink: () => Promise<boolean>;
-    onName: (name: string) => void;
-    onSettingChange: (key: keyof Settings) => void;
-    onEdition: (editionId: string) => void;
-    onRequestConfirm: (answer: RequestAnswer) => void;
-    onSongbookPick: (entry: CatalogueEntry) => void;
-    scan: (file: File, signal: AbortSignal) => Promise<ScanOutcome>;
-    onReviewConfirm: (kept: Row[]) => void;
-    rowActions: RowActions;
-    onReorder: (uids: string[]) => void;
-    onCopy: () => Promise<void>;
-    onDownload: () => void;
-  }
-</script>
-
 <script lang="ts">
   import BinGroup from "./BinGroup.svelte";
   import Home from "./Home.svelte";
@@ -66,12 +23,26 @@
   import SongbookSheet from "./SongbookSheet.svelte";
   import UpNextSection from "./UpNextSection.svelte";
   import WhatsNewSheet from "./WhatsNewSheet.svelte";
-  import { catalogue } from "./catalogue.svelte.js";
+  import { addFromBoard, confirmRequest, pickSong, scanBoard } from "./adds.js";
+  import { catalogue, scopeCatalogueToEdition } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { night } from "./night.svelte.js";
+  import { notices } from "./notices.svelte.js";
+  import { overlays } from "./overlays.svelte.js";
+  import { setPlayerName } from "./player.js";
   import { roomWindowText, windowChipText } from "./request-window.js";
+  import { leaveToHome, openSession, startSession } from "./routing.js";
+  import { commitOrder, copySetlist, downloadSetlist, rowActions } from "./rows.js";
+  import { persist } from "./save.js";
   import { pageTitle } from "./session-index.js";
   import { session } from "./session.svelte.js";
+  import {
+    changeRequestsMode,
+    changeRequestsWindow,
+    changeVisibility,
+    shareRoomLink,
+    shareSessionLink,
+  } from "./sharing.js";
   import { view } from "./view.svelte.js";
   import {
     type WhatsNewEntry,
@@ -81,44 +52,18 @@
     writeWhatsNewSeen,
   } from "./whats-new.js";
 
-  let { handlers }: { handlers: AppHandlers } = $props();
+  const BRAND_TITLE = "🎶 Setlister";
 
-  // Bound once at mount and never swapped, so plain lets: main.ts reads them
-  // through parts() after mount() has flushed.
-  let home: Home;
-  let newSessionSheet: NewSessionSheet;
-  let sharePanel: SharePanel;
-  let settingsPanel: SettingsPanel;
-  let requestSheet: RoomRequestSheet;
-  let songbookSheet: SongbookSheet;
+  // The two calls into a part that stay imperative: a file input's click()
+  // has to run inside the tap itself (scanFlow.pickPhoto), and scrolling the
+  // share panel to a row is a one-off DOM nudge (sharePanel.revealRequests).
   let scanFlow: ScanFlow;
-  let photoLightbox: PhotoLightbox;
-  let requestsSection: RequestsSection;
-  let nameResetSheet: NameResetSheet;
-  let whatsNewSheet: WhatsNewSheet;
+  let sharePanel: SharePanel;
+  // Taps on these open the share panel, so they mustn't count as "outside".
   let shareToggle: HTMLButtonElement;
   let windowChip: HTMLButtonElement;
 
-  /** The parts main.ts drives. */
-  export function parts() {
-    return {
-      home,
-      newSessionSheet,
-      sharePanel,
-      settingsPanel,
-      requestSheet,
-      songbookSheet,
-      scanFlow,
-      requestsSection,
-      nameResetSheet,
-    };
-  }
-
-  const BRAND_TITLE = "🎶 Setlister";
-
   const inSession = $derived(view.page === "session");
-  let shareOpen = $state(false);
-  let settingsOpen = $state(false);
 
   // In a session the night's date IS the working title, so the brand retreats
   // to home; CSS keys the header's sizing off in-session, and room-mode
@@ -160,8 +105,8 @@
   // backdrop.
   $effect(() => {
     if (view.room && !session.link.open) {
-      requestSheet.close();
-      songbookSheet.close();
+      overlays.request = null;
+      overlays.songbook = false;
     }
   });
 
@@ -170,14 +115,14 @@
   // never leave both header popovers open at once.
   function onShareTap(event: MouseEvent) {
     event.stopPropagation();
-    settingsPanel.setOpen(false);
-    sharePanel.setOpen(!sharePanel.isPanelOpen());
+    overlays.settings = false;
+    overlays.share = !overlays.share;
   }
 
   function onSettingsTap(event: MouseEvent) {
     event.stopPropagation();
-    sharePanel.setOpen(false);
-    settingsPanel.setOpen(!settingsPanel.isPanelOpen());
+    overlays.share = false;
+    overlays.settings = !overlays.settings;
   }
 
   // What's new: announcement and archive are two jobs, so two doors. The
@@ -190,7 +135,7 @@
   let bannerSeen = $state(readWhatsNewSeen() === latest?.date);
 
   function openWhatsNew(entries: WhatsNewEntry[]) {
-    whatsNewSheet.open(entries);
+    overlays.whatsNew = entries;
     // Opening is seeing: the banner has done its job for this entry.
     bannerSeen = true;
     writeWhatsNewSeen(latest?.date || "");
@@ -199,7 +144,7 @@
   function onReviewChange(reviewing: boolean) {
     view.reviewing = reviewing;
     // The photo is only reachable from the review sheet.
-    if (!reviewing) photoLightbox.close();
+    if (!reviewing) overlays.photo = null;
   }
 </script>
 
@@ -214,7 +159,7 @@
     class:active={!!session.id}
     type="button"
     aria-label={shareLabel}
-    aria-expanded={shareOpen}
+    aria-expanded={overlays.share}
     aria-controls="share-panel"
     hidden={!inSession}
     bind:this={shareToggle}
@@ -237,7 +182,7 @@
     class="settings-toggle"
     type="button"
     aria-label="Settings"
-    aria-expanded={settingsOpen}
+    aria-expanded={overlays.settings}
     aria-controls="settings-panel"
     onclick={onSettingsTap}
   >
@@ -257,22 +202,27 @@
 
   <SharePanel
     bind:this={sharePanel}
-    onVisibility={handlers.onVisibility}
-    onRequestsMode={handlers.onRequestsMode}
-    onWindow={handlers.onWindow}
-    onShareLink={handlers.onShareLink}
-    onShareRoomLink={handlers.onShareRoomLink}
-    onOpenChange={(open) => (shareOpen = open)}
+    bind:open={overlays.share}
+    onVisibility={changeVisibility}
+    onRequestsMode={changeRequestsMode}
+    onWindow={changeRequestsWindow}
+    onShareLink={shareSessionLink}
+    onShareRoomLink={shareRoomLink}
     openers={() => [shareToggle, windowChip]}
   />
-  <!-- Settings survive a reload like the lists do (main.ts persists them),
-       and the songbook select edits the session's book, for everyone. -->
+  <!-- Settings survive a reload like the lists do: losing a toggle you set
+       last Tuesday reads as a bug at the club. Switching the book is a
+       cache-first re-scope like any other, saved at once so a cached switch
+       reaches the session's peers even if the background refresh never lands
+       (pub wifi). -->
   <SettingsPanel
-    bind:this={settingsPanel}
-    onName={handlers.onName}
-    onChange={handlers.onSettingChange}
-    onEdition={handlers.onEdition}
-    onOpenChange={(open) => (settingsOpen = open)}
+    bind:open={overlays.settings}
+    onName={setPlayerName}
+    onChange={persist}
+    onEdition={(editionId) => {
+      scopeCatalogueToEdition(editionId);
+      persist();
+    }}
   />
 </header>
 
@@ -293,11 +243,10 @@
     </button>
 
     <Home
-      bind:this={home}
-      onPick={handlers.onPickSession}
+      onPick={openSession}
       onNewSession={() => {
-        home.clearError();
-        newSessionSheet.open();
+        notices.home.clear();
+        overlays.newSession = true;
       }}
     />
 
@@ -331,7 +280,7 @@
          by walking away from it, never by wiping it for everyone else in the
          room (there is no "Start over"). -->
     <div class="session-bar">
-      <button id="back-home" class="link-button" type="button" onclick={handlers.onBack}>
+      <button id="back-home" class="link-button" type="button" onclick={leaveToHome}>
         <Icon name="back" /><span class="btn-label">All sessions</span>
       </button>
       <!-- Where the request link stands right now, so an organiser sees it
@@ -358,7 +307,7 @@
         Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
       </p>
       <div id="room-add" class="room-add">
-        <button type="button" class="songbook-trigger" onclick={handlers.onAddTune}>
+        <button type="button" class="songbook-trigger" onclick={() => (overlays.songbook = true)}>
           <Icon name="add" /><span class="btn-label">Request a tune</span>
         </button>
       </div>
@@ -377,7 +326,7 @@
             id="room-identity-change"
             class="link-button"
             type="button"
-            onclick={handlers.onChangeRoomName}
+            onclick={() => (overlays.request = { entry: null })}
           >
             change
           </button>
@@ -395,15 +344,14 @@
     </div>
 
     <UpNextSection
-      actions={handlers.rowActions}
-      onReorder={handlers.onReorder}
-      onCopy={handlers.onCopy}
-      onDownload={handlers.onDownload}
+      actions={rowActions}
+      onReorder={commitOrder}
+      onCopy={copySetlist}
+      onDownload={downloadSetlist}
     />
     <RequestsSection
-      bind:this={requestsSection}
-      actions={handlers.rowActions}
-      onAddTune={handlers.onAddTune}
+      actions={rowActions}
+      onAddTune={() => (overlays.songbook = true)}
       onSnap={() => scanFlow.pickPhoto()}
     />
 
@@ -412,28 +360,28 @@
          sure about). -->
     <ScanFlow
       bind:this={scanFlow}
-      scan={handlers.scan}
-      onConfirm={handlers.onReviewConfirm}
-      onShowPhoto={(imageUrl) => photoLightbox.open(imageUrl)}
+      scan={scanBoard}
+      onConfirm={addFromBoard}
+      onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
       {onReviewChange}
     />
 
     <!-- Binned songs, at the very bottom, below the add controls, so the
          discard pile never wedges itself between Requests and the controls
          that feed it. -->
-    <BinGroup actions={handlers.rowActions} />
+    <BinGroup actions={rowActions} />
   </div>
 </main>
 
-<NewSessionSheet bind:this={newSessionSheet} onStart={handlers.onStartSession} />
-<RoomRequestSheet bind:this={requestSheet} onConfirm={handlers.onRequestConfirm} />
-<SongbookSheet bind:this={songbookSheet} onPick={handlers.onSongbookPick} />
-<NameResetSheet bind:this={nameResetSheet} onSave={handlers.onName} />
-<WhatsNewSheet bind:this={whatsNewSheet} />
+<NewSessionSheet bind:open={overlays.newSession} onStart={startSession} />
+<RoomRequestSheet bind:request={overlays.request} onConfirm={confirmRequest} />
+<SongbookSheet bind:open={overlays.songbook} onPick={pickSong} />
+<NameResetSheet bind:open={overlays.nameReset} onSave={setPlayerName} />
+<WhatsNewSheet bind:entries={overlays.whatsNew} />
 
 <!-- Which songbook edition rows were matched against, and when it was
      generated. A quiet page footer: provenance, not part of the running order
      up top. -->
 <footer id="edition-note" class="note" hidden={!inSession}>{editionNote}</footer>
 
-<PhotoLightbox bind:this={photoLightbox} />
+<PhotoLightbox bind:src={overlays.photo} />

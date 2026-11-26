@@ -1,6 +1,6 @@
 // Wording shared by every song list (the songbook sheet, the review sheet's
 // picker): what an empty list means, and how tonight's state is tagged. Pure,
-// so main.ts and the Svelte sheets can't drift apart.
+// so the actions and the Svelte sheets can't drift apart.
 
 import type { DuplicateWhere } from "./dupes.js";
 

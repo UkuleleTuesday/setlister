@@ -135,7 +135,7 @@ export function sessionDateLabel(date: Date | null, now = new Date()): string {
 
 // The browser-tab title. Session-first: the night's label leads so parked tabs
 // can be told apart; the brand alone marks the home view. DOM-free here (not in
-// main.ts) so it's testable without a browser.
+// a component) so it's testable without a browser.
 export function pageTitle(label: string | null | undefined): string {
   return label ? `${label} · Setlister` : "Setlister · Ukulele Tuesday";
 }

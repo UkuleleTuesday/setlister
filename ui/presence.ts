@@ -21,7 +21,7 @@
 //
 // Firebase loads lazily through firebase.ts — importing this module does NOT
 // pull the Firestore SDK; only startPresence() does, and only inside an already
-// active session. Kept UI-free: main.ts hands onRoster()'s roster to the
+// active session. Kept UI-free: live.ts hands onRoster()'s roster to the
 // share panel.
 
 import type { Firestore, QuerySnapshot, Unsubscribe } from "firebase/firestore";
@@ -173,7 +173,7 @@ function pick<T>(list: readonly T[]): T {
 }
 
 // Stable per-device id so a reload keeps the same presence doc (no ghosts) and
-// so main.ts can tell "you" apart from everyone else in the roster.
+// so the app can tell "you" apart from everyone else in the roster.
 export function getClientId(): string {
   try {
     let id = localStorage.getItem(CLIENT_ID_KEY);
@@ -357,7 +357,7 @@ export async function stopPresence(): Promise<void> {
 
 // Best-effort removal when the tab is closing. pagehide/beforeunload can't await
 // an async delete, so this fires a delete and lets it race the unload; if it
-// loses, staleness + TTL clean up. main.ts wires the event.
+// loses, staleness + TTL clean up. live.ts wires the event.
 export function removeOnUnload(): void {
   const id = sessionId;
   if (!id) return;

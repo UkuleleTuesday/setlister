@@ -1,8 +1,8 @@
 <!--
   The one-time name amnesty: shows once per device, on the first full-app
-  open after a reset round ships. main.ts decides whether (name-reset.ts holds
-  the rules and the copy) and has already cleared the saved name by the time
-  this opens. Same centred-sheet idiom as starting a night.
+  open after a reset round ships. player.ts decides whether (name-reset.ts
+  holds the rules and the copy) and has already cleared the saved name by the
+  time this opens. Same centred-sheet idiom as starting a night.
 
   Every way out is a "later", not a refusal to comply: the flag is already
   set, so the sheet never returns, and the settings gear still holds the name
@@ -14,21 +14,15 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  let { onSave }: { onSave: (name: string) => void } = $props();
+  import { NAME_RESET_MESSAGE } from "./name-reset.js";
 
-  let isOpen = $state(false);
-  let message = $state("");
+  let { open = $bindable(false), onSave }: { open?: boolean; onSave: (name: string) => void } =
+    $props();
+
   let name = $state("");
 
-  /** Ask for a real name, with name-reset.ts's message (the tests pin it). */
-  export function open(text: string) {
-    message = text;
-    name = "";
-    isOpen = true;
-  }
-
   function close() {
-    isOpen = false;
+    open = false;
   }
 
   function save() {
@@ -44,7 +38,7 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && isOpen) close();
+    if (event.key === "Escape" && open) close();
   }
 </script>
 
@@ -56,7 +50,7 @@
 <div
   id="name-reset-sheet"
   class="sheet-backdrop"
-  hidden={!isOpen}
+  hidden={!open}
   role="dialog"
   aria-modal="true"
   aria-labelledby="name-reset-title"
@@ -65,7 +59,7 @@
 >
   <div class="sheet">
     <h2 id="name-reset-title">Names, please</h2>
-    <p id="name-reset-message" class="note">{message}</p>
+    <p id="name-reset-message" class="note">{NAME_RESET_MESSAGE}</p>
     <label class="field">
       <span>Your name</span>
       <input

@@ -4,9 +4,10 @@
   inside <section id="home"> between the What's new banner and footer, which
   App.svelte keeps (they're the release notes' doors, not the history).
 
-  It lays out history.svelte.ts (which main.ts loads) with session-index.ts:
+  It lays out history.svelte.ts (which routing loads) with session-index.ts:
   labelling, disambiguation and the upcoming/past split all stay pure there.
-  main.ts reaches in through showError(), and hears back through the props.
+  Its error line is notices.home (why a route bounced back here); taps go out
+  through the props.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
@@ -14,6 +15,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { history, loadHistory } from "./history.svelte.js";
+  import { notices } from "./notices.svelte.js";
   import { type SessionEntry, disambiguate, partitionSessions } from "./session-index.js";
 
   let {
@@ -31,7 +33,6 @@
   // page.
   const PAST_VISIBLE = 5;
 
-  let error = $state("");
   // Survives a reload of the history so a background refresh doesn't slam it
   // shut under someone's thumb.
   let pastOlderOpen = $state(false);
@@ -58,15 +59,6 @@
           ? ""
           : "No sessions yet. Start one above.",
   );
-
-  /** Why the last route bounced back here (a bad link, a deleted session). */
-  export function showError(message: string) {
-    error = message;
-  }
-
-  export function clearError() {
-    error = "";
-  }
 
   function startedBy(entry: SessionEntry) {
     return entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
@@ -105,7 +97,7 @@
 >
   <Icon name="add" /><span class="btn-label">New session</span>
 </button>
-<div id="home-error" class="error" hidden={!error}>{error}</div>
+<div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
 
 <!-- The joinable nights, above the history. The next one leads as a big card
      (on a club night the screen's one job is getting you into tonight's
