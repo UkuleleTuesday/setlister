@@ -141,12 +141,14 @@ uv run ruff format .
 ```
 
 The `ui/` app is [Svelte 5](https://svelte.dev/) and strict TypeScript, bundled
-by [Vite](https://vite.dev/) and managed with npm. `index.html` is a bare page;
-`main.ts` mounts `App.svelte` (the whole page, one component per screen, sheet
-and panel) and holds the night's state: the lists, sync, routing and the
-catalogue. The logic that doesn't need a page (sync, presence, session index,
-dedupe, the request window, downscaling) lives in plain, unit-tested `.ts`
-modules; shared shapes are in `ui/types.ts`. `firebase`, `lucide` and `svelte`
+by [Vite](https://vite.dev/) and managed with npm. `index.html` is a bare page
+and `App.svelte` the whole of it, one component per screen, sheet and panel.
+The state they show lives in `*.svelte.ts` modules (`night`, `session`,
+`catalogue`, `settings`, `view`, `history`) that components read directly;
+`main.ts` mounts the page and makes every change (the lists, sync, routing,
+the catalogue). The logic that doesn't need a page (sync, presence, session
+index, dedupe, the request window, downscaling) lives in plain, unit-tested
+`.ts` modules; shared shapes are in `ui/types.ts`. `firebase`, `lucide` and `svelte`
 are the only runtime dependencies.
 
 ```bash

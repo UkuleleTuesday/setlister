@@ -7,8 +7,8 @@
   than a refusal after the tap. Same pinned-chrome layout as What's new: it
   runs several screens long, so Close stays under the thumb.
 
-  It renders what main.ts hands it (setData) and reports picks through
-  `onPick`; what a pick DOES (thumbs up, played note, cool-down, the confirm
+  It shows the catalogue tagged with the night as it stands, and reports picks
+  through `onPick`; what a pick DOES (thumbs up, played note, cool-down, the confirm
   sheet) stays in main.ts, which answers with note() or close(). Matching is
   search.ts, tonight's state dupes.ts and votes.ts, the brake room-limits.ts.
 
@@ -19,23 +19,15 @@
   import { tick } from "svelte";
   import Icon from "./Icon.svelte";
   import { indexTonight, matchKey } from "./dupes.js";
+  import { catalogue } from "./catalogue.svelte.js";
+  import { night } from "./night.svelte.js";
+  import * as presence from "./presence.js";
   import { readLastRoomAdd, cooldownRemaining } from "./room-limits.js";
   import { searchSongs } from "./search.js";
-  import { type CatalogueStatus, catalogueEmptyMessage, tonightTagLabel } from "./songbook.js";
-  import type { CatalogueEntry, Row, Votes } from "./types.js";
+  import { catalogueEmptyMessage, tonightTagLabel } from "./songbook.js";
+  import type { CatalogueEntry } from "./types.js";
+  import { view } from "./view.svelte.js";
   import { hasVoted, voteCount } from "./votes.js";
-
-  /** What the sheet shows: the book, and tonight's lists to tag it with. */
-  export interface SongbookData {
-    catalogue: CatalogueEntry[];
-    catalogueStatus: CatalogueStatus;
-    upNext: Row[];
-    requests: Row[];
-    votes: Votes;
-    clientId: string;
-    /** The room view: its one-a-minute wait applies. */
-    room: boolean;
-  }
 
   let { onPick }: { onPick: (entry: CatalogueEntry) => void } = $props();
 
@@ -44,17 +36,6 @@
 
   let isOpen = $state(false);
   let query = $state("");
-  // Raw, not deep state: main.ts mutates its own lists in place, and each
-  // setData() hands over a fresh object anyway.
-  let data: SongbookData = $state.raw({
-    catalogue: [],
-    catalogueStatus: "loading",
-    upNext: [],
-    requests: [],
-    votes: {},
-    clientId: "",
-    room: false,
-  });
   let status = $state("");
   let waiting = $state(false);
   let noteTimer: ReturnType<typeof setTimeout> | undefined;
@@ -64,10 +45,10 @@
   let list: HTMLUListElement | undefined = $state();
   let closeButton: HTMLButtonElement | undefined = $state();
 
-  const songs = $derived(query.trim() ? searchSongs(data.catalogue, query) : data.catalogue);
-  // Peers keep adding, voting and playing while the sheet is open; each
-  // setData re-tags the book in place, so the reader keeps their scroll.
-  const tonight = $derived(indexTonight(data.upNext, data.requests));
+  const songs = $derived(query.trim() ? searchSongs(catalogue.entries, query) : catalogue.entries);
+  // Peers keep adding, voting and playing while the sheet is open: the book
+  // re-tags in place, so the reader keeps their scroll.
+  const tonight = $derived(indexTonight(night.upNext, night.requests));
   const rows = $derived(
     songs.map((entry) => {
       const existing = tonight.get(matchKey(entry));
@@ -75,8 +56,8 @@
       if (existing.where === "played") {
         return { entry, existing, count: 0, mine: false, state: ", played tonight" };
       }
-      const count = voteCount(data.votes, existing.row.uid);
-      const mine = hasVoted(data.votes, existing.row.uid, data.clientId);
+      const count = voteCount(night.votes, existing.row.uid);
+      const mine = hasVoted(night.votes, existing.row.uid, presence.getClientId());
       const state =
         `, ${existing.where === "upnext" ? "in Up next" : "requested"}, ` +
         `${count} ${count === 1 ? "person wants" : "people want"} it` +
@@ -84,12 +65,6 @@
       return { entry, existing, count, mine, state };
     }),
   );
-
-  /** Fresh lists, votes or catalogue from main.ts. */
-  export function setData(next: SongbookData) {
-    data = next;
-    if (isOpen) refreshWait();
-  }
 
   export async function open() {
     query = "";
@@ -135,7 +110,7 @@
   // comes with the tap (note()). Re-checked once, when the wait runs out.
   function refreshWait() {
     clearTimeout(waitTimer);
-    const remaining = data.room ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
+    const remaining = view.mode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
     waiting = remaining > 0;
     if (remaining) waitTimer = setTimeout(refreshWait, remaining + 50);
   }
@@ -235,7 +210,7 @@
       {/each}
     </ul>
     <p id="songbook-empty" class="note songbook-empty" hidden={songs.length > 0}>
-      {songs.length ? "" : catalogueEmptyMessage(data.catalogueStatus, query)}
+      {songs.length ? "" : catalogueEmptyMessage(catalogue.status, query)}
     </p>
     <div class="actions">
       <button

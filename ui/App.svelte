@@ -1,9 +1,9 @@
 <!--
   The whole page: the header with its two popovers, home (the club's history)
   and the session view, the sheets and the footnote. main.ts mounts it on the
-  bare index.html and keeps the night's state (the lists, sync, the catalogue,
-  routing); this file draws the chrome from `shell` and wires the parts to
-  each other.
+  bare index.html and changes the night (the lists, sync, the catalogue,
+  routing); this file draws the chrome from the state modules and wires the
+  parts to each other.
 
   Wiring that is pure chrome stays here: the header buttons toggling their
   popovers, the window chip opening the share panel, the photo viewer, the
@@ -18,9 +18,8 @@
   import type { RequestAnswer } from "./RoomRequestSheet.svelte";
   import type { RowActions } from "./Row.svelte";
   import type { ScanOutcome } from "./ScanFlow.svelte";
-  import type { Settings } from "./SettingsPanel.svelte";
-  import type { RequestsMode } from "./SharePanel.svelte";
-  import type { CatalogueEntry, Row } from "./types.js";
+  import type { Settings } from "./settings.svelte.js";
+  import type { CatalogueEntry, RequestsSwitch, Row } from "./types.js";
 
   /** What the page asks of main.ts. */
   export interface AppHandlers {
@@ -34,7 +33,7 @@
     /** The room's "change" next to its name. */
     onChangeRoomName: () => void;
     onVisibility: (listed: boolean) => Promise<void>;
-    onRequestsMode: (mode: RequestsMode) => Promise<void>;
+    onRequestsMode: (mode: RequestsSwitch) => Promise<void>;
     onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
     onShareLink: () => Promise<boolean>;
     onShareRoomLink: () => Promise<boolean>;
@@ -45,7 +44,6 @@
     onSongbookPick: (entry: CatalogueEntry) => void;
     scan: (file: File, signal: AbortSignal) => Promise<ScanOutcome>;
     onReviewConfirm: (kept: Row[]) => void;
-    onReviewChange: (reviewing: boolean) => void;
     rowActions: RowActions;
     onReorder: (uids: string[]) => void;
     onCopy: () => Promise<void>;
@@ -68,7 +66,13 @@
   import SongbookSheet from "./SongbookSheet.svelte";
   import UpNextSection from "./UpNextSection.svelte";
   import WhatsNewSheet from "./WhatsNewSheet.svelte";
-  import { shell } from "./shell.svelte.js";
+  import { catalogue } from "./catalogue.svelte.js";
+  import { editionLabel } from "./editions.js";
+  import { night } from "./night.svelte.js";
+  import { roomWindowText, windowChipText } from "./request-window.js";
+  import { pageTitle } from "./session-index.js";
+  import { session } from "./session.svelte.js";
+  import { view } from "./view.svelte.js";
   import {
     type WhatsNewEntry,
     latestEntry,
@@ -80,9 +84,7 @@
   let { handlers }: { handlers: AppHandlers } = $props();
 
   // Bound once at mount and never swapped, so plain lets: main.ts reads them
-  // through parts() after mount() has flushed. Home reports its planned
-  // night from its first render, before the sheet below it is bound, hence
-  // the one `?.` (the sheet's gate starts at null anyway).
+  // through parts() after mount() has flushed.
   let home: Home;
   let newSessionSheet: NewSessionSheet;
   let sharePanel: SharePanel;
@@ -91,9 +93,7 @@
   let songbookSheet: SongbookSheet;
   let scanFlow: ScanFlow;
   let photoLightbox: PhotoLightbox;
-  let upNextSection: UpNextSection;
   let requestsSection: RequestsSection;
-  let binGroup: BinGroup;
   let nameResetSheet: NameResetSheet;
   let whatsNewSheet: WhatsNewSheet;
   let shareToggle: HTMLButtonElement;
@@ -109,14 +109,14 @@
       requestSheet,
       songbookSheet,
       scanFlow,
-      upNextSection,
       requestsSection,
-      binGroup,
       nameResetSheet,
     };
   }
 
-  const inSession = $derived(shell.view === "session");
+  const BRAND_TITLE = "🎶 Setlister";
+
+  const inSession = $derived(view.page === "session");
   let shareOpen = $state(false);
   let settingsOpen = $state(false);
 
@@ -125,7 +125,44 @@
   // restyles the page around the request view (see "Room mode" in style.css).
   $effect(() => {
     document.body.classList.toggle("in-session", inSession);
-    document.body.classList.toggle("room-mode", shell.room);
+    document.body.classList.toggle("room-mode", view.room);
+  });
+
+  const shareCount = $derived(inSession && session.id ? session.roster.length : 0);
+  const shareLabel = $derived(
+    !session.id
+      ? "Share session"
+      : session.roster.length > 1
+        ? `Sharing session ${session.id}, ${session.roster.length} people here. Tap for options`
+        : `Sharing session ${session.id}. Tap for options`,
+  );
+  // A session with no songs at all has exactly one job, get the board in, so
+  // the view collapses to the add buttons. An in-flight review means songs
+  // are coming. Never in room mode: the fresh state is a camera hero, and the
+  // room has no camera.
+  const fresh = $derived(
+    night.upNext.length === 0 &&
+      night.requests.length === 0 &&
+      !view.reviewing &&
+      view.mode !== "room",
+  );
+  const roomName = $derived(night.name.trim());
+  const editionNote = $derived(
+    night.edition
+      ? `Matched against “${editionLabel(night.edition)}” ` +
+          `(generated ${catalogue.generatedAt.slice(0, 10) || "unknown"})`
+      : "",
+  );
+
+  // A phone left holding the confirm sheet or the songbook when the request
+  // link shuts (a peer's switch, or the window's own close) would otherwise
+  // still offer taps that can't land. Closing is the same "no" as the
+  // backdrop.
+  $effect(() => {
+    if (view.room && !session.link.open) {
+      requestSheet.close();
+      songbookSheet.close();
+    }
   });
 
   // The popovers close themselves on an outside tap or Escape. These taps
@@ -160,19 +197,23 @@
   }
 
   function onReviewChange(reviewing: boolean) {
+    view.reviewing = reviewing;
     // The photo is only reachable from the review sheet.
     if (!reviewing) photoLightbox.close();
-    handlers.onReviewChange(reviewing);
   }
 </script>
+
+<svelte:head>
+  <title>{pageTitle(inSession ? session.label : "")}</title>
+</svelte:head>
 
 <header>
   <button
     id="share-toggle"
     class="share-toggle"
-    class:active={shell.shareActive}
+    class:active={!!session.id}
     type="button"
-    aria-label={shell.shareLabel}
+    aria-label={shareLabel}
     aria-expanded={shareOpen}
     aria-controls="share-panel"
     hidden={!inSession}
@@ -187,9 +228,9 @@
     id="share-count-badge"
     class="share-count-badge"
     aria-hidden="true"
-    hidden={shell.shareCount === 0}
+    hidden={shareCount === 0}
   >
-    {shell.shareCount || ""}
+    {shareCount || ""}
   </span>
   <button
     id="settings-toggle"
@@ -210,7 +251,7 @@
        whose night this is. Hidden on home, where the brand is the title. -->
   <div class="title-stack">
     <p class="club-name">Ukulele Tuesday</p>
-    <h1>{shell.title}</h1>
+    <h1>{inSession ? session.label : BRAND_TITLE}</h1>
   </div>
   <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
 
@@ -258,7 +299,6 @@
         home.clearError();
         newSessionSheet.open();
       }}
-      onPlanned={(entry) => newSessionSheet?.setPlanned(entry)}
     />
 
     <!-- Footer register: app-meta belongs at the bottom, like the edition
@@ -282,10 +322,10 @@
   <div
     id="session-view"
     hidden={!inSession}
-    class:room={shell.room}
-    class:fresh={shell.fresh}
-    class:requests-closed={shell.requestsClosed}
-    class:requests-opening-soon={shell.requestsOpeningSoon}
+    class:room={view.room}
+    class:fresh
+    class:requests-closed={!session.link.open && session.link.soonMinutes === null}
+    class:requests-opening-soon={session.link.soonMinutes !== null}
   >
     <!-- Session-level navigation: just the way out. You stop working on a set
          by walking away from it, never by wiping it for everyone else in the
@@ -300,11 +340,11 @@
         id="window-chip"
         class="window-pill"
         type="button"
-        data-state={shell.windowState}
+        data-state={session.link.status.state}
         bind:this={windowChip}
         onclick={() => sharePanel.revealRequests()}
       >
-        {shell.windowChip}
+        {windowChipText(session.link.status)}
       </button>
     </div>
 
@@ -325,14 +365,14 @@
       <!-- The link's rules, up front instead of discovered by bumping into
            them, plus the name this phone requests under. -->
       <div class="room-rules">
-        <span id="room-window" class="window-pill">{shell.roomWindow}</span>
+        <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
         <span>One request a minute</span>
         <!-- The name is asked for in the confirm sheet at the moment it's
              needed. Once set it's fire-and-forget and this is its only trace;
              "change" reopens that sheet, since the gear that normally holds
              "Your name" is hidden in room mode. -->
-        <span id="room-identity" class="room-identity" hidden={!shell.roomIdentity}>
-          <span id="room-identity-text">{shell.roomIdentity}</span>
+        <span id="room-identity" class="room-identity" hidden={!roomName}>
+          <span id="room-identity-text">As {roomName}</span>
           <button
             id="room-identity-change"
             class="link-button"
@@ -355,7 +395,6 @@
     </div>
 
     <UpNextSection
-      bind:this={upNextSection}
       actions={handlers.rowActions}
       onReorder={handlers.onReorder}
       onCopy={handlers.onCopy}
@@ -382,7 +421,7 @@
     <!-- Binned songs, at the very bottom, below the add controls, so the
          discard pile never wedges itself between Requests and the controls
          that feed it. -->
-    <BinGroup bind:this={binGroup} actions={handlers.rowActions} />
+    <BinGroup actions={handlers.rowActions} />
   </div>
 </main>
 
@@ -395,6 +434,6 @@
 <!-- Which songbook edition rows were matched against, and when it was
      generated. A quiet page footer: provenance, not part of the running order
      up top. -->
-<footer id="edition-note" class="note" hidden={!inSession}>{shell.editionNote}</footer>
+<footer id="edition-note" class="note" hidden={!inSession}>{editionNote}</footer>
 
 <PhotoLightbox bind:this={photoLightbox} />

@@ -2,7 +2,7 @@
 //
 // Every branch here is relative to "now" or to a session's own createdAt, so
 // every test pins the clock explicitly, same discipline as
-// session-index.test.js: a test that reads the wall clock here is a test that
+// session-index.test.ts: a test that reads the wall clock here is a test that
 // fails at midnight.
 
 import { describe, expect, it } from "vitest";
@@ -13,10 +13,15 @@ import {
   effectiveRequestsOpen,
   fromDateTimeInputValue,
   isWithinWindow,
+  linkState,
   minutesUntilOpen,
   openingSoonLabel,
+  openingSoonNote,
+  requestNote,
   resolveWindow,
+  roomWindowText,
   toDateTimeInputValue,
+  windowChipText,
   windowStatus,
 } from "../request-window.js";
 
@@ -249,5 +254,53 @@ describe("datetime-local input helpers", () => {
     expect(fromDateTimeInputValue(null)).toBeNull();
     expect(fromDateTimeInputValue("2026-8-5T09:00")).toBeNull();
     expect(fromDateTimeInputValue("2026-08-05")).toBeNull();
+  });
+});
+
+describe("linkState and its wording", () => {
+  // A Tuesday session started at 20:00: auto opens 19:30, closes 04:00.
+  const created = at(2026, 7, 4, 20);
+  const auto = { requestsOpen: null, requestsOpensAt: null, requestsClosesAt: null };
+
+  it("follows the window in auto mode", () => {
+    const link = linkState(auto, created, at(2026, 7, 4, 21));
+    expect(link.open).toBe(true);
+    expect(link.soonMinutes).toBeNull();
+    expect(link.status.state).toBe("open");
+    expect(windowChipText(link.status)).toMatch(/^Request link open until /);
+    expect(roomWindowText(link.status)).toMatch(/^Requests open until /);
+    expect(requestNote(null, link)).toMatch(/^Auto: taking requests until /);
+  });
+
+  it("counts down only in auto mode, inside the notice period", () => {
+    const soon = linkState(auto, created, at(2026, 7, 4, 19, 18));
+    expect(soon.open).toBe(false);
+    expect(soon.soonMinutes).toBe(12);
+    expect(soon.status.state).toBe("later");
+    expect(windowChipText(soon.status)).toMatch(/^Request link opens at /);
+    expect(requestNote(null, soon)).toMatch(/^Auto: not open yet, opens at /);
+    expect(openingSoonNote(12)).toBe(
+      "Requests open in 12 minutes. Pop your tune on the whiteboard of wishes for now.",
+    );
+    const forced = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 19, 18));
+    expect(forced.soonMinutes).toBeNull();
+  });
+
+  it("lets a forced mode win, with fixed wording", () => {
+    const closed = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 21));
+    expect(closed.open).toBe(false);
+    expect(windowChipText(closed.status)).toBe("Request link is view only");
+    expect(requestNote(false, closed)).toMatch(/^View only:/);
+    const open = linkState({ ...auto, requestsOpen: true }, created, at(2026, 7, 5, 6));
+    expect(open.open).toBe(true);
+    expect(windowChipText(open.status)).toBe("Request link open");
+    expect(roomWindowText(open.status)).toBe("Requests open");
+    expect(requestNote(true, open)).toMatch(/^The request link is a view for the room/);
+  });
+
+  it("reads a session with no date yet as open, with no window", () => {
+    const link = linkState(auto, null, at(2026, 7, 4, 21));
+    expect(link).toMatchObject({ open: true, window: null, soonMinutes: null });
+    expect(requestNote(null, link)).toMatch(/^The request link is a view for the room/);
   });
 });

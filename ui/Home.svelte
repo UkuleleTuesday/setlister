@@ -4,33 +4,26 @@
   inside <section id="home"> between the What's new banner and footer, which
   App.svelte keeps (they're the release notes' doors, not the history).
 
-  Driven by session-index.ts: listing, labelling, disambiguation and the
-  upcoming/past split all stay pure there. main.ts reaches in through refresh()
-  and showError(), and hears back through the props.
+  It lays out history.svelte.ts (which main.ts loads) with session-index.ts:
+  labelling, disambiguation and the upcoming/past split all stay pure there.
+  main.ts reaches in through showError(), and hears back through the props.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import {
-    type SessionEntry,
-    disambiguate,
-    listSessions,
-    partitionSessions,
-  } from "./session-index.js";
+  import { history, loadHistory } from "./history.svelte.js";
+  import { type SessionEntry, disambiguate, partitionSessions } from "./session-index.js";
 
   let {
     onPick,
     onNewSession,
-    onPlanned,
   }: {
     /** A session card was tapped. */
     onPick: (id: string) => void;
     /** "New session" was tapped. */
     onNewSession: () => void;
-    /** The soonest upcoming night after each load, or null: the sheet's gate. */
-    onPlanned: (entry: SessionEntry | null) => void;
   } = $props();
 
   // How many past nights show before the rest collapse. Enough to cover "the
@@ -38,18 +31,16 @@
   // page.
   const PAST_VISIBLE = 5;
 
-  let entries: SessionEntry[] = $state([]);
-  let status: "loading" | "ready" | "error" = $state("loading");
   let error = $state("");
-  // Survives refresh() so a background refresh doesn't slam the history shut
-  // under someone's thumb.
+  // Survives a reload of the history so a background refresh doesn't slam it
+  // shut under someone's thumb.
   let pastOlderOpen = $state(false);
 
   // Label the WHOLE list before splitting, so two sessions the same night get
   // their disambiguating time suffixes even when one of them is the hero.
   const layout = $derived.by(() => {
     const now = new Date();
-    return partitionSessions(disambiguate(entries, now), now);
+    return partitionSessions(disambiguate(history.entries, now), now);
   });
   const next = $derived(layout.upcoming[0]);
   // Never hide a single item behind a tap: at the threshold, one more row
@@ -59,40 +50,14 @@
   const pastOlder = $derived(collapse ? layout.past.slice(PAST_VISIBLE) : []);
 
   const statusText = $derived(
-    status === "loading"
+    history.status === "loading"
       ? "Loading sessions…"
-      : status === "error"
+      : history.status === "error"
         ? "Couldn’t load sessions."
-        : entries.length
+        : history.entries.length
           ? ""
           : "No sessions yet. Start one above.",
   );
-
-  // Remembered by the new-session sheet for its gate. A failed load lands
-  // here as an empty list, clearing it to null: the sheet then shows no
-  // notice and its Start-time check fails closed instead of trusting stale
-  // state.
-  $effect(() => {
-    onPlanned(next ?? null);
-  });
-
-  /**
-   * Load the history. The list and "New session" are independent paths: a
-   * failed query must never stop someone starting tonight's set. What's on
-   * screen stays put while loading.
-   */
-  export async function refresh() {
-    status = "loading";
-    try {
-      entries = await listSessions();
-      status = "ready";
-    } catch {
-      // A failed query clears the whole layout, hero included: a stale "Next
-      // session" card over a "Couldn't load" error would be a lie.
-      entries = [];
-      status = "error";
-    }
-  }
 
   /** Why the last route bounced back here (a bad link, a deleted session). */
   export function showError(message: string) {
@@ -212,8 +177,8 @@
   id="session-list-retry"
   class="link-button"
   type="button"
-  hidden={status !== "error"}
-  onclick={refresh}
+  hidden={history.status !== "error"}
+  onclick={loadHistory}
 >
   Try again
 </button>
