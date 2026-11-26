@@ -9,16 +9,17 @@
 
   It only gathers and checks the answer: committing the name and adding the
   row (with its duplicate guard, the open/closed brake and the cool-down)
-  stay in main.ts, behind `onConfirm`.
+  are adds.ts's, behind `onConfirm`.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { untrack } from "svelte";
+  import { night } from "./night.svelte.js";
   import type { CatalogueEntry } from "./types.js";
 
-  /** What a confirm hands to main.ts. */
+  /** What a confirm hands to `onConfirm`. */
   export interface RequestAnswer {
     /** The tune to add, or null for a rename. */
     entry: CatalogueEntry | null;
@@ -27,11 +28,19 @@
     comment: string;
   }
 
-  let { onConfirm }: { onConfirm: (answer: RequestAnswer) => void } = $props();
+  let {
+    request = $bindable(null),
+    onConfirm,
+  }: {
+    /** Open on a picked tune, or (entry null) for a rename; null closes it. */
+    request?: { entry: CatalogueEntry | null } | null;
+    onConfirm: (answer: RequestAnswer) => void;
+  } = $props();
 
-  let isOpen = $state(false);
   // The request this sheet will submit, or null when opened from "change".
-  let entry: CatalogueEntry | null = $state(null);
+  const entry = $derived(request?.entry ?? null);
+  // Whether there was a name when the sheet opened: typing one in doesn't
+  // make the field vanish under the thumb.
   let hasName = $state(false);
   let name = $state("");
   let comment = $state("");
@@ -45,29 +54,27 @@
   let nameInput: HTMLInputElement | undefined = $state();
   let confirmButton: HTMLButtonElement | undefined = $state();
 
-  /** Open on a picked tune, or on null for a rename. */
-  export async function open(next: CatalogueEntry | null, currentName: string) {
-    entry = next;
-    hasName = Boolean(currentName.trim());
-    name = currentName;
-    // The comment is about this tune, not a sticky preference.
-    comment = "";
-    error = "";
-    isOpen = true;
-    await tick();
-    // Only raise the keyboard when there's typing to do; a confirm-only sheet
-    // puts the thumb on the button instead.
-    if (askName) nameInput?.focus();
-    else confirmButton?.focus();
-  }
+  // Each opening starts from the saved name. The comment is about this tune,
+  // not a sticky preference.
+  $effect.pre(() => {
+    if (!request) return;
+    untrack(() => {
+      hasName = Boolean(night.name.trim());
+      name = night.name;
+      comment = "";
+      error = "";
+    });
+  });
 
-  export function close() {
-    isOpen = false;
-    entry = null;
-  }
+  // Only raise the keyboard when there's typing to do; a confirm-only sheet
+  // puts the thumb on the button instead.
+  $effect(() => {
+    if (!request) return;
+    untrack(() => (askName ? nameInput : confirmButton)?.focus());
+  });
 
-  export function isSheetOpen() {
-    return isOpen;
+  function close() {
+    request = null;
   }
 
   // The name is committed on confirm, not per keystroke, so an abandoned
@@ -95,7 +102,7 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && isOpen) close();
+    if (event.key === "Escape" && request) close();
   }
 </script>
 
@@ -107,7 +114,7 @@
 <div
   id="room-request-sheet"
   class="sheet-backdrop"
-  hidden={!isOpen}
+  hidden={!request}
   role="dialog"
   aria-modal="true"
   aria-labelledby="room-request-title"

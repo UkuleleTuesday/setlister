@@ -1,6 +1,6 @@
 // What this phone is showing: home or a session, and which view of a session
 // (the full app or the room's request view, #86). The URL decides both (see
-// applyRoute in main.ts); this only holds the answer for the page to read.
+// routing.ts); this only holds the answer for the page to read.
 
 import type { ViewMode } from "./view-mode.js";
 

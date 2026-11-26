@@ -1,5 +1,5 @@
 // The night: both lists, the votes on them, the session's songbook, and this
-// player's name. Deeply reactive: main.ts edits it in place (a row played, a
+// player's name. Deeply reactive: the actions edit it in place (a row played, a
 // splice, a push) and everything that shows it follows. Sync and storage only
 // ever get plain copies (nightSnapshot), never the live state.
 

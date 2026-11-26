@@ -198,3 +198,19 @@ test("a scan can be cancelled, and a server error says why", async ({
   await expect(page.locator("#scan-overlay")).toBeHidden();
   await expect(page.locator("#scan-result")).toBeHidden();
 });
+
+test("leaving the session drops a review in progress", async ({ phone, parseRows }) => {
+  parseRows.current = [parsed("Lean on Me", "needs_review")];
+  const page = await phone();
+  await startSession(page);
+  await snap(page);
+  await expect(page.locator("#review")).toBeVisible();
+
+  await page.locator("#back-home").tap();
+  await expect(page.locator("#home")).toBeVisible();
+  // Back in from the history: the night is as it was, without the review.
+  await page.locator("#next-session .next-session-card").tap();
+  await expect(page.locator("#session-view")).toBeVisible();
+  await expect(page.locator("#review")).toBeHidden();
+  await expect(page.locator("#requests-rows").getByRole("listitem")).toHaveCount(0);
+});

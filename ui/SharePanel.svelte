@@ -5,7 +5,7 @@
 
   It renders the session as sync last reported it (session.svelte.ts) and
   hands every change back through the props. Session metadata (listed,
-  requestsOpen, the window) is written by main.ts through sync.ts's own
+  requestsOpen, the window) is written by sharing.ts through sync.ts's own
   metadata writes, never the debounced row push (see the sync.ts header); the
   panel only owns the optimistic-then-revert dance around them.
 
@@ -26,7 +26,7 @@
     onWindow,
     onShareLink,
     onShareRoomLink,
-    onOpenChange,
+    open = $bindable(false),
     openers,
   }: {
     /** Write `listed`; reject if it didn't land (the select reverts). */
@@ -39,12 +39,10 @@
     onShareLink: () => Promise<boolean>;
     /** Offer the room's request link; true when it was copied. */
     onShareRoomLink: () => Promise<boolean>;
-    onOpenChange: (open: boolean) => void;
+    open?: boolean;
     /** Elements outside the panel that open it: taps on them don't close it. */
     openers: () => Element[];
   } = $props();
-
-  let isOpen = $state(false);
 
   // The two selects are optimistic: they show the pick at once and revert if
   // the write doesn't land. Each follows the stored value until then.
@@ -75,19 +73,9 @@
     return meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
   }
 
-  export function setOpen(open: boolean) {
-    if (isOpen === open) return;
-    isOpen = open;
-    onOpenChange(open);
-  }
-
-  export function isPanelOpen() {
-    return isOpen;
-  }
-
   /** Open on the request link's row: the window chip's shortcut. */
   export async function revealRequests() {
-    setOpen(true);
+    open = true;
     await tick();
     requestsField?.scrollIntoView({ block: "nearest" });
   }
@@ -159,13 +147,13 @@
   // buttons that open it. Escape is a desktop bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
-    if (!isOpen || !target || panel?.contains(target)) return;
+    if (!open || !target || panel?.contains(target)) return;
     if (openers().some((el) => el.contains(target))) return;
-    setOpen(false);
+    open = false;
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") setOpen(false);
+    if (event.key === "Escape") open = false;
   }
 </script>
 
@@ -178,7 +166,7 @@
   class="share-panel"
   role="dialog"
   aria-label="Session sharing"
-  hidden={!isOpen}
+  hidden={!open}
   bind:this={panel}
 >
   <!-- Lead with what the night is called; the raw id is just the link slug,

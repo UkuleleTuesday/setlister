@@ -10,28 +10,30 @@
               aborts
     reviewing the flagged rows wait in #review; #add steps aside
     failed    the scan errored: the photo stays up beside the error
-  The error box doubles as the session view's error line (main.ts's
-  showSessionError), so it lives outside the phase.
+  The error box doubles as the session view's error line (notices.session),
+  so it lives outside the phase.
 
   What a scan DOES to the night (the API call, the catalogue it brings back,
-  the rows that go straight in) is main.ts's `scan`; what review keeps is
-  main.ts's `onConfirm`. This component is the screens and their states.
+  the rows that go straight in) is the `scan` prop (adds.ts); what review
+  keeps goes to `onConfirm`. This component is the screens and their states.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import Icon from "./Icon.svelte";
   import ReviewRow from "./ReviewRow.svelte";
   import { findDuplicate, rowKey } from "./dupes.js";
   import { catalogue } from "./catalogue.svelte.js";
   import { night } from "./night.svelte.js";
+  import { notices } from "./notices.svelte.js";
   import { reviewNote, scanResultMessage } from "./scan.js";
   import { settings } from "./settings.svelte.js";
   import type { CatalogueEntry, Row } from "./types.js";
+  import { view } from "./view.svelte.js";
 
-  /** What a finished scan left for review (main.ts has added the rest). */
+  /** What a finished scan left for review (`scan` has added the rest). */
   export interface ScanOutcome {
     flagged: Row[];
     autoAdded: number;
@@ -82,7 +84,6 @@
   // The flagged rows under review; deep state, since remove/restore and
   // corrections edit them in place.
   let entries: Row[] = $state([]);
-  let error = $state("");
   let result = $state("");
   let statusIndex = $state(0);
 
@@ -104,17 +105,14 @@
     photoInput?.click();
   }
 
-  /** The session view's error line (also the scan's own failures). */
-  export function showError(message: string) {
-    error = message;
-  }
-
-  export function clearError() {
-    error = "";
-  }
+  // Leaving the session drops a review in progress: its rows belong to the
+  // night that was showing.
+  $effect(() => {
+    if (view.page !== "session") untrack(closeReview);
+  });
 
   /** Drop the review (and its photo), back to idle. */
-  export function closeReview() {
+  function closeReview() {
     if (phase.kind !== "reviewing") return;
     // The photo is only reachable from the review sheet: release it with it.
     URL.revokeObjectURL(phase.imageUrl);
@@ -144,7 +142,7 @@
     if (phase.kind === "failed") URL.revokeObjectURL(phase.imageUrl);
     const url = URL.createObjectURL(file);
     phase = { kind: "scanning", imageUrl: url };
-    error = "";
+    notices.session.clear();
     result = "";
     statusIndex = 0;
     statusTimer = setInterval(() => {
@@ -185,7 +183,7 @@
         URL.revokeObjectURL(url);
         phase = { kind: "idle" };
         if (endedBy === "timeout") {
-          error = "That scan took too long. Check your signal and snap it again.";
+          notices.session.show("That scan took too long. Check your signal and snap it again.");
         } else {
           flashResult("Scan cancelled. Nothing was added.");
         }
@@ -194,10 +192,11 @@
         // an unhelpful message ("Failed to fetch"): word it for humans.
         // Server errors carry a user-facing `detail` and pass through.
         phase = { kind: "failed", imageUrl: url };
-        error =
+        notices.session.show(
           err instanceof TypeError
             ? "Couldn't reach the server. Check your signal and try again."
-            : (err as Error).message;
+            : (err as Error).message,
+        );
       }
     } finally {
       clearTimeout(timeout);
@@ -285,7 +284,7 @@
       </div>
     </div>
   </div>
-  <div id="error" class="error" hidden={!error}>{error}</div>
+  <div id="error" class="error" hidden={!notices.session.text}>{notices.session.text}</div>
 </section>
 <section id="review" hidden={phase.kind !== "reviewing"} bind:this={reviewSection}>
   <h2>Review scan</h2>

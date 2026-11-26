@@ -8,19 +8,21 @@
   runs several screens long, so Close stays under the thumb.
 
   It shows the catalogue tagged with the night as it stands, and reports picks
-  through `onPick`; what a pick DOES (thumbs up, played note, cool-down, the confirm
-  sheet) stays in main.ts, which answers with note() or close(). Matching is
-  search.ts, tonight's state dupes.ts and votes.ts, the brake room-limits.ts.
+  through `onPick`; what a pick DOES (thumbs up, played note, cool-down, the
+  confirm sheet) is adds.ts's, which answers with a note (notices.songbook) or
+  by closing the sheet. Matching is search.ts, tonight's state dupes.ts and
+  votes.ts, the brake room-limits.ts.
 
   The ids and classes are load-bearing: style.css and the e2e suite select on
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import Icon from "./Icon.svelte";
   import { indexTonight, matchKey } from "./dupes.js";
   import { catalogue } from "./catalogue.svelte.js";
   import { night } from "./night.svelte.js";
+  import { notices } from "./notices.svelte.js";
   import * as presence from "./presence.js";
   import { readLastRoomAdd, cooldownRemaining } from "./room-limits.js";
   import { searchSongs } from "./search.js";
@@ -29,16 +31,17 @@
   import { view } from "./view.svelte.js";
   import { hasVoted, voteCount } from "./votes.js";
 
-  let { onPick }: { onPick: (entry: CatalogueEntry) => void } = $props();
+  let {
+    open = $bindable(false),
+    onPick,
+  }: { open?: boolean; onPick: (entry: CatalogueEntry) => void } = $props();
 
-  // How long a "why that didn't add" note stays up.
-  const NOTE_MS = 6000;
-
-  let isOpen = $state(false);
   let query = $state("");
-  let status = $state("");
   let waiting = $state(false);
-  let noteTimer: ReturnType<typeof setTimeout> | undefined;
+  // Why a tap didn't add, said in the sheet the person is looking at. It
+  // stands in for the wait line while shown: the cool-down note says the same
+  // thing with the number in it.
+  const status = $derived(notices.songbook.text);
   let waitTimer: ReturnType<typeof setTimeout> | undefined;
 
   let search: HTMLInputElement | undefined = $state();
@@ -66,42 +69,39 @@
     }),
   );
 
-  export async function open() {
-    query = "";
-    status = "";
-    isOpen = true;
-    refreshWait();
-    await tick();
-    if (list) list.scrollTop = 0;
-    // Not the search field: focusing it raises the keyboard over the list,
-    // and browsing is the point. Typing is one tap away at the top.
-    closeButton?.focus({ preventScroll: true });
-  }
-
-  export function close() {
-    isOpen = false;
-    search?.blur();
-    clearTimeout(noteTimer);
-    clearTimeout(waitTimer);
-  }
-
-  export function isSheetOpen() {
-    return isOpen;
-  }
-
-  /**
-   * Why a tap didn't add, said in the sheet the person is looking at.
-   * Self-retiring, on the sheet's own timer so closing the sheet cancels it.
-   * It stands in for the wait line while shown: the cool-down note says the
-   * same thing with the number in it.
-   */
-  export function note(message: string) {
-    status = message;
-    clearTimeout(noteTimer);
-    noteTimer = setTimeout(() => {
-      status = "";
+  // Each opening starts at the top of an unfiltered book.
+  $effect.pre(() => {
+    if (!open) return;
+    untrack(() => {
+      query = "";
+      notices.songbook.clear();
       refreshWait();
-    }, NOTE_MS);
+    });
+  });
+
+  // Not the search field: focusing it raises the keyboard over the list, and
+  // browsing is the point. Typing is one tap away at the top.
+  $effect(() => {
+    if (!open) return;
+    untrack(() => {
+      if (list) list.scrollTop = 0;
+      closeButton?.focus({ preventScroll: true });
+    });
+  });
+
+  // However it closes (here, or a pick that moved on to the confirm sheet),
+  // any note still up goes with it, along with the wait's timer.
+  $effect(() => {
+    if (open) return;
+    untrack(() => {
+      search?.blur();
+      notices.songbook.clear();
+      clearTimeout(waitTimer);
+    });
+  });
+
+  function close() {
+    open = false;
   }
 
   // The wait between requests, told up front rather than discovered on a
@@ -138,7 +138,7 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && isOpen) close();
+    if (event.key === "Escape" && open) close();
   }
 </script>
 
@@ -150,7 +150,7 @@
 <div
   id="songbook-sheet"
   class="sheet-backdrop"
-  hidden={!isOpen}
+  hidden={!open}
   role="dialog"
   aria-modal="true"
   aria-labelledby="songbook-title"

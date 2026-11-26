@@ -1,5 +1,5 @@
 // This device's settings: two display toggles and the scan parser's knobs.
-// The settings panel edits them in place; main.ts saves them with the night
+// The settings panel edits them in place; save.ts saves them with the night
 // (persist()) and restores them on load.
 
 export interface Settings {

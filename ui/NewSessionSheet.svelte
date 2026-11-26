@@ -1,7 +1,7 @@
 <!--
   Starting a night. The sheet owns its fields, the one-planned-night gate and
   the Start button's states; creating the session (sync.createSession, the
-  app's lists, navigation) stays in main.ts, behind `onStart`. That's also what
+  app's lists, navigation) is routing.ts's, behind `onStart`. That's also what
   keeps the create path's doc shape where it was: this component never
   touches Firestore writes.
 
@@ -9,6 +9,7 @@
   them. No scoped <style> here; the global stylesheet stays global.
 -->
 <script lang="ts">
+  import { untrack } from "svelte";
   import Icon from "./Icon.svelte";
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
@@ -24,7 +25,7 @@
     toDateInputValue,
   } from "./session-index.js";
 
-  /** What Start hands to main.ts. */
+  /** What Start hands to `onStart`. */
   export interface NewSessionChoice {
     /** null means "now": the server stamps the moment of creation. */
     createdAt: Date | null;
@@ -32,13 +33,15 @@
     editionId: string;
   }
 
-  let { onStart }: { onStart: (choice: NewSessionChoice) => Promise<void> } = $props();
+  let {
+    open = $bindable(false),
+    onStart,
+  }: { open?: boolean; onStart: (choice: NewSessionChoice) => Promise<void> } = $props();
 
   // firestore.rules caps createdAt at 60 days ahead; stop the picker a hair
   // earlier so a bad pick fails here, not as a rules error after Start.
   const MAX_AHEAD_DAYS = 59;
 
-  let isOpen = $state(false);
   let date = $state("");
   // What the date picker showed when the sheet OPENED. Start compares against
   // this, not a recomputed "today": an untouched picker means "now" (server
@@ -78,24 +81,26 @@
     ),
   );
 
-  export function open() {
-    error = "";
-    busy = false;
-    dateDefault = toDateInputValue(new Date());
-    date = dateDefault;
-    dateMax = toDateInputValue(new Date(Date.now() + MAX_AHEAD_DAYS * 86_400_000));
-    // Always the default book, never the device's last-loaded one: a themed
-    // night shouldn't quietly become next Tuesday's songbook too.
-    editionId = "current";
-    visibility = "shared";
-    isOpen = true;
-    // Don't autofocus: opening a date picker nobody needs to touch would put
-    // the extra tap back. Today is usually the answer: tap Start and go.
-  }
+  // Each opening starts fresh, before the sheet shows. No autofocus: opening
+  // a date picker nobody needs to touch would put the extra tap back. Today
+  // is usually the answer: tap Start and go.
+  $effect.pre(() => {
+    if (!open) return;
+    untrack(() => {
+      error = "";
+      busy = false;
+      dateDefault = toDateInputValue(new Date());
+      date = dateDefault;
+      dateMax = toDateInputValue(new Date(Date.now() + MAX_AHEAD_DAYS * 86_400_000));
+      // Always the default book, never the device's last-loaded one: a themed
+      // night shouldn't quietly become next Tuesday's songbook too.
+      editionId = "current";
+      visibility = "shared";
+    });
+  });
 
-  export function close() {
-    isOpen = false;
-    busy = false;
+  function close() {
+    open = false;
   }
 
   async function start() {
@@ -143,7 +148,7 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" && isOpen) close();
+    if (event.key === "Escape" && open) close();
   }
 
   // Desktop nicety; native mobile date pickers never surface an Enter key.
@@ -164,7 +169,7 @@
 <div
   id="new-session-sheet"
   class="sheet-backdrop"
-  hidden={!isOpen}
+  hidden={!open}
   role="dialog"
   aria-modal="true"
   aria-labelledby="new-session-title"

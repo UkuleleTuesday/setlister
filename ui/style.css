@@ -1109,7 +1109,7 @@ button.window-pill::after {
    collapses to its two add affordances: intro line, add-by-name, "or", the
    camera hero. Everything else — headings, export, empty-state boxes — waits
    until there is at least one song to organise. The `fresh` class is kept
-   current by updateSessionMode() in main.ts; visibility is class-driven only
+   current by App.svelte (`fresh`); visibility is class-driven only
    (the [hidden] attribute would fight these rules). */
 .fresh-intro {
   display: none;
@@ -1156,7 +1156,7 @@ button.window-pill::after {
    Up next plus the collapsed played group, so the room can follow the night —
    no camera, no reorder, no export, no header chrome. Like `fresh`, the
    classes (`#session-view.room`, `body.room-mode`) are kept current by
-   applyViewMode() in main.ts and visibility is class-driven only — the
+   App.svelte from view.svelte.ts, and visibility is class-driven only — the
    [hidden] attribute would fight these rules. This hides a VIEW, not a
    permission: anyone with the plain link has the full app (see #86). */
 body.room-mode .share-toggle,

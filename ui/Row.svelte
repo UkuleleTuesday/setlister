@@ -4,7 +4,7 @@
   provenance line, the "I want this one" button, and the controls its list
   allows; on Up next and Requests it also swipes.
 
-  Every change goes up through `actions` (main.ts owns the lists); this only
+  Every change goes up through `actions` (rows.ts changes the lists); this only
   draws the row and runs its gestures. Drag-to-reorder is the list's job
   (UpNextSection.svelte): the handle only starts it.
 
@@ -18,7 +18,7 @@
   export type RowContext =
     "upnext" | "requests" | "played" | "bin" | "room" | "room-upnext" | "room-played";
 
-  /** What a row can ask main.ts to do, by row uid. */
+  /** What a row can ask for, by row uid (rows.ts). */
   export interface RowActions {
     togglePlayed: (uid: string) => void;
     toggleBinned: (uid: string) => void;

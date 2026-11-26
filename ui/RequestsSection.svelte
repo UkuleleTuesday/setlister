@@ -17,6 +17,7 @@
   import RowCard, { type RowActions } from "./Row.svelte";
   import { lists, rowVote } from "./lists.svelte.js";
   import { night } from "./night.svelte.js";
+  import { notices } from "./notices.svelte.js";
   import { settings } from "./settings.svelte.js";
   import { sortForDisplay } from "./votes.js";
 
@@ -31,13 +32,6 @@
     /** "Snap the board": open the camera. */
     onSnap: () => void;
   } = $props();
-
-  // Long enough to read across the room, gone before it reads as a permanent
-  // fixture.
-  const FLASH_MS = 8000;
-
-  let feedback = $state("");
-  let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
   const visible = $derived(night.requests.filter((e) => !e.binned));
   // The sort is stable, so a tie keeps arrival order rather than reshuffling
@@ -54,13 +48,6 @@
         : "No requests yet."
       : "No requests yet. Snap the board, or add one above.",
   );
-
-  /** Why a quick add did or didn't land ("Already in Up next", #52). */
-  export function flash(message: string) {
-    feedback = message;
-    clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(() => (feedback = ""), FLASH_MS);
-  }
 </script>
 
 <section id="requests">
@@ -108,7 +95,9 @@
   </p>
   <!-- Why a quick add didn't add a row, or that it did. aria-live so it
        reaches screen readers without moving focus. -->
-  <p id="add-feedback" class="flash-note" aria-live="polite" hidden={!feedback}>{feedback}</p>
+  <p id="add-feedback" class="flash-note" aria-live="polite" hidden={!notices.requests.text}>
+    {notices.requests.text}
+  </p>
   <!-- Room mode gets read-only rows apart from the want button. -->
   <ul id="requests-rows">
     {#each sorted as row (row.uid)}

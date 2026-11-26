@@ -8,7 +8,7 @@
 // the full app (accidental reordering is the failure mode #86 worries about).
 // The one way back out is a deliberate `?mode=full` link — no in-app escape.
 //
-// Pure decision logic lives here (main.ts can't be imported under node, so this
+// Pure decision logic lives here (routing.ts can't run under node, so this
 // is the testable seam, like dupes.ts and session-id.ts).
 
 // The sticky flag's localStorage key. Its own key, outside setlister.v1, so

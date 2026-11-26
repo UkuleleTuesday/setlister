@@ -2,7 +2,7 @@
 //
 // This module mirrors the app's durable state (the two lists + edition) to a
 // single Firestore document at `sessions/{id}` and applies remote changes back
-// live. It is deliberately UI-free: main.ts drives it through a tiny API (the
+// live. It is deliberately UI-free: the app drives it through a tiny API (the
 // sharing UI from #30).
 //
 // It is also the parse boundary for the session doc: Firestore data enters as
@@ -55,7 +55,7 @@ import type {
   Votes,
 } from "./types.js";
 
-/** What main.ts hands over to push: votes and edition may be missing. */
+/** What the app hands over to push: votes and edition may be missing. */
 export type LocalState = Pick<ListState, "upNext" | "requests"> &
   Partial<Pick<ListState, "edition" | "votes">>;
 
@@ -83,7 +83,7 @@ let unsubscribe: Unsubscribe | null = null;
 // shape ({rows, upNextOrder, requestsOrder, edition}). The push diff compares
 // against this so a single toggle writes only that row's path.
 let lastRemote: SyncFields | null = null;
-// Callback that writes a fresh {upNext, requests, edition} back into main.ts,
+// Callback that writes a fresh {upNext, requests, edition} back into the app,
 // re-rendering + persisting. Shared by the snapshot listener and the
 // gesture-deferral flush, so it is stored module-level.
 let applyState: ApplyState | null = null;
@@ -386,7 +386,7 @@ export async function createSession(
 }
 
 // Error thrown by joinSession when the doc is missing (never created, or since
-// deleted). Flagged so main.ts can show its "not found" copy instead of a raw
+// deleted). Flagged so routing can show its "not found" copy instead of a raw
 // error.
 export class SessionNotFoundError extends Error {
   readonly notFound = true;
