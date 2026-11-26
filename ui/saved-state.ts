@@ -1,7 +1,8 @@
 // This device's copy of the night, so a reload or an accidental close loses
 // nothing: both lists (rows carry their matched entry inline, so they render
 // and export before the catalogue reloads), the votes, the session's book, the
-// player's name, the session id and the settings.
+// player's name and the settings. Which session to rejoin is the URL's
+// (?session=), not this.
 //
 // What comes back is whatever an older build (or a full disk) left, so it's
 // read field by field: a field of the wrong kind is dropped. What's inside the
@@ -18,8 +19,6 @@ export interface SavedState {
   votes: Votes;
   edition: Edition | null;
   name: string;
-  /** null when no session is active. */
-  sessionId: string | null;
   /** applySettings() in settings.svelte.ts validates its own fields. */
   settings: unknown;
 }
