@@ -14,7 +14,6 @@ class Overlays {
   songbook = $state(false);
   /** The confirm sheet, on a picked tune or (entry null) a rename; null while closed. */
   request = $state<{ entry: CatalogueEntry | null } | null>(null);
-  nameReset = $state(false);
   /** The release notes on show, or null while closed. */
   whatsNew = $state.raw<WhatsNewEntry[] | null>(null);
   /** The scanned photo on show full-screen, or null. */

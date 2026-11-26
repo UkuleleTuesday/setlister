@@ -102,10 +102,10 @@ test("a pasted link registers too, under the name the phone already has", async 
 
   await page.locator("#organiser-link").fill(`https://example.com/setlister/#organise=${KEY}`);
   await page.locator("#organiser-link-register").tap();
-  // The name step always shows, filled in with the phone's name.
-  await expect(page.locator("#organiser-name")).toHaveValue("Robin");
-  await page.locator("#organiser-register").tap();
+  // The phone has a name, so there's no name step: the done step says it.
   await expect(page.locator("#organiser-title")).toHaveText("You’re on the organiser list");
+  await expect(page.locator("#organiser-message")).toContainText("Registered as Robin.");
+  await expect(page.locator("#organiser-name")).toHaveCount(0);
   expect(await organiserRows()).toEqual([{ name: "Robin", key: KEY }]);
 });
 

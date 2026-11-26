@@ -48,8 +48,6 @@ const PENDING_KEY = "setlister.organiseKey.v1";
 const REGISTER_TIMEOUT_MS = 15_000;
 
 let linkKey: string | null = null;
-// startRegistration() hid the name amnesty: give it back if no name comes.
-let hidAmnesty = false;
 
 /** Boot, before anything else: take the key out of the URL at once. Falls
  * back to a key this tab was still registering before a reload. */
@@ -65,14 +63,13 @@ function takeKeyFromHash(): string | null {
   return key;
 }
 
-/** Boot, after the name amnesty: open the sheet if there's a key to use. */
+/** Boot, after restore(): register if there's a key to use, asking for a
+ * name first only if the phone has none. The done step says which name. */
 export function startRegistration(): void {
   if (!linkKey) return;
-  // The name step asks for the name itself, so the amnesty's would only stack.
-  hidAmnesty ||= overlays.nameReset;
-  overlays.nameReset = false;
   organiser.failure = null;
-  organiser.sheet = "name";
+  if (night.name.trim()) register();
+  else organiser.sheet = "name";
 }
 
 /** A link tapped while the app is already open in this tab changes only the
@@ -112,8 +109,6 @@ export function closeOrganiserSheet({ forget = false } = {}): void {
     writePending(null);
   }
   organiser.sheet = null;
-  if (hidAmnesty && !night.name.trim()) overlays.nameReset = true;
-  hidAmnesty = false;
 }
 
 /** The error step's Reload: the key survives it in sessionStorage. */
@@ -132,7 +127,6 @@ export async function register(): Promise<void> {
     writeRegistered(true);
     writePending(null);
     linkKey = null;
-    hidAmnesty = false;
     organiser.isOrganiser = true;
     organiser.name = name;
     organiser.sheet = "done";

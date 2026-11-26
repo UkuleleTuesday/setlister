@@ -12,7 +12,6 @@
   import BinGroup from "./BinGroup.svelte";
   import Home from "./Home.svelte";
   import Icon from "./Icon.svelte";
-  import NameResetSheet from "./NameResetSheet.svelte";
   import NewSessionSheet from "./NewSessionSheet.svelte";
   import OrganiserSheet from "./OrganiserSheet.svelte";
   import PhotoLightbox from "./PhotoLightbox.svelte";
@@ -381,9 +380,6 @@
 {/if}
 {#if overlays.songbook}
   <SongbookSheet onPick={pickSong} onclose={() => (overlays.songbook = false)} />
-{/if}
-{#if overlays.nameReset}
-  <NameResetSheet onSave={setPlayerName} onclose={() => (overlays.nameReset = false)} />
 {/if}
 {#if organiser.sheet}
   <OrganiserSheet />

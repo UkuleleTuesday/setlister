@@ -1,8 +1,8 @@
 <!--
   Registering this phone from the organiser link (#151), tapped from the chat
   or pasted in Settings. organiser.svelte.ts runs the steps; this draws
-  whichever one it's on. The name step always shows, filled in with the
-  phone's name: it says who is registering and what's about to happen.
+  whichever one it's on. The name step shows only on a phone with no name
+  yet; the done step says which name the row went in under.
 
   Closing it never undoes anything. A tap outside keeps the link for this tab,
   so a reload offers the sheet again; Cancel forgets it. Each step's heading
@@ -13,7 +13,6 @@
 -->
 <script lang="ts">
   import Sheet from "./Sheet.svelte";
-  import { night } from "./night.svelte.js";
   import {
     closeOrganiserSheet,
     organiser,
@@ -22,7 +21,7 @@
     reloadToRegister,
   } from "./organiser.svelte.js";
 
-  let name = $state(night.name.trim());
+  let name = $state("");
   let heading: HTMLHeadingElement | undefined = $state();
 
   // A new step is a new heading: move focus there so it's read out.

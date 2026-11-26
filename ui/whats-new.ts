@@ -89,8 +89,8 @@ export function whatsNewDateLabel(
 // nothing to migrate.
 export const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
 
-// Forgiving like name-reset.ts's wrappers: in private mode the banner simply
-// shows every visit.
+// Forgiving: with storage blocked (private mode) the banner simply shows
+// every visit.
 export function readWhatsNewSeen(): string | null {
   try {
     return localStorage.getItem(WHATS_NEW_SEEN_KEY);
