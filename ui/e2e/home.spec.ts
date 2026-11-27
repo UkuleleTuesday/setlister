@@ -12,6 +12,9 @@ function dayOffset(days: number): string {
 }
 
 async function startPastNight(page: Page, date: string) {
+  // The no-night callout lands above the button when the list loads; a tap
+  // before then can miss it.
+  await expect(page.locator("#session-list-status")).toBeHidden();
   await page.locator("#new-session").tap();
   await page.locator("#new-session-date").fill(date);
   await page.locator("#new-session-start").tap();
