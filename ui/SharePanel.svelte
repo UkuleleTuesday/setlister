@@ -69,7 +69,7 @@
   </p>
   {#if !session.past}
     <div class="share-link-state">
-      <span id="share-link-state-text">{windowChipText(session.link.status)}</span>
+      <span id="share-link-state-text">{windowChipText(session.link.status, session.now)}</span>
       <button type="button" id="share-request-change" class="link-button" onclick={onRequestLink}>
         Change
       </button>

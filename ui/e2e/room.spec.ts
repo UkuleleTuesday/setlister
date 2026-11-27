@@ -104,6 +104,8 @@ test("days before the night, the room hears when requests open, not that they're
   await organiser.locator("#new-session-start").tap();
   await organiser.waitForURL(/[?&]session=/);
   const id = new URL(organiser.url()).searchParams.get("session")!;
+  // A time alone would read as tonight (#241).
+  await expect(organiser.locator("#window-chip")).toHaveText(/^Request link opens \S+ at /);
 
   const room = await phone({ room: true });
   await room.goto(`/?session=${id}`);

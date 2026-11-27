@@ -283,25 +283,27 @@ describe("linkState and its wording", () => {
   const auto = { requestsOpen: null, requestsOpensAt: null, requestsClosesAt: null };
 
   it("follows the window in auto mode", () => {
-    const link = linkState(auto, created, at(2026, 7, 4, 21));
+    const now = at(2026, 7, 4, 21);
+    const link = linkState(auto, created, now);
     expect(link.open).toBe(true);
     expect(link.soonMinutes).toBeNull();
     expect(link.status.state).toBe("open");
-    expect(windowChipText(link.status)).toMatch(/^Request link open until /);
-    expect(linkStateText(link.status)).toMatch(/^Open until /);
+    expect(windowChipText(link.status, now)).toMatch(/^Request link open until /);
+    expect(linkStateText(link.status, now)).toMatch(/^Open until /);
     expect(roomWindowText(link.status)).toMatch(/^Requests open until /);
-    expect(switchHelp(null, link)).toMatch(/^On schedule, closes at /);
+    expect(switchHelp(null, link, now)).toMatch(/^On schedule, closes at /);
     expect(roomNote(link.open)).toMatch(/^People on the link can add tunes/);
   });
 
   it("counts down only in auto mode, inside the notice period", () => {
-    const soon = linkState(auto, created, at(2026, 7, 4, 19, 18));
+    const now = at(2026, 7, 4, 19, 18);
+    const soon = linkState(auto, created, now);
     expect(soon.open).toBe(false);
     expect(soon.soonMinutes).toBe(12);
     expect(soon.status.state).toBe("later");
-    expect(windowChipText(soon.status)).toMatch(/^Request link opens at /);
-    expect(linkStateText(soon.status)).toMatch(/^Opens at /);
-    expect(switchHelp(null, soon)).toMatch(/^On schedule, opens at /);
+    expect(windowChipText(soon.status, now)).toMatch(/^Request link opens at /);
+    expect(linkStateText(soon.status, now)).toMatch(/^Opens at /);
+    expect(switchHelp(null, soon, now)).toMatch(/^On schedule, opens at /);
     expect(roomNote(soon.open)).toMatch(/^View only:/);
     expect(openingSoonNote(12)).toBe(
       "Requests open in 12 minutes. Pop your tune on the whiteboard of wishes for now.",
@@ -313,27 +315,49 @@ describe("linkState and its wording", () => {
   it("lets a forced mode win, with fixed wording", () => {
     const closed = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 21));
     expect(closed.open).toBe(false);
-    expect(windowChipText(closed.status)).toBe("Request link is view only");
-    expect(linkStateText(closed.status)).toBe("View only");
-    expect(switchHelp(false, closed)).toBe("Set by hand");
+    expect(windowChipText(closed.status, created)).toBe("Request link is view only");
+    expect(linkStateText(closed.status, created)).toBe("View only");
+    expect(switchHelp(false, closed, created)).toBe("Set by hand");
     const open = linkState({ ...auto, requestsOpen: true }, created, at(2026, 7, 5, 6));
     expect(open.open).toBe(true);
-    expect(windowChipText(open.status)).toBe("Request link open");
+    expect(windowChipText(open.status, created)).toBe("Request link open");
     expect(roomWindowText(open.status)).toBe("Requests open");
-    expect(switchHelp(true, open)).toBe("Set by hand");
+    expect(switchHelp(true, open, created)).toBe("Set by hand");
   });
 
   it("reads a session with no date yet as open, with no window", () => {
     const link = linkState(auto, null, at(2026, 7, 4, 21));
     expect(link).toMatchObject({ open: true, window: null, soonMinutes: null });
-    expect(switchHelp(null, link)).toBe("On schedule");
-    expect(scheduleLabel(link.window)).toBe("");
+    expect(switchHelp(null, link, created)).toBe("On schedule");
+    expect(scheduleLabel(link.window, created)).toBe("");
+  });
+
+  it("names the day when the link opens on another one (#241)", () => {
+    const opens = at(2026, 7, 4, 19, 30);
+    const time = opens.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const weekday = opens.toLocaleDateString(undefined, { weekday: "short" });
+    const date = opens.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const cases: [Date, string][] = [
+      [at(2026, 7, 4, 12), `at ${time}`],
+      [at(2026, 7, 3, 12), `tomorrow at ${time}`],
+      [at(2026, 7, 1, 12), `${weekday} at ${time}`],
+      [at(2026, 6, 20, 12), `${date} at ${time}`],
+    ];
+    for (const [now, when] of cases) {
+      const link = linkState(auto, created, now);
+      expect(windowChipText(link.status, now)).toBe(`Request link opens ${when}`);
+      expect(linkStateText(link.status, now)).toBe(`Opens ${when}`);
+      expect(switchHelp(null, link, now)).toBe(`On schedule, opens ${when}`);
+    }
+    expect(
+      scheduleLabel(linkState(auto, created, at(2026, 7, 1, 12)).window, at(2026, 7, 1, 12)),
+    ).toMatch(new RegExp(`^${weekday}, `));
   });
 
   it("says when the schedule closed the link, and spells the schedule out", () => {
     const after = linkState(auto, created, at(2026, 7, 4, 23));
     expect(after.open).toBe(false);
-    expect(switchHelp(null, after)).toMatch(/^On schedule, closed at /);
-    expect(scheduleLabel(after.window)).toMatch(/ to /);
+    expect(switchHelp(null, after, created)).toMatch(/^On schedule, closed at /);
+    expect(scheduleLabel(after.window, created)).toMatch(/^\S+ \S+ to /);
   });
 });
