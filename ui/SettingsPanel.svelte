@@ -93,14 +93,6 @@
     />
     <span>Show alternative suggestions</span>
   </label>
-  <label class="field toggle">
-    <input
-      type="checkbox"
-      id="include-crossed"
-      bind:checked={() => settings.includeCrossed, (v) => set("includeCrossed", v)}
-    />
-    <span>Include crossed-out rows in export</span>
-  </label>
   <details class="advanced" id="organiser-setting">
     <summary>Organisers</summary>
     {#if organiserStatus.isOrganiser}

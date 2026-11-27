@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { bySong } from "./api.js";
-import { expect, storedRowCount, test } from "./fixtures.js";
+import { expect, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
 const requestRow = (page: Page, title: string) =>
@@ -179,7 +179,7 @@ test("export copies and downloads the night, and goes inert when empty", async (
   expect(body.rows[0]).not.toHaveProperty("uid");
 });
 
-test("export follows the include-crossed-out setting (#185)", async ({ phone, parseRows }) => {
+test("export keeps crossed-out rows", async ({ phone, parseRows }) => {
   parseRows.current = [
     {
       raw_title: "Jolene",
@@ -194,21 +194,16 @@ test("export follows the include-crossed-out setting (#185)", async ({ phone, pa
     },
   ];
   const page = await phone();
-  const id = await startSession(page);
+  await startSession(page);
   await page.locator("#photo-input").setInputFiles({
     name: "board.png",
     mimeType: "image/png",
     buffer: PHOTO,
   });
   await expect(requestRow(page, "Jolene")).toContainText("crossed out");
-  await expect(page.locator("#copy")).toBeDisabled();
-  // Let the row's push land first, or its snapshot redraws the buttons and
-  // hides whether the setting did.
-  await expect.poll(() => storedRowCount(id)).toBe(1);
-  await page.waitForTimeout(500);
-
-  await page.locator("#settings-toggle").tap();
-  await page.locator("#include-crossed").tap();
   await expect(page.locator("#copy")).toBeEnabled();
   await expect(page.locator("#download")).toBeEnabled();
+
+  await page.locator("#settings-toggle").tap();
+  await expect(page.locator("#include-crossed")).toHaveCount(0);
 });
