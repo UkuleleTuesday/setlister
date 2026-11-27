@@ -138,8 +138,7 @@ async function writeRow(key: string, name: string): Promise<void> {
   });
 }
 
-/** Boot: read back this phone's row, if it registered before. Offline keeps
- * the stored status. */
+/** Boot: read back this phone's row, if it registered before. */
 export async function restoreOrganiser(): Promise<void> {
   if (!organiserStatus.isOrganiser) return;
   try {
