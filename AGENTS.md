@@ -48,8 +48,9 @@ where a field written at session creation breaks "New session". Run
 
 ## Code
 
-- **Comments say why:** reasons, hazards, non-obvious mechanisms. A comment
-  stating behaviour a test could check should be that test.
+- **No comment beats a duplicate or verbose one.** Make the code say what it
+  does, and pin behaviour with explicit tests. Comment only the why: reasons,
+  hazards, non-obvious mechanisms.
 
 ## Before you push
 
