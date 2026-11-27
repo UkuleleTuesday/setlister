@@ -1,8 +1,8 @@
 # Design system
 
-Tokens and primitives live at the top of `style.css`. The rest of the file
-composes them. Mobile-first rules (touch, dismissal, notches) are in
-`AGENTS.md`.
+Foundations (the tokens) and components live at the top of `style.css`. The
+rest of the file composes them; Patterns says how they make a page. The UI is
+mobile-first: phone and touch come first, desktop is a bonus.
 
 ## Rules
 
@@ -10,14 +10,15 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
    z-indexes outside `:root`. Spacing uses `--space-*`. Off-grid values are
    for optical nudges and component geometry, such as icon sizes and badge
    offsets.
-2. **Reuse a primitive before writing a component rule.** Keep the old
+2. **Reuse a component before writing a one-off rule.** Keep the old
    class next to it when tests or mode CSS select on it, for example
    `class="songbook-trigger btn btn-primary btn-lg"`.
 3. **One primary action per view.** Everything else is `btn-soft` or
    `link-button`.
 4. **Every tappable thing is at least 44px and gives feedback when pressed.**
    The global `button:active` dims it. The platform's tap flash is off, so
-   don't bring it back. Keyboard focus shows `--focus-ring`.
+   don't bring it back. Keyboard focus shows `--focus-ring`. No hover-only
+   affordances.
 5. **Anything that opens something shows it.** A row or pill that opens a
    view or sheet ends in a `forward` chevron; a heading that opens details
    ends in `chevron`. Lists you open things from are `.inset-list`; lists you
@@ -27,8 +28,19 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
    rely on colour alone: pair it with an icon, a dot or text.
 7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
    somewhere or open something; arrows only move a row (`earlier`, `later`).
+8. **A visible way out, no instructions.** Every sheet has a Close or Cancel
+   button. Tapping outside also closes sheets and popovers: it's a shortcut
+   people already know, so don't label it. Hint only when nothing on screen
+   shows the way out, as in the photo lightbox. A tap outside never throws
+   away what someone typed. Escape is a desktop bonus.
+9. **Small screens.** Size overlays with `max-height`/`max-width` (`dvh` for
+   height) and scroll inside them. Anything pinned to an edge pads with
+   `env(safe-area-inset-*)`, as in Page structure.
+10. **One header for every view.** `.app-header` says where you are and what
+    you can do. The way out and the night's status sit under it, in
+    `.session-bar`. See Page structure.
 
-## Tokens
+## Foundations
 
 | Group       | Tokens                                                                                     | Notes                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -43,8 +55,9 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | Layers      | `--z-lifted`, `-popover`, `-menu`, `-sheet`, `-lightbox`                                   |                                                                                       |
 | Motion      | `--duration-fast`, `--duration-base`, `--ease`                                             | Animations go inside a `prefers-reduced-motion` guard.                                |
 | Interaction | `--tap-min`, `--pressed-opacity`, `--disabled-opacity`, `--focus-ring`                     |                                                                                       |
+| Layout      | `--page-max`, `--control-size`                                                             | The column every view shares. Icon-buttons and the pills beside them.                 |
 
-## Primitives
+## Components
 
 | Class                                      | Use for                                                                                           |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
@@ -53,9 +66,12 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.btn-lg`                                  | Hero actions on the page, such as Add a tune or New session. Not inside sheets.                   |
 | `.link-button`                             | Text-only actions inline with content. The hit area is built in.                                  |
 | `.icon-button`                             | Round, bordered icon-only button, such as the header's share and settings. Needs an `aria-label`. |
+| `.app-header`                              | Every view's top: title stack, then actions. See Page structure.                                  |
+| `.session-bar`                             | A session's way out and status, under the header. See Page structure.                             |
+| `.badge` (`.badge-dot`)                    | A count, or a dot, on a button's corner. Status colour, and say it in the `aria-label` too.       |
 | `.tap-target`                              | Grows a small control's hit area to 44px without moving the layout.                               |
 | `.eyebrow`                                 | Uppercase label: section headings, kickers, the club name.                                        |
-| `.popover`                                 | A panel anchored under a header button. Set `left`/`right` and `width` per instance.              |
+| `.popover`                                 | A panel under the header, anchored right below its actions. Set `width` per instance.             |
 | `Sheet.svelte`                             | Modal dialogs. Stack actions in `.actions`: primary first, then soft.                             |
 | `.field`                                   | Label, then control, then an optional `.note`.                                                    |
 | `.note`, `.error`                          | Help text and failures.                                                                           |
@@ -69,7 +85,29 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
 | `.disclosure`                              | A named, collapsed `<details>` with a `disclosure-chevron` in its summary.                        |
 
-## Settings
+## Patterns
+
+### Page structure
+
+Every view is `.app-header`, then `main`, in one `--page-max` column.
+
+1. **Header.** `.title-stack` (the club name as `.eyebrow` over the h1), then
+   `.header-actions`: icon-buttons and pills at `--control-size`, settings
+   last. Actions align to the top, so a title can wrap; it never truncates.
+   `.title-tail` keeps a title's chevron on its last word.
+2. **Header popovers** hang from the header's bottom edge, anchored right.
+3. **Session bar.** First in a session's `main`: "All sessions", always
+   labelled, then one status item. That's the request pill on a live night,
+   Edit/Done on a past one (organisers), nothing in room mode. It wraps rather
+   than squeeze.
+4. **Room mode** hides the header's actions and the title's chevron. Nothing
+   else moves.
+5. **Badges** sit inside their button: `.badge-dot` for news, a count for
+   people. A count of one is only you, so it hides.
+6. **Notches.** Edge padding is `max(<token>, env(safe-area-inset-*))`. The
+   insets read 0 until `index.html` sets `viewport-fit=cover`.
+
+### Settings
 
 1. **Put a setting where its effect lives.** The gear holds this phone's
    settings only. A control that changes the session for everyone sits where
