@@ -24,7 +24,12 @@
   }
 </script>
 
-<Sheet id="organiser-sheet" labelledby="organiser-title" onclose={() => closeOrganiserSheet()}>
+<Sheet
+  id="organiser-sheet"
+  labelledby="organiser-title"
+  onclose={() => closeOrganiserSheet()}
+  holdsInput={organiser.sheet === "name" && Boolean(name.trim())}
+>
   {#if organiser.sheet === "name"}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Register as an organiser</h2>
     <p class="note">
@@ -100,8 +105,5 @@
       {/if}
       <button class="btn btn-soft" onclick={() => closeOrganiserSheet()}>Close</button>
     </div>
-  {/if}
-  {#if organiser.sheet !== "working"}
-    <p class="sheet-hint">Tap outside to close</p>
   {/if}
 </Sheet>

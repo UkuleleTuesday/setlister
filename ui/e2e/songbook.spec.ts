@@ -97,7 +97,7 @@ test("the room waits a minute between requests, but can still back a tune", asyn
   await expect(room.locator("#add-feedback")).toHaveText("Your thumbs up is on “Jolene”.");
 });
 
-test("the confirm sheet needs a name, carries a comment, renames, and cancels cleanly", async ({
+test("the confirm sheet needs a name, keeps what's typed, renames, and cancels cleanly", async ({
   phone,
 }) => {
   const organiser = await phone();
@@ -121,6 +121,10 @@ test("the confirm sheet needs a name, carries a comment, renames, and cancels cl
 
   await room.locator("#room-request-name").fill("Sam");
   await room.locator("#room-request-comment").fill("birthday request!");
+  // A stray tap outside keeps what's typed.
+  await sheet.tap({ position: { x: 8, y: 8 } });
+  await expect(sheet).toBeVisible();
+  await expect(room.locator("#room-request-comment")).toHaveValue("birthday request!");
   await room.locator("#room-request-confirm").tap();
   await expect(sheet).toBeHidden();
   const row = room.locator("#requests-rows").getByRole("listitem").filter({ hasText: "Jolene" });

@@ -5,16 +5,19 @@
     id,
     labelledby,
     onclose,
+    holdsInput = false,
     children,
   }: {
     id: string;
     labelledby: string;
     onclose: () => void;
+    /** Something typed is in it: a stray tap outside mustn't throw it away. */
+    holdsInput?: boolean;
     children: Snippet;
   } = $props();
 
   function onBackdrop(event: MouseEvent) {
-    if (event.target === event.currentTarget) onclose();
+    if (event.target === event.currentTarget && !holdsInput) onclose();
   }
 
   function onKeydown(event: KeyboardEvent) {
@@ -24,8 +27,8 @@
 
 <svelte:document onkeydown={onKeydown} />
 
-<!-- The backdrop click is a tap-outside shortcut; every sheet also has a real
-     button. -->
+<!-- The backdrop click is an unlabelled tap-outside shortcut (DESIGN.md rule 8);
+     every sheet also has a real button. -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   {id}

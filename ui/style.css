@@ -1217,12 +1217,6 @@ h2#past-heading {
 .sheet .error {
   margin-top: var(--space-3);
 }
-.sheet-hint {
-  margin: var(--space-4) 0 0;
-  text-align: center;
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
 #upnext-empty,
 #requests-empty {
   padding: var(--space-6) var(--space-4);

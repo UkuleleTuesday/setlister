@@ -34,6 +34,7 @@
   let error = $state("");
 
   const askName = $derived(!hasName || !entry);
+  const typed = $derived(Boolean(comment.trim()) || (askName && name.trim() !== night.name.trim()));
   const title = $derived(entry ? (hasName ? "Add this request?" : "Who’s asking?") : "Your name");
 
   let nameInput: HTMLInputElement | undefined = $state();
@@ -58,7 +59,7 @@
   }
 </script>
 
-<Sheet id="room-request-sheet" labelledby="room-request-title" {onclose}>
+<Sheet id="room-request-sheet" labelledby="room-request-title" {onclose} holdsInput={typed}>
   <h2 id="room-request-title">{title}</h2>
   <p id="room-request-song" class="room-request-song" hidden={!entry}>{entry?.display ?? ""}</p>
   <div id="room-request-name-field" hidden={!askName}>
@@ -102,5 +103,4 @@
     </button>
     <button id="room-request-cancel" class="btn btn-soft" onclick={onclose}>Cancel</button>
   </div>
-  <p class="sheet-hint">Tap outside to close</p>
 </Sheet>
