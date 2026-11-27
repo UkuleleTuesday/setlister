@@ -4,6 +4,7 @@
   import { notices } from "./notices.svelte.js";
   import { organiserStatus } from "./organiser-status.svelte.js";
   import {
+    DEFAULT_BLURB,
     type LabelledEntry,
     type MonthGroup,
     type SessionEntry,
@@ -45,12 +46,8 @@
         ? "Couldn’t load sessions."
         : "",
   );
-  // Most phones on home are the room's, which can't snap or run the night.
-  const pitch = $derived(
-    organiserStatus.isOrganiser
-      ? "Snap the whiteboard, take requests and set the running order."
-      : "Ask for the tunes you want to play and follow what’s up next.",
-  );
+  // Everyone sees the same words, so organisers see what the room reads.
+  const pitch = $derived(next?.blurb || DEFAULT_BLURB);
 
   function meta(entry: Entry) {
     const who = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";

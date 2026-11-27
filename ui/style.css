@@ -722,7 +722,8 @@ footer#edition-note:empty {
 .field input[type="number"],
 .field input[type="text"],
 .field input[type="date"],
-.field input[type="datetime-local"] {
+.field input[type="datetime-local"],
+.field textarea {
   width: 100%;
   min-height: 44px;
   padding: var(--space-3);
@@ -730,6 +731,11 @@ footer#edition-note:empty {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--card);
+}
+.field textarea {
+  display: block;
+  resize: vertical;
+  line-height: 1.4;
 }
 /* iOS renders date inputs as centred, intrinsic-height buttons. */
 .field input[type="datetime-local"],

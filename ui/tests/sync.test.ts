@@ -122,6 +122,7 @@ describe("readMeta", () => {
     expect(readMeta(null)).toEqual({
       createdBy: "",
       listed: false,
+      blurb: "",
       requestsOpen: null,
       requestsOpensAt: null,
       requestsClosesAt: null,
@@ -134,11 +135,17 @@ describe("readMeta", () => {
     expect(meta).toEqual({
       createdBy: "",
       listed: false,
+      blurb: "",
       requestsOpen: null,
       requestsOpensAt: null,
       requestsClosesAt: null,
       legacy: false,
     });
+  });
+
+  it("reads a blurb, and anything but a string as none", () => {
+    expect(readMeta({ blurb: "Hats on" }).blurb).toBe("Hats on");
+    expect(readMeta({ blurb: 42 }).blurb).toBe("");
   });
 
   it("treats a missing requestsOpen as auto, not forced either way", () => {

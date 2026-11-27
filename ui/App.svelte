@@ -31,6 +31,7 @@
   import { pageTitle } from "./session-index.js";
   import { session } from "./session.svelte.js";
   import {
+    changeBlurb,
     changeRequestsMode,
     changeRequestsWindow,
     changeVisibility,
@@ -384,6 +385,7 @@
       persist();
     }}
     onVisibility={changeVisibility}
+    onBlurb={changeBlurb}
     onRequestLink={openRequestLink}
     onclose={() => (overlays.sessionDetails = false)}
   />

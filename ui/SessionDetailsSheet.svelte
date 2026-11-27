@@ -5,19 +5,22 @@
   import { editionLabel } from "./editions.js";
   import { features } from "./features.js";
   import { linkStateText } from "./request-window.js";
-  import { sessionLongDate } from "./session-index.js";
+  import { BLURB_MAX, DEFAULT_BLURB, cleanBlurb, sessionLongDate } from "./session-index.js";
   import { session } from "./session.svelte.js";
   import { view } from "./view.svelte.js";
 
   let {
     onEdition,
     onVisibility,
+    onBlurb,
     onRequestLink,
     onclose,
   }: {
     onEdition: (editionId: string) => void;
     /** Rejects if the write didn't land, and the select reverts. */
     onVisibility: (listed: boolean) => Promise<void>;
+    /** Rejects if the write didn't land; the draft stays put. */
+    onBlurb: (text: string) => Promise<void>;
     onRequestLink: () => void;
     onclose: () => void;
   } = $props();
@@ -50,14 +53,65 @@
       visibilityBusy = false;
     }
   }
+
+  // A draft, saved on blur, Enter or Close: a write per keystroke would flood peers.
+  let blurbDraft = $state(session.meta.blurb);
+  let blurbBusy = $state(false);
+  const blurbDirty = $derived(cleanBlurb(blurbDraft) !== session.meta.blurb);
+
+  async function saveBlurb() {
+    if (!blurbDirty || blurbBusy) return;
+    blurbBusy = true;
+    try {
+      await onBlurb(blurbDraft);
+      blurbDraft = session.meta.blurb;
+    } catch {
+      /* sharing.ts shows why; the draft stays to retry */
+    } finally {
+      blurbBusy = false;
+    }
+  }
+
+  // One line on the card: Enter finishes the note, which saves it.
+  function onBlurbKeydown(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    event.currentTarget.blur();
+  }
+
+  function close() {
+    void saveBlurb();
+    onclose();
+  }
 </script>
 
-<Sheet id="session-details-sheet" labelledby="session-details-title" {onclose}>
+<Sheet
+  id="session-details-sheet"
+  labelledby="session-details-title"
+  holdsInput={blurbDirty}
+  onclose={close}
+>
   <h2 id="session-details-title">Session details</h2>
   <p class="detail-row">
     <span class="detail-label">Date</span>
     <span id="session-details-date">{sessionLongDate(session.createdAt) || session.label}</span>
   </p>
+
+  {#if !session.past}
+    <label class="field blurb-field">
+      <span>Note for the room</span>
+      <textarea
+        id="session-blurb"
+        rows="2"
+        maxlength={BLURB_MAX}
+        placeholder={DEFAULT_BLURB}
+        disabled={blurbBusy}
+        bind:value={blurbDraft}
+        onchange={saveBlurb}
+        onkeydown={onBlurbKeydown}></textarea>
+    </label>
+    <p class="note">Shows under the night on everyone’s home screen.</p>
+  {/if}
 
   <label class="field" id="edition-setting">
     <span>Songbook</span>
@@ -110,7 +164,7 @@
   {/if}
 
   <div class="actions">
-    <button type="button" id="session-details-close" class="btn btn-soft" onclick={onclose}>
+    <button type="button" id="session-details-close" class="btn btn-soft" onclick={close}>
       Close
     </button>
   </div>

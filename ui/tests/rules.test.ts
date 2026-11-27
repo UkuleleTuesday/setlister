@@ -132,6 +132,16 @@ describe("sessions/{id}", () => {
     );
   });
 
+  it("accepts a blurb up to 160 chars, and nothing longer or non-string", async () => {
+    await assertSucceeds(
+      setDoc(doc(db, "sessions", "misty-banjo"), session({ blurb: "x".repeat(160) })),
+    );
+    await assertFails(
+      setDoc(doc(db, "sessions", "sunny-kazoo"), session({ blurb: "x".repeat(161) })),
+    );
+    await assertFails(setDoc(doc(db, "sessions", "sunny-kazoo"), session({ blurb: 7 })));
+  });
+
   it("rejects an over-long createdBy", async () => {
     await assertFails(
       setDoc(doc(db, "sessions", "misty-banjo"), session({ createdBy: "x".repeat(61) })),
@@ -298,6 +308,14 @@ describe("sessionIndex/{id}", () => {
     );
   });
 
+  it("lets an organiser set and clear a listed night's blurb", async () => {
+    await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
+    const ref = doc(db, "sessionIndex", "misty-banjo");
+    await assertSucceeds(updateDoc(ref, { blurb: "Christmas night: hats on" }));
+    await assertFails(updateDoc(ref, { blurb: "x".repeat(161) }));
+    await assertSucceeds(updateDoc(ref, { blurb: deleteField() }));
+  });
+
   it("allows a delete, which un-lists the session", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "misty-banjo")));
@@ -375,6 +393,7 @@ describe("session writes: organisers and the room", () => {
           votes: { r1: { asker: true } },
         }),
       );
+      await setDoc(doc(adminDb, "sessionIndex", ID), indexEntry());
     }),
   );
 
@@ -443,6 +462,7 @@ describe("session writes: organisers and the room", () => {
       { upNextOrder: ["r1"] },
       { edition: { id: "x" } },
       { listed: false },
+      { blurb: "Free beer" },
       { requestsOpen: false },
       { requestsOpensAt: NOW },
       { requestsClosesAt: NOW },
@@ -455,6 +475,7 @@ describe("session writes: organisers and the room", () => {
       await assertFails(setDoc(doc(client, "sessions", "other-night"), session()));
       await assertFails(setDoc(doc(client, "sessionIndex", "other-night"), indexEntry()));
       await assertFails(deleteDoc(doc(client, "sessionIndex", ID)));
+      await assertFails(updateDoc(doc(client, "sessionIndex", ID), { blurb: "Free beer" }));
     }
   });
 

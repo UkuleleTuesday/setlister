@@ -50,15 +50,38 @@ test("the header and session bar fit a 320px phone", async ({ phone }) => {
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("home's night speaks to the room and to organisers", async ({ phone }) => {
+test("home's night carries the organisers' note, the same for everyone", async ({ phone }) => {
   const organiser = await phone();
   await startSession(organiser);
   await organiser.locator("#back-home").tap();
-  await expect(organiser.locator(".next-session-pitch")).toContainText("Snap the whiteboard");
+  const pitch = organiser.locator(".next-session-pitch");
+  await expect(pitch).toContainText("Ask for the tunes");
+
+  await organiser.locator("#next-session .next-session-card").tap();
+  await organiser.locator("#session-title").tap();
+  const note = organiser.locator("#session-blurb");
+  await note.fill("Christmas night: hats on, carols at nine.");
+  // A tap outside mustn't lose it: it saves, and the sheet stays open.
+  await organiser.locator("#session-details-sheet").tap({ position: { x: 8, y: 8 } });
+  await expect(organiser.locator("#session-details-sheet")).toBeVisible();
+  await organiser.locator("#session-details-close").tap();
+  await organiser.locator("#back-home").tap();
+  await expect(pitch).toHaveText("Christmas night: hats on, carols at nine.");
 
   const room = await phone({ room: true });
   await room.goto("/");
-  await expect(room.locator(".next-session-pitch")).toContainText("Ask for the tunes");
+  await expect(room.locator(".next-session-pitch")).toHaveText(
+    "Christmas night: hats on, carols at nine.",
+  );
+
+  await organiser.locator("#next-session .next-session-card").tap();
+  await organiser.locator("#session-title").tap();
+  await expect(note).toHaveValue("Christmas night: hats on, carols at nine.");
+  await note.fill("");
+  await note.press("Enter");
+  await organiser.locator("#session-details-close").tap();
+  await organiser.locator("#back-home").tap();
+  await expect(pitch).toContainText("Ask for the tunes");
 });
 
 test("with no night planned, home says so to each role", async ({ phone }) => {
