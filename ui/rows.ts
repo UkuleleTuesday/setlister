@@ -3,6 +3,7 @@ import { catalogue } from "./catalogue.svelte.js";
 import { exportPayload, exportText, exportedRows } from "./export.js";
 import { setBinned, setPlayed } from "./gig-state.js";
 import { night, nightSnapshot } from "./night.svelte.js";
+import { movePlayed } from "./recap.js";
 import * as presence from "./presence.js";
 import { persist } from "./save.js";
 import { settings } from "./settings.svelte.js";
@@ -46,6 +47,9 @@ function moveBy(uid: string, delta: -1 | 1) {
 export const rowActions: RowActions = {
   togglePlayed: (uid) => withRow(uid, (row) => setPlayed(row, !row.played)),
   toggleBinned: (uid) => withRow(uid, (row) => setBinned(row, !row.binned)),
+  movePlayed: (uid, delta) => {
+    if (movePlayed(night.upNext, uid, delta)) persist();
+  },
   promote: (uid) => move(night.requests, night.upNext, uid),
   demote: (uid) => move(night.upNext, night.requests, uid),
   // diff() turns a vote into a single `votes.<uid>.<clientId>` leaf write, so

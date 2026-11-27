@@ -2,6 +2,7 @@
   {
     "date": "2026-11-27",
     "items": [
+      "Past nights open as a recap of what got played, in order. Organisers can tap Edit to fix the order or fill in a night.",
       "The request view has an All sessions button again, so you can hop back to the list of nights.",
       "Buttons, panels and headings now look and feel the same across the app, and every tap gives a clear press."
     ]

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { flushSync } from "svelte";
   import { on } from "svelte/events";
-  import Icon from "./Icon.svelte";
+  import ExportActions from "./ExportActions.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
   import RowGroup from "./RowGroup.svelte";
   import { lists, rowVote } from "./lists.svelte.js";
   import { night } from "./night.svelte.js";
+  import { playedOrder } from "./recap.js";
+  import { session } from "./session.svelte.js";
   import { settings } from "./settings.svelte.js";
 
   let {
@@ -22,7 +24,7 @@
   } = $props();
 
   const visible = $derived(night.upNext.filter((e) => !e.binned && !e.played));
-  const played = $derived(night.upNext.filter((e) => e.played));
+  const played = $derived(playedOrder(night.upNext));
   let dragOrder: string[] | null = $state(null);
   let dragUid: string | null = $state(null);
   const shown = $derived.by(() => {
@@ -30,12 +32,11 @@
     const byUid = new Map(visible.map((row) => [row.uid, row]));
     return dragOrder.map((uid) => byUid.get(uid)).filter((row) => row !== undefined);
   });
-  // From the stored order, so a drag in flight doesn't move the Next tag.
-  const nextUid = $derived(visible[0]?.uid);
+  // From the stored order, so a drag in flight doesn't move the Next tag. A
+  // past night has nothing next.
+  const nextUid = $derived(session.past ? undefined : visible[0]?.uid);
 
   let list: HTMLUListElement | undefined = $state();
-  let copied = $state(false);
-  let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
   function dropBeforeUid(y: number): string | null {
     if (!list) return null;
@@ -117,14 +118,6 @@
       finish?.();
     };
   }
-
-  // A tick, not a word: a word would grow the button and shove the heading.
-  async function copy() {
-    await onCopy();
-    copied = true;
-    clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => (copied = false), 1500);
-  }
 </script>
 
 <section
@@ -137,28 +130,7 @@
         · {visible.length}
       </span>
     </h2>
-    <div class="setlist-actions">
-      <button
-        id="copy"
-        type="button"
-        title="Copy list"
-        aria-label="Copy the setlist to the clipboard"
-        disabled={lists.exportEmpty}
-        onclick={copy}
-      >
-        <Icon name={copied ? "check" : "copy"} />
-      </button>
-      <button
-        id="download"
-        type="button"
-        title="Download JSON"
-        aria-label="Download the setlist as JSON"
-        disabled={lists.exportEmpty}
-        onclick={onDownload}
-      >
-        <Icon name="download" />
-      </button>
-    </div>
+    <ExportActions {onCopy} {onDownload} />
   </div>
   <p id="upnext-hint" class="list-hint" hidden={visible.length === 0}>Coming up, in order.</p>
   <RowGroup
@@ -166,8 +138,10 @@
     iconName="played"
     noun="played"
     rows={played}
-    context={lists.room ? "room-played" : "played"}
+    context={lists.room ? "room-played" : session.past ? "played-edit" : "played"}
     {actions}
+    startOpen={session.past}
+    numbered={session.past}
     showSuggestions={settings.showSuggestions}
   />
   <ul id="upnext-rows" bind:this={list} {@attach reorder}>

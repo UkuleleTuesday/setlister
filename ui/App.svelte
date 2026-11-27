@@ -5,6 +5,7 @@
   import NewSessionSheet from "./NewSessionSheet.svelte";
   import OrganiserSheet from "./OrganiserSheet.svelte";
   import PhotoLightbox from "./PhotoLightbox.svelte";
+  import Recap from "./Recap.svelte";
   import RequestsSection from "./RequestsSection.svelte";
   import RoomRequestSheet from "./RoomRequestSheet.svelte";
   import ScanFlow from "./ScanFlow.svelte";
@@ -50,6 +51,10 @@
   let windowChip: HTMLButtonElement | undefined = $state();
 
   const inSession = $derived(view.page === "session");
+  // Held off mid-scan: swapping views would drop the review.
+  const recap = $derived(
+    session.past && !(view.editingPast && view.mode === "full") && !view.reviewing,
+  );
 
   $effect(() => {
     document.body.classList.toggle("in-session", inSession);
@@ -192,7 +197,8 @@
     <div
       id="session-view"
       class:room={view.room}
-      class:fresh
+      class:fresh={fresh && !recap}
+      class:recap
       class:requests-closed={!session.link.open && session.link.soonMinutes === null}
       class:requests-opening-soon={session.link.soonMinutes !== null}
     >
@@ -201,77 +207,105 @@
         <button id="back-home" class="link-button" type="button" onclick={leaveToHome}>
           <Icon name="back" /><span class="btn-label">All sessions</span>
         </button>
-        <button
-          id="window-chip"
-          class="window-pill"
-          type="button"
-          data-state={session.link.status.state}
-          bind:this={windowChip}
-          onclick={() => (overlays.share = "requests")}
-        >
-          {windowChipText(session.link.status)}
-        </button>
-      </div>
-
-      <div class="room-top">
-        <h2 class="room-purpose">Pick a tune for tonight</h2>
-        <p class="room-purpose-sub">
-          Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
-        </p>
-        <div id="room-add" class="room-add">
+        {#if !session.past}
           <button
+            id="window-chip"
+            class="window-pill"
             type="button"
-            class="songbook-trigger btn btn-primary btn-lg"
-            onclick={() => (overlays.songbook = true)}
+            data-state={session.link.status.state}
+            bind:this={windowChip}
+            onclick={() => (overlays.share = "requests")}
           >
-            <Icon name="add" /><span class="btn-label">Request a tune</span>
+            {windowChipText(session.link.status)}
           </button>
-        </div>
-        <div class="room-rules">
-          <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
-          <span>One request a minute</span>
-          <!-- "change" reopens the confirm sheet: room mode hides the gear. -->
-          <span id="room-identity" class="room-identity" hidden={!roomName}>
-            <span id="room-identity-text">As {roomName}</span>
+        {:else if view.mode === "full"}
+          <button
+            id="past-edit"
+            class="link-button"
+            type="button"
+            onclick={() => (view.editingPast = !view.editingPast)}
+          >
+            {#if view.editingPast}
+              <Icon name="check" /><span class="btn-label">Done</span>
+            {:else}
+              <Icon name="edit" /><span class="btn-label">Edit</span>
+            {/if}
+          </button>
+        {/if}
+      </div>
+
+      {#if recap}
+        <Recap
+          actions={rowActions}
+          canEdit={view.mode === "full"}
+          onCopy={copySetlist}
+          onDownload={downloadSetlist}
+        />
+      {:else}
+        <p id="past-edit-note" class="past-edit-note" hidden={!session.past}>
+          Editing a past night. Changes reach everyone who opens it.
+        </p>
+
+        <div class="room-top">
+          <h2 class="room-purpose">Pick a tune for tonight</h2>
+          <p class="room-purpose-sub">
+            Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
+          </p>
+          <div id="room-add" class="room-add">
             <button
-              id="room-identity-change"
-              class="link-button"
               type="button"
-              onclick={() => (overlays.request = { entry: null })}
+              class="songbook-trigger btn btn-primary btn-lg"
+              onclick={() => (overlays.songbook = true)}
             >
-              change
+              <Icon name="add" /><span class="btn-label">Request a tune</span>
             </button>
-          </span>
+          </div>
+          <div class="room-rules">
+            <span id="room-window" class="window-pill">{roomWindowText(session.link.status)}</span>
+            <span>One request a minute</span>
+            <!-- "change" reopens the confirm sheet: room mode hides the gear. -->
+            <span id="room-identity" class="room-identity" hidden={!roomName}>
+              <span id="room-identity-text">As {roomName}</span>
+              <button
+                id="room-identity-change"
+                class="link-button"
+                type="button"
+                onclick={() => (overlays.request = { entry: null })}
+              >
+                change
+              </button>
+            </span>
+          </div>
         </div>
-      </div>
 
-      <!-- No `hidden` here: it would override the mode CSS. -->
-      <div class="fresh-intro">
-        <h2>No tunes yet</h2>
-        <p>Snap the whiteboard, or add tunes from the songbook.</p>
-      </div>
+        <!-- No `hidden` here: it would override the mode CSS. -->
+        <div class="fresh-intro">
+          <h2>No tunes yet</h2>
+          <p>Snap the whiteboard, or add tunes from the songbook.</p>
+        </div>
 
-      <UpNextSection
-        actions={rowActions}
-        onReorder={commitOrder}
-        onCopy={copySetlist}
-        onDownload={downloadSetlist}
-      />
-      <RequestsSection
-        actions={rowActions}
-        onAddTune={() => (overlays.songbook = true)}
-        onSnap={() => scanFlow?.pickPhoto()}
-      />
+        <UpNextSection
+          actions={rowActions}
+          onReorder={commitOrder}
+          onCopy={copySetlist}
+          onDownload={downloadSetlist}
+        />
+        <RequestsSection
+          actions={rowActions}
+          onAddTune={() => (overlays.songbook = true)}
+          onSnap={() => scanFlow?.pickPhoto()}
+        />
 
-      <ScanFlow
-        bind:this={scanFlow}
-        scan={scanBoard}
-        onConfirm={addFromBoard}
-        onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
-        {onReviewChange}
-      />
+        <ScanFlow
+          bind:this={scanFlow}
+          scan={scanBoard}
+          onConfirm={addFromBoard}
+          onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
+          {onReviewChange}
+        />
 
-      <BinGroup actions={rowActions} />
+        <BinGroup actions={rowActions} />
+      {/if}
     </div>
   {:else}
     <section id="home">

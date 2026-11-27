@@ -12,6 +12,8 @@
     context,
     actions,
     showSuggestions,
+    startOpen = false,
+    numbered = false,
   }: {
     id: string;
     iconName: IconName;
@@ -20,9 +22,13 @@
     context: RowContext;
     actions: RowActions;
     showSuggestions: boolean;
+    startOpen?: boolean;
+    numbered?: boolean;
   } = $props();
 
-  let open = $state(false);
+  // Only the first value counts: a later change mustn't fold a list in use.
+  // svelte-ignore state_referenced_locally
+  let open = $state(startOpen);
 </script>
 
 {#if rows.length}
@@ -40,11 +46,23 @@
       />
     </button>
     {#if open}
-      <ul id={`${id}-rows`} class="group-rows">
-        {#each rows as row (row.uid)}
-          <RowCard {row} {context} {actions} {showSuggestions} />
+      <svelte:element
+        this={numbered ? "ol" : "ul"}
+        id={`${id}-rows`}
+        class="group-rows"
+        class:numbered
+      >
+        {#each rows as row, i (row.uid)}
+          <RowCard
+            {row}
+            {context}
+            {actions}
+            {showSuggestions}
+            first={i === 0}
+            last={i === rows.length - 1}
+          />
         {/each}
-      </ul>
+      </svelte:element>
     {/if}
   </div>
 {/if}
