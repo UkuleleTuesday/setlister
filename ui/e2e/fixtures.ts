@@ -51,21 +51,6 @@ export async function setOrganiserKey(key: string): Promise<void> {
   if (!res.ok) throw new Error(`Couldn't set the organiser key (${res.status})`);
 }
 
-// What Visibility → Unlisted writes, for nights unlisted while the picker is off.
-export async function unlistSession(sessionId: string): Promise<void> {
-  const owner = { Authorization: "Bearer owner", "Content-Type": "application/json" };
-  const patched = await fetch(`${DOCS}/sessions/${sessionId}?updateMask.fieldPaths=listed`, {
-    method: "PATCH",
-    headers: owner,
-    body: JSON.stringify({ fields: { listed: { booleanValue: false } } }),
-  });
-  const removed = await fetch(`${DOCS}/sessionIndex/${sessionId}`, {
-    method: "DELETE",
-    headers: owner,
-  });
-  if (!patched.ok || !removed.ok) throw new Error("Couldn't unlist the session");
-}
-
 export async function organiserRows(): Promise<{ name?: string; key?: string }[]> {
   const res = await fetch(`${DOCS}/organisers`, { headers: { Authorization: "Bearer owner" } });
   if (!res.ok) return [];

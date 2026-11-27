@@ -31,11 +31,6 @@
   // Optimistic: the selects show a pick at once and revert if the write fails.
   // Until then each follows the stored value.
   let visibility: "shared" | "unlisted" = $derived(session.meta.listed ? "shared" : "unlisted");
-  // With the feature off, a night unlisted before then keeps the picker, so it
-  // can still be re-listed. Legacy nights read as unlisted until backfilled.
-  const showVisibility = $derived(
-    features.unlistedSessions || (!session.meta.listed && !session.meta.legacy),
-  );
   let requestsMode: RequestsSwitch = $derived(modeOf(session.meta));
   let visibilityBusy = $state(false);
   let requestsBusy = $state(false);
@@ -147,7 +142,7 @@
   <p class="note">
     Anyone with the link can follow the night and add requests. Only organisers can run it.
   </p>
-  {#if showVisibility}
+  {#if features.unlistedSessions}
     <!-- Not a privacy control: the link works either way (see firestore.rules). -->
     <label class="field">
       <span>Visibility</span>
