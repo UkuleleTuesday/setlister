@@ -27,7 +27,7 @@
   {#if organiser.sheet === "name"}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Register as an organiser</h2>
     <p class="note">
-      Add your name so the other organisers know whose phone this is. It’s also the name the room
+      Add your name so the other organisers know whose device this is. It’s also the name the room
       sees on your requests.
     </p>
     <label class="field">
@@ -53,7 +53,7 @@
         onclick={submit}
         disabled={!name.trim()}
       >
-        Register this phone
+        Register this device
       </button>
       <button
         id="organiser-cancel"
@@ -64,12 +64,12 @@
       </button>
     </div>
   {:else if organiser.sheet === "working"}
-    <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Registering this phone</h2>
+    <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Registering this device</h2>
     <p id="organiser-message" class="note" role="status">Tuning up… This takes a few seconds.</p>
   {:else if organiser.sheet === "done"}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>You’re on the organiser list</h2>
     <p id="organiser-message" class="note" role="status">
-      Registered as {organiserStatus.name}. This phone can now run nights.
+      Registered as {organiserStatus.name}. This device can now run nights.
     </p>
     <div class="actions">
       <button id="organiser-ok" class="btn btn-primary" onclick={() => closeOrganiserSheet()}>
@@ -87,7 +87,7 @@
       </button>
     </div>
   {:else}
-    <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Couldn’t register this phone</h2>
+    <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Couldn’t register this device</h2>
     <p id="organiser-message" class="note" role="alert">{organiser.failure?.message}</p>
     <div class="actions">
       {#if organiser.failure?.action === "reload"}
