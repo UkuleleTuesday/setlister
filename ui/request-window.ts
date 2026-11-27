@@ -159,11 +159,40 @@ export function roomNote(open: boolean): string {
   return open ? OPEN_NOTE : CLOSED_NOTE;
 }
 
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+const DAY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
+const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+const DAY_MONTH_SHORT_FORMAT = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+});
+
+function calendarDaysBetween(from: Date, to: Date): number {
+  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+// A time alone reads as today, so name the day when it isn't (#241).
+// No "tomorrow": the pill must fit a 320px phone, and "tomorrow" doesn't.
+/** "" today, else a short weekday within the week, or a short date. */
+function shortDay(at: Date, now: Date): string {
+  const days = calendarDaysBetween(now, at);
+  if (days <= 0) return "";
+  return days < 7 ? WEEKDAY_SHORT_FORMAT.format(at) : DAY_MONTH_SHORT_FORMAT.format(at);
+}
+
+/** "at 7:30 PM" today, "Mon at 7:30 PM" on another day. */
+function whenOpens(at: Date, now: Date): string {
+  const day = shortDay(at, now);
+  return `${day ? `${day} ` : ""}at ${sessionTimeLabel(at)}`;
+}
+
 /** The help line under the request link switch: who set it, and when it next changes. */
-export function switchHelp(mode: RequestsMode, link: LinkState): string {
+export function switchHelp(mode: RequestsMode, link: LinkState, now: Date): string {
   if (mode !== null) return "Set by hand";
   const { state, at } = link.status;
-  if (state === "later" && at) return `On schedule, opens at ${sessionTimeLabel(at)}`;
+  if (state === "later" && at) return `On schedule, opens ${whenOpens(at, now)}`;
   if (state === "open" && at) return `On schedule, closes at ${sessionTimeLabel(at)}`;
   if (state === "closed" && link.window) {
     return `On schedule, closed at ${sessionTimeLabel(link.window.closesAt)}`;
@@ -171,27 +200,48 @@ export function switchHelp(mode: RequestsMode, link: LinkState): string {
   return "On schedule";
 }
 
-export function scheduleLabel(win: RequestWindow | null): string {
-  return win ? `${sessionTimeLabel(win.opensAt)} to ${sessionTimeLabel(win.closesAt)}` : "";
+export function scheduleLabel(win: RequestWindow | null, now: Date): string {
+  if (!win) return "";
+  const day = shortDay(win.opensAt, now);
+  const times = `${sessionTimeLabel(win.opensAt)} to ${sessionTimeLabel(win.closesAt)}`;
+  return day ? `${day}, ${times}` : times;
 }
 
-export function windowChipText({ state, at }: LinkState["status"]): string {
+export function windowChipText({ state, at }: LinkState["status"], now: Date): string {
   const time = at ? sessionTimeLabel(at) : "";
   if (state === "open") return time ? `Request link open until ${time}` : "Request link open";
-  if (state === "later") return `Request link opens at ${time}`;
+  if (state === "later" && at) return `Request link opens ${whenOpens(at, now)}`;
   return "Request link is view only";
 }
 
 /** The link's state on its own, for rows already labelled "Request link". */
-export function linkStateText({ state, at }: LinkState["status"]): string {
+export function linkStateText({ state, at }: LinkState["status"], now: Date): string {
   const time = at ? sessionTimeLabel(at) : "";
   if (state === "open") return time ? `Open until ${time}` : "Open";
-  if (state === "later") return `Opens at ${time}`;
+  if (state === "later" && at) return `Opens ${whenOpens(at, now)}`;
   return "View only";
 }
 
 export function roomWindowText({ state, at }: LinkState["status"]): string {
   return state === "open" && at ? `Requests open until ${sessionTimeLabel(at)}` : "Requests open";
+}
+
+// Days ahead, "closed here for tonight" read as if the night were over.
+/** The room's line while it can't request: when it can, or that it's over. */
+export function requestsClosedNote({ state, at }: LinkState["status"], now: Date): string {
+  if (state === "later" && at) {
+    const days = calendarDaysBetween(now, at);
+    const day =
+      days <= 0
+        ? ""
+        : days === 1
+          ? "tomorrow "
+          : days < 7
+            ? `${WEEKDAY_FORMAT.format(at)} `
+            : `on ${DAY_MONTH_FORMAT.format(at)} `;
+    return `Requests open ${day}at ${sessionTimeLabel(at)}.`;
+  }
+  return "Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.";
 }
 
 export function openingSoonNote(minutes: number): string {

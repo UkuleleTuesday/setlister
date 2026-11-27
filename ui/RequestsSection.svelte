@@ -64,7 +64,7 @@
   <!-- Shown by mode CSS only, not `hidden`, so a room device loading a closed
        session never flashes a control it can't use. -->
   <p id="requests-closed-note" class="requests-closed-note note">
-    Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
+    {lists.closedNote}
   </p>
   <p id="requests-opening-soon-note" class="requests-opening-soon-note note">
     {lists.openingSoon}

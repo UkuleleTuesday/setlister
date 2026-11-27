@@ -171,7 +171,7 @@
         >
           <span class="session-item-text">
             <span class="session-item-name">Request link</span>
-            <span class="session-item-meta">{linkStateText(session.link.status)}</span>
+            <span class="session-item-meta">{linkStateText(session.link.status, session.now)}</span>
           </span>
           <Icon name="forward" extraClass="session-item-chevron" />
         </button>

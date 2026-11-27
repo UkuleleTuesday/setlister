@@ -81,7 +81,7 @@
     <span class="setting-text">
       Taking requests
       <span class="setting-help" id="request-link-help">
-        {switchHelp(session.meta.requestsOpen, session.link)}
+        {switchHelp(session.meta.requestsOpen, session.link, session.now)}
       </span>
     </span>
     <input
@@ -118,7 +118,9 @@
       <span>
         Schedule
         <span class="disclosure-detail">
-          {forced ? "(paused)" : scheduleLabel(resolved) && `· ${scheduleLabel(resolved)}`}
+          {forced
+            ? "(paused)"
+            : scheduleLabel(resolved, session.now) && `· ${scheduleLabel(resolved, session.now)}`}
         </span>
       </span>
       <Icon name="chevron" extraClass="disclosure-chevron" />

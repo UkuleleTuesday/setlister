@@ -87,3 +87,33 @@ test("the room can leave for the session list and come back", async ({ phone }) 
   await expect(room).toHaveURL(new RegExp(`\\?session=${id}$`));
   await expect(room.locator("#room-window")).toBeVisible();
 });
+
+test("days before the night, the room hears when requests open, not that they're over", async ({
+  phone,
+}) => {
+  const organiser = await phone();
+  await organiser.setViewportSize({ width: 320, height: 640 });
+  await organiser.goto("/");
+  await expect(organiser.locator("#session-list-status")).toBeHidden();
+  await organiser.locator("#new-session").tap();
+  const d = new Date();
+  // Tomorrow: the longest day the pill names.
+  d.setDate(d.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  await organiser
+    .locator("#new-session-date")
+    .fill(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+  await organiser.locator("#new-session-start").tap();
+  await organiser.waitForURL(/[?&]session=/);
+  const id = new URL(organiser.url()).searchParams.get("session")!;
+  // A time alone would read as tonight (#241).
+  await expect(organiser.locator("#window-chip")).toHaveText(/^Request link opens \S+ at /);
+  const chip = (await organiser.locator("#window-chip").boundingBox())!;
+  expect(chip.x + chip.width).toBeLessThanOrEqual(320 - 16);
+
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
+  const note = room.locator("#requests-closed-note");
+  await expect(note).toBeVisible();
+  await expect(note).toHaveText(/^Requests open tomorrow at .+\.$/);
+});

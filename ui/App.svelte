@@ -259,7 +259,7 @@
             aria-haspopup="dialog"
             onclick={openRequestLink}
           >
-            {windowChipText(session.link.status)}<Icon
+            {windowChipText(session.link.status, session.now)}<Icon
               name="forward"
               extraClass="window-pill-chevron"
             />
