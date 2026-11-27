@@ -1,7 +1,3 @@
-// Getting tunes onto the night: by name (the songbook, then the confirm
-// sheet) in both modes, and by photo of the whiteboard. Each add lands in
-// Requests with its asker's vote.
-
 import type { RequestAnswer } from "./RoomRequestSheet.svelte";
 import type { ScanOutcome } from "./ScanFlow.svelte";
 import { API_BASE } from "./api.js";
@@ -20,6 +16,7 @@ import {
   writeLastRoomAdd,
 } from "./room-limits.js";
 import { persist } from "./save.js";
+import { sendRoomWrite } from "./room-writes.js";
 import { planScan, requestParse } from "./scan.js";
 import { linkNow } from "./session.svelte.js";
 import { settings } from "./settings.svelte.js";
@@ -34,24 +31,9 @@ function newUid(): string {
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// The room's writes, through the only shapes the rules allow it (sync.ts).
-export function sendRoomWrite(write: Promise<void>, failure: string) {
-  write.catch((err) => {
-    console.warn(failure, err);
-    notices.requests.show(failure);
-    sync.refresh().catch(() => {});
-  });
-}
-
-// A tap in the songbook does whatever actually helps: a new tune goes to the
-// confirm sheet, one already asked for gets this phone's thumbs up, a played
-// one says so. Only the room gets the request link's brakes (open/closed and
-// the one-a-minute wait, see room-limits.ts): an organiser adds whatever the
-// switch says.
 export function pickSong(entry: CatalogueEntry) {
   const room = view.mode === "room";
-  // Belt and braces: App closes the songbook when the door shuts, but a tap
-  // can race the change.
+  // App closes the songbook when requests close, but a tap can race that.
   if (room && !linkNow().open) {
     overlays.songbook = false;
     notices.requests.show("Requests are closed. Try the whiteboard of wishes!");
@@ -63,9 +45,7 @@ export function pickSong(entry: CatalogueEntry) {
     return;
   }
   if (existing) {
-    // Already asked for: what this person wants is for it to be played, and
-    // the thumbs up says exactly that. Add-only, never a toggle, so a second
-    // tap can't quietly take the vote back.
+    // Add-only, never a toggle, so a second tap can't take the vote back.
     const clientId = presence.getClientId();
     const already = hasVoted(night.votes, existing.row.uid, clientId);
     if (!already) {
@@ -86,8 +66,7 @@ export function pickSong(entry: CatalogueEntry) {
     );
     return;
   }
-  // The wait only gates new requests, so it's checked last: thumbs up and
-  // browsing carry on through it.
+  // Checked last: the wait gates new requests, not thumbs up.
   const waiting = room ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
   if (waiting) {
     notices.songbook.show(`One at a time! You can add another in ${cooldownLabel(waiting)}.`);
@@ -97,21 +76,16 @@ export function pickSong(entry: CatalogueEntry) {
   overlays.request = { entry };
 }
 
-// The confirm sheet's answer: a request (with the name, the first time), or a
-// rename. The name is committed here, not per keystroke, so an abandoned
-// sheet leaves it untouched, and the request goes in with the same tap, so it
-// can't be lost between the two.
+// The name is committed here, not per keystroke, so an abandoned sheet leaves
+// it untouched, and in the same tap as the request so neither is lost.
 export function confirmRequest({ entry, name, comment }: RequestAnswer) {
   if (name !== null) setPlayerName(name);
-  // The door can shut (or the window lapse) while the sheet is open. App
-  // dismisses it when that happens, but a tap racing the change gets here.
+  // App dismisses the sheet when requests close, but a tap can race that.
   if (entry && view.mode === "room" && !linkNow().open) {
     notices.requests.show("Requests just closed. Try the whiteboard of wishes!");
     return;
   }
-  // addByName re-runs the duplicate guard (the pool may have moved while the
-  // sheet was open) and says why if it refuses. On success say so, since the
-  // sheet just covered the pool, and set the expectation for the cool-down.
+  // addByName re-checks duplicates: the lists may have moved while the sheet was open.
   if (entry && addByName(entry, comment)) {
     notices.requests.show(
       view.mode === "room"
@@ -121,12 +95,9 @@ export function confirmRequest({ entry, name, comment }: RequestAnswer) {
   }
 }
 
-// Returns whether a row was added. `comment` reuses the row's `notes` slot:
-// the same field a scanned board annotation ("please NO!!!") lands in, so it
-// syncs and renders with no new schema.
+// `comment` goes in `notes`, where scanned board annotations land, so it
+// needs no new schema.
 function addByName(entry: CatalogueEntry, comment: string): boolean {
-  // Same song already on the night's lists (#52)? Say where it is instead of
-  // quietly doubling it. Binned copies don't block; see dupes.ts.
   const existing = findDuplicate(night.upNext, night.requests, matchKey(entry));
   if (existing) {
     notices.requests.show(duplicateLabel(existing.where));
@@ -153,14 +124,11 @@ function addByName(entry: CatalogueEntry, comment: string): boolean {
     binned: false,
   };
   night.requests.push(row);
-  // Asking for a song IS wanting it, so it counts as this device's vote (#83),
-  // attributed rather than anonymous: their thumb lights up (see seedAsker).
   const clientId = presence.getClientId();
   night.votes = seedAsker(night.votes, uid, clientId);
   persist();
   if (room) {
-    // The cool-down starts when a request lands, not at the pick that opened
-    // the sheet: a slow typist shouldn't spend their wait inside the dialog.
+    // Starts on landing, not at the pick, so a slow typist doesn't spend the wait in the sheet.
     writeLastRoomAdd(Date.now());
     sendRoomWrite(
       sync.addRoomRequest(JSON.parse(JSON.stringify(row)), clientId),
@@ -182,11 +150,8 @@ function scannedRow(row: Omit<Row, "uid">): Row {
   };
 }
 
-// One photo, start to finish: shrink it, send it, adopt the catalogue it
-// brings back, and add the confident rows straight to Requests. Returns what's
-// left for review. Rejects (abort included) for ScanFlow to word.
+// Rejects (abort included) for ScanFlow to word.
 export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOutcome> {
-  // Shrunk on the phone before upload (#44, see downscale.ts).
   const { maxImageEdge, model, disableThinking, sendCatalogue } = settings;
   const maxEdge = resolveMaxEdge(maxImageEdge);
   const upload = await downscaleImage(file, { maxEdge });
@@ -194,11 +159,8 @@ export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOu
     API_BASE,
     upload,
     {
-      // The session's book, not the select: night.edition is the source of
-      // truth, and the two diverge only until the select catches up.
+      // Not the select's value: it can lag behind night.edition.
       edition: night.edition?.id || catalogue.editionId,
-      // Tuning knobs from the settings panel: the API clamps or ignores
-      // anything out of range and falls back to its configured defaults.
       model,
       disableThinking,
       sendCatalogue,
@@ -216,9 +178,7 @@ export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOu
   return { flagged, autoAdded: fresh.length, autoSkipped: skipped };
 }
 
-// Rows off the board: the confident ones from scanBoard, and what review
-// kept. Each gets the anonymous ASKER vote, so board requests start level
-// with app ones (#83; see votes.ts).
+// The anonymous ASKER vote starts board requests level with app ones (#83).
 export function addFromBoard(rows: Row[]) {
   night.requests.push(...rows);
   for (const row of rows) night.votes = seedAsker(night.votes, row.uid, ASKER);

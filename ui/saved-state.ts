@@ -1,12 +1,6 @@
-// This device's copy of the night, so a reload or an accidental close loses
-// nothing: both lists (rows carry their matched entry inline, so they render
-// and export before the catalogue reloads), the votes, the session's book, the
-// player's name and the settings. Which session to rejoin is the URL's
-// (?session=), not this.
-//
-// What comes back is whatever an older build (or a full disk) left, so it's
-// read field by field: a field of the wrong kind is dropped, as are non-row
-// list entries and an edition without an id (#157).
+// Rows carry their matched entry inline, so they render and export before the
+// catalogue reloads. Read field by field: an older build or a full disk can
+// leave anything (#157).
 
 import { parseEdition } from "./editions.js";
 import { isRow } from "./row-shape.js";
@@ -32,7 +26,6 @@ export function writeSavedState(state: SavedState): void {
   }
 }
 
-/** The usable parts of what's saved; a corrupt payload reads as nothing. */
 export function readSavedState(): Partial<SavedState> {
   let saved: unknown;
   try {
@@ -45,8 +38,7 @@ export function readSavedState(): Partial<SavedState> {
   const out: Partial<SavedState> = {};
   if (Array.isArray(s.upNext)) out.upNext = s.upNext.filter(isRow);
   if (Array.isArray(s.requests)) out.requests = s.requests.filter(isRow);
-  // The pre-split payload: the old single `setlist` was the running order,
-  // so it becomes Up next.
+  // Pre-split payload: the single `setlist` was the running order.
   if (Array.isArray(s.setlist) && !out.upNext && !out.requests) {
     out.upNext = s.setlist.filter(isRow);
   }

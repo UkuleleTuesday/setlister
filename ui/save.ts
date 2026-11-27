@@ -1,7 +1,3 @@
-// This device's copy of the night, and the push to the session's peers. Every
-// change ends with persist(); both destinations get plain copies, never the
-// live state.
-
 import { night, nightSnapshot } from "./night.svelte.js";
 import { readSavedState, writeSavedState } from "./saved-state.js";
 import { applySettings, settingsSnapshot } from "./settings.svelte.js";
@@ -15,11 +11,9 @@ export function persist() {
     name: night.name,
     settings: settingsSnapshot(),
   });
-  // The room's writes go through sync's room helpers instead (#152).
   if (sync.getSessionId() && view.mode === "full") sync.notifyLocalChange(lists);
 }
 
-/** Load what this device saved last time. */
 export function restore() {
   const saved = readSavedState();
   if (saved.upNext) night.upNext = saved.upNext;

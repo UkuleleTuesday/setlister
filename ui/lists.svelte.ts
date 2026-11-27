@@ -1,7 +1,3 @@
-// What the session lists derive from the night beyond the rows themselves:
-// whether this phone can vote, whether the room's link is open, whether
-// there's anything to export, and the room's opening-soon note.
-
 import { exportedRows } from "./export.js";
 import { night } from "./night.svelte.js";
 import * as presence from "./presence.js";
@@ -19,16 +15,12 @@ export interface RowVote {
 }
 
 class Lists {
-  /** The room's read-mostly rows. */
   room = $derived(view.mode === "room");
-  /** The room view's request link is taking tunes. */
   roomOpen = $derived(this.room && session.link.open);
-  // A room device on a View-only link doesn't vote: the share panel promises
-  // those people can only watch, and a live control would make that a lie.
-  // The full app always votes: closing the link is about the link.
+  // A View-only link promises the room can only watch. Closing the link
+  // doesn't stop the organiser voting.
   votingEnabled = $derived(!this.room || session.link.open);
-  // The export pair covers both lists; with nothing to export, copying an
-  // empty string and downloading `{rows: []}` are traps, not actions.
+  // Copying "" or downloading `{rows: []}` would be traps, so export disables.
   exportEmpty = $derived(
     exportedRows(night.upNext, night.requests, settings.includeCrossed).length === 0,
   );
@@ -39,7 +31,6 @@ class Lists {
 
 export const lists = new Lists();
 
-/** The want button for a row, or null when this phone can't vote. */
 export function rowVote(row: Row): RowVote | null {
   if (!lists.votingEnabled) return null;
   return {

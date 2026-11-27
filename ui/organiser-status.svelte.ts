@@ -1,5 +1,4 @@
-// Whether this phone runs nights (#150). Read from storage at boot, so the
-// first paint shows the right view.
+// Read at boot so the first paint shows the right view.
 
 const REGISTERED_KEY = "setlister.organiser.v1";
 

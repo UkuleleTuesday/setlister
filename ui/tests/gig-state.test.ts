@@ -1,10 +1,3 @@
-// Played / binned transitions and the times they record.
-//
-// Two things are load bearing beyond "the flag flips": un-marking must REMOVE
-// the key (an `undefined` value makes Firestore's updateDoc throw, since
-// serialize() hands the row to it), and a re-mark must record the new
-// moment, not keep the old one.
-
 import { describe, expect, it } from "vitest";
 import { setBinned, setPlayed, stateTime } from "../gig-state.js";
 import type { Row } from "../types.js";

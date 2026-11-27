@@ -1,16 +1,3 @@
-<!--
-  One scanned row in the review sheet: the validation surface, so it always
-  shows what the board said next to what it was matched to, with the means to
-  fix it (the correct-song picker, the alternatives) or drop it.
-
-  Review rows use the stacked layout (their tools row carries a full-width
-  picker) and never swipe, so they're their own component rather than a mode
-  of the working lists' rows. Every change goes up through the props; the
-  parent (ScanFlow.svelte) owns the rows.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import SongPicker from "./SongPicker.svelte";
@@ -33,7 +20,6 @@
     onToggleRemoved,
   }: {
     row: Row;
-    /** The copy already on the night's lists, computed live (#52). */
     duplicate: Duplicate | null;
     showSuggestions: boolean;
     catalogue: CatalogueEntry[];
@@ -45,20 +31,14 @@
     onToggleRemoved: () => void;
   } = $props();
 
-  // The correct-song picker. A confident match rarely needs correcting, and
-  // the picker roughly doubles a row's height, burying the few rows that do
-  // need attention. So confirmed rows collapse it behind a button (which
-  // swaps in the picker, focused), flagged ones show it, and a correction
-  // (which confirms the row) collapses it again.
+  // The picker roughly doubles a row's height, burying the rows that need
+  // attention, so confirmed rows keep it behind a button.
   let pickerExpanded = $state(false);
-  // The dropdown has to escape its card, but `.row-body`'s z-index (for the
-  // swipe layer) makes every card its own stacking context, so the NEXT card
-  // would paint over the menu. Lift the whole card while it's open.
+  // Lifts the card so the next one doesn't paint over the menu (.picker-open).
   let menuOpen = $state(false);
 
-  // A match the parser wasn't sure of gets a warning that opens the photo.
-  // (The space before it is part of the title text: Svelte would trim one
-  // written at the start of the {#if}.)
+  // The space before the warning is part of the title text: Svelte would trim
+  // one written at the start of the {#if}.
   const flagged = $derived(Boolean(row.match) && row.status !== "confirmed");
   const reason = $derived(row.explanation || "Needs a check");
   const alternatives = $derived(alternativesOf(row));
@@ -68,8 +48,6 @@
       (row.notes ? ` · ${row.notes}` : "") +
       (row.crossed_out ? " · crossed out" : ""),
   );
-  // Provenance: who added this tune and where it came from. Name it only when
-  // there's a name (a name-less entry shows just the source).
   const provenance = $derived(
     row.addedBy ? `Added by ${row.addedBy} · ${sourceLabel(row.source)}` : sourceLabel(row.source),
   );
@@ -108,16 +86,12 @@
             </button>{/if}
         </span>{#if row.match}<span class="page-badge">p.{row.match.page}</span>{/if}
       </div>
-      <!-- Always what the board said, so a match can be judged against the
-           handwriting. -->
       <div class="raw">{raw}</div>
       <div class="added-by">{provenance}</div>
       {#if row.explanation}
         <div class="explanation">{row.explanation + confidence}</div>
       {/if}
-      <!-- Rows that were duplicates at scan time arrive pre-removed; this
-           line is why, and restore is the deliberate way back in. Computed
-           live, so a correction to an already-listed song shows at once. -->
+      <!-- Scan-time duplicates arrive pre-removed; this line says why. -->
       {#if row.match && duplicate}
         <div class="dup-note">{duplicateLabel(duplicate.where)}</div>
       {/if}

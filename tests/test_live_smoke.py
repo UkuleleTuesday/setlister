@@ -1,13 +1,7 @@
-"""End-to-end smoke tests against the real Gemini API and GCS bucket.
+"""Smoke tests against real Gemini and GCS: ``uv run pytest -m live``, with ADC.
 
-Deselected by default; run with:  uv run pytest -m live
-Requires Google ADC (`gcloud auth application-default login`) and network access.
-
-Each whiteboard photo is described declaratively in
-``tests/fixtures/whiteboards/cases.json`` and exercised by the parametrized
-``test_whiteboard_sample`` below. To add a new test case, drop the image in
-``tests/fixtures/whiteboards/`` and append an entry to that manifest — no new
-test code.
+To add a case, drop the photo in tests/fixtures/whiteboards/ and add an entry
+to its cases.json.
 """
 
 import pytest

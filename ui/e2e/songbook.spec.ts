@@ -1,6 +1,3 @@
-// The add-by-name pair: the songbook sheet (SongbookSheet.svelte) and the
-// confirm sheet (RoomRequestSheet.svelte). Search, tonight's tags, the
-// room's one-a-minute wait, the name check, and every way out.
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { expect, test } from "./fixtures.js";
@@ -15,7 +12,7 @@ async function openSongbook(page: Page) {
   await expect(songbook(page)).toBeVisible();
 }
 
-test("search narrows the book, by title or page, and says when nothing matches", async ({
+test("search narrows the book, by title or page, says when nothing matches, and resets on close", async ({
   phone,
 }) => {
   const page = await phone();
@@ -33,7 +30,6 @@ test("search narrows the book, by title or page, and says when nothing matches",
   await expect(rows).toHaveCount(0);
   await expect(page.locator("#songbook-empty")).toHaveText("No matches for “zzz”");
 
-  // Close, and the backdrop, both put it away; reopening starts fresh.
   await page.locator("#songbook-close").tap();
   await expect(songbook(page)).toBeHidden();
   await openSongbook(page);
@@ -47,7 +43,6 @@ test("tonight's tags: requested tunes show their thumbs, played ones refuse", as
   await startSession(page);
   await addByName(page, "Jolene", { name: "Alex" });
   await addByName(page, "Hallelujah");
-  // Play Hallelujah.
   const requests = page.locator("#requests-rows");
   await requests
     .getByRole("listitem")
@@ -72,7 +67,6 @@ test("tonight's tags: requested tunes show their thumbs, played ones refuse", as
   await expect(page.locator("#songbook-status")).toHaveText(
     "“Hallelujah” was played earlier tonight. Pick another?",
   );
-  // The note doesn't close the sheet: pick another.
   await expect(songbook(page)).toBeVisible();
 });
 
@@ -92,7 +86,6 @@ test("the room waits a minute between requests, but can still back a tune", asyn
     "Added “Let It Be”. Next one in a minute.",
   );
 
-  // Straight back in: the wait is said up front, and a new tune is refused.
   await openSongbook(room);
   await expect(room.locator("#songbook-wait")).toBeVisible();
   await songButton(room, "Lean on Me").tap();
@@ -101,13 +94,14 @@ test("the room waits a minute between requests, but can still back a tune", asyn
   );
   await expect(room.locator("#songbook-wait")).toBeHidden();
 
-  // A thumbs up isn't a new request, so it goes through.
   await songButton(room, "Jolene").tap();
   await expect(songbook(room)).toBeHidden();
   await expect(room.locator("#add-feedback")).toHaveText("Your thumbs up is on “Jolene”.");
 });
 
-test("the confirm sheet needs a name, carries a comment, and renames", async ({ phone }) => {
+test("the confirm sheet needs a name, carries a comment, renames, and cancels cleanly", async ({
+  phone,
+}) => {
   const organiser = await phone();
   const id = await startSession(organiser);
   await organiser.locator("#share-toggle").tap();
@@ -123,7 +117,6 @@ test("the confirm sheet needs a name, carries a comment, and renames", async ({ 
   await expect(sheet).toBeVisible();
   await expect(room.locator("#room-request-title")).toHaveText("Who’s asking?");
   await expect(room.locator("#room-request-song")).toHaveText(bySong("Jolene").display);
-  // No name, no request.
   await room.locator("#room-request-confirm").tap();
   await expect(room.locator("#room-request-error")).toHaveText(
     "Add a name so the room knows whose request it is.",
@@ -138,7 +131,6 @@ test("the confirm sheet needs a name, carries a comment, and renames", async ({ 
   await expect(row).toContainText("birthday request!");
   await expect(room.locator("#room-identity-text")).toHaveText("As Sam");
 
-  // "change" reopens it as a plain rename: no song, no comment, Save.
   await room.locator("#room-identity-change").tap();
   await expect(room.locator("#room-request-title")).toHaveText("Your name");
   await expect(room.locator("#room-request-song")).toBeHidden();
@@ -148,7 +140,6 @@ test("the confirm sheet needs a name, carries a comment, and renames", async ({ 
   await room.locator("#room-request-confirm").tap();
   await expect(room.locator("#room-identity-text")).toHaveText("As Samira");
 
-  // Cancel and the backdrop are both a "no".
   await room.locator("#room-identity-change").tap();
   await room.locator("#room-request-cancel").tap();
   await expect(sheet).toBeHidden();

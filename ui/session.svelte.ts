@@ -1,13 +1,7 @@
-// The shared session as this phone last heard it from sync.ts: its id,
-// metadata (visibility, the request link's mode and window), when it started,
-// and who's here. readSync() re-reads sync after a change; everything else
-// only reads.
-//
-// Separate from the night's lists on purpose: session metadata travels by
-// sync's own metadata writes, never the debounced row push (see sync.ts).
+// Kept apart from `night`: session metadata travels by sync's own metadata
+// writes, never the debounced row push.
 
-// The Dates here are values, replaced whole and never mutated, so the
-// reactive SvelteDate the rule asks for would be the wrong tool.
+// These Dates are replaced whole, never mutated, so SvelteDate isn't needed.
 /* eslint-disable svelte/prefer-svelte-reactivity */
 
 import type { RosterEntry } from "./presence.js";
@@ -21,23 +15,15 @@ class Session {
   meta = $state.raw<SessionMeta>(sync.getMeta());
   createdAt = $state.raw<Date | null>(null);
   roster = $state.raw<RosterEntry[]>([]);
-  /**
-   * The clock the request window is read against, ticked each minute while
-   * a session is open: the window can open or close with no snapshot at all.
-   */
+  /** Ticked each minute: the request window can open or close with no snapshot. */
   now = $state.raw(new Date());
-  /**
-   * What the night is called: its date, rendered live. Falls back to the id
-   * only for a session with no createdAt yet, which beats an empty title.
-   */
   label = $derived(sessionDateLabel(this.createdAt, this.now) || this.id || "");
-  /** The request link as of `now`. */
   link: LinkState = $derived(linkState(this.meta, this.createdAt, this.now));
 }
 
 export const session = new Session();
 
-/** Re-read sync's view of the session (a connect, a leave, a snapshot). */
+/** Call after a connect, a leave or a snapshot. */
 export function readSync() {
   session.id = sync.getSessionId();
   session.meta = sync.getMeta();
@@ -45,7 +31,7 @@ export function readSync() {
   session.now = new Date();
 }
 
-/** The request link right now, for a tap deciding whether it can land. */
+/** Reads a fresh clock, not the minute tick: for a tap deciding whether it can land. */
 export function linkNow(): LinkState {
   return linkState(session.meta, session.createdAt, new Date());
 }

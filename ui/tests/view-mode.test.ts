@@ -1,5 +1,3 @@
-// One session link for everyone (#152): the view follows organiser status, and
-// old `?mode=` links still open their session.
 import { describe, expect, it } from "vitest";
 
 import { buildSessionUrl, sourceLabel, withoutModeParam } from "../view-mode.js";

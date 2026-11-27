@@ -1,13 +1,3 @@
-<!--
-  A collapsed one-line disclosure ("3 played" / "2 binned") instead of another
-  stacked section: on a phone the count is always visible but the rows only
-  on demand, so the group costs one row of screen however long the night
-  gets. Not rendered while empty. Whether it's open is this phone's view
-  state: not persisted, not synced.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions, type RowContext } from "./Row.svelte";

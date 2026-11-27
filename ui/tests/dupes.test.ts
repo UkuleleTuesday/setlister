@@ -1,7 +1,3 @@
-// Duplicate-request detection (#52): the pure logic behind "is this song
-// already on the night's lists?". The decisions under test: identity is the
-// catalogue id (falling back to normalized text), played copies block a
-// re-add, binned copies don't.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -75,13 +71,12 @@ describe("findDuplicate", () => {
     expect(findDuplicate([row({ played: true })], [], rowKey(row()))).toMatchObject({
       where: "played",
     });
-    // Older clients can sync a played row into Requests — still "played".
     expect(findDuplicate([], [row({ played: true })], rowKey(row()))).toMatchObject({
       where: "played",
     });
   });
 
-  it("ignores binned copies — a binned song can be requested again", () => {
+  it("ignores binned copies, so a binned song can be requested again", () => {
     expect(
       findDuplicate([row({ binned: true })], [row({ binned: true })], rowKey(row())),
     ).toBeNull();

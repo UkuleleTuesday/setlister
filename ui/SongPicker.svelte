@@ -1,18 +1,7 @@
-<!--
-  A small custom combobox for picking a song: the review sheet's per-row
-  correction picker. Hand-rolled rather than a native <datalist>, because
-  datalist support is unreliable on the mobile browsers this app targets (no
-  dropdown on iOS Safari, flaky on Android).
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
+<!-- Not a <datalist>: no dropdown on iOS Safari, flaky on Android. -->
 <script module lang="ts">
-  // A tap handled at pointerdown still leaves the browser to synthesize a
-  // trailing click from the same gesture, tens to hundreds of milliseconds
-  // later. By then onPick may have put something new under that point, and
-  // the stray click lands on it as a phantom second tap. One gesture is one
-  // interaction: swallow that trailing click.
+  // A tap handled at pointerdown still gets a synthesized click up to hundreds
+  // of ms later, landing on whatever onPick put under the finger.
   function swallowNextClick() {
     let timer: ReturnType<typeof setTimeout>;
     const swallow = (event: Event) => {
@@ -22,7 +11,7 @@
       document.removeEventListener("click", swallow, true);
     };
     document.addEventListener("click", swallow, true);
-    // Nothing to swallow when the pick came from the keyboard: retire quietly.
+    // A keyboard pick has no trailing click.
     timer = setTimeout(() => document.removeEventListener("click", swallow, true), 700);
   }
 </script>
@@ -48,23 +37,17 @@
     catalogueStatus: CatalogueStatus;
     upNext: Row[];
     requests: Row[];
-    /** Focus the field on mount (opened from a "Change song" tap). */
     autofocus?: boolean;
     onPick: (entry: CatalogueEntry) => void;
-    /** The menu opened or closed: the row lifts itself above its neighbours. */
     onMenuChange: (open: boolean) => void;
   } = $props();
 
-  // The dropdown keeps a short list: it hangs under a field the keyboard is
-  // already squeezing.
+  // Short: the menu hangs under a field the keyboard is already squeezing.
   const LIMIT = 8;
 
   const uid = $props.id();
   const menuId = `song-picker-menu-${uid}`;
   let query = $state("");
-  // Opened by typing, closed by a pick, Escape or leaving the field. While
-  // open, the matches follow the catalogue: text typed during a slow load
-  // must not silently read as "no such song" once the book arrives.
   let typing = $state(false);
   let active = $state(-1);
 
@@ -142,8 +125,7 @@
     {#if menuOpen && matches.length}
       {#each matches as entry, i (i)}
         {@const existing = tonight.get(matchKey(entry))}
-        <!-- pointerdown fires before the input's blur, so the pick registers
-             instead of the field closing first (mouse and touch alike). -->
+        <!-- pointerdown fires before the input's blur, so the pick lands first. -->
         <li
           id={`${menuId}-opt-${i}`}
           class={["song-picker-option", { active: i === active }]}

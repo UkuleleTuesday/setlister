@@ -1,7 +1,6 @@
-"""Lightweight image preparation before the vision call.
+"""Image preparation before the vision call.
 
-Honour EXIF orientation and cap the long edge; deliberately no contrast or
-sharpening tricks, which can erase faint marker strokes.
+Deliberately no contrast or sharpening: they can erase faint marker strokes.
 """
 
 import io
@@ -16,15 +15,13 @@ class ImageError(ValueError):
 
 
 def prepare_image(data: bytes, max_edge: int | None = None) -> tuple[bytes, str]:
-    """Return (jpeg_bytes, mime_type) for an orientation-corrected, resized photo."""
     max_edge = max_edge or get_settings().max_image_edge
     try:
         image = Image.open(io.BytesIO(data))
         image = ImageOps.exif_transpose(image)
         image = image.convert("RGB")
     except (UnidentifiedImageError, OSError, ValueError) as e:
-        # The message travels verbatim to the UI's error box, so keep it human —
-        # PIL's own text leaks internals (BytesIO reprs) that mean nothing there.
+        # Shown verbatim in the UI; PIL's own text leaks BytesIO reprs.
         raise ImageError("Could not read that image. Try taking the photo again") from e
 
     if max(image.size) > max_edge:

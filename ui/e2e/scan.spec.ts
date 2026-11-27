@@ -1,5 +1,3 @@
-// The photo flow with the vision call stubbed (e2e/api.ts): confident matches
-// go straight into Requests, flagged ones wait in the review sheet.
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { expect, storedRowCount, test } from "./fixtures.js";
@@ -37,7 +35,7 @@ test("a scan adds confident rows and reviews the rest", async ({ phone, parseRow
   const page = await phone();
   const id = await startSession(page);
 
-  // The camera button opens the OS picker; hand the hidden input a file instead.
+  // The camera button opens the OS picker, so feed the hidden input directly.
   await page.locator("#photo-input").setInputFiles({
     name: "board.png",
     mimeType: "image/png",
@@ -60,7 +58,6 @@ test("a scan adds confident rows and reviews the rest", async ({ phone, parseRow
   await expect(requests.filter({ hasText: "Lean on Me" })).toBeVisible();
 });
 
-// A parsed row as /api/parse sends it.
 function parsed(title: string, status: string, raw = title) {
   const match = status === "unmatched" ? null : bySong(title);
   return {
@@ -113,14 +110,12 @@ test("review: remove and restore, correct a song, check the photo", async ({
   await expect(confirm).toHaveText("Add 2 to Requests");
   const rows = page.locator("#review-rows > li");
 
-  // Remove and restore.
   await rows.nth(0).getByRole("button", { name: "Remove row" }).tap();
   await expect(rows.nth(0)).toHaveClass(/removed/);
   await expect(confirm).toHaveText("Add 1 to Requests");
   await rows.nth(0).getByRole("button", { name: "Restore row" }).tap();
   await expect(confirm).toHaveText("Add 2 to Requests");
 
-  // The flagged match's warning opens the photo; a tap anywhere closes it.
   await rows.nth(0).locator(".warn-icon").tap();
   const lightbox = page.locator("#photo-lightbox");
   await expect(lightbox).toBeVisible();
@@ -128,14 +123,12 @@ test("review: remove and restore, correct a song, check the photo", async ({
   await lightbox.tap();
   await expect(lightbox).toBeHidden();
 
-  // The unmatched row opens with its picker: type, pick, and it's confirmed.
   const picker = rows.nth(1).getByRole("combobox");
   await picker.fill("jol");
   await page.getByRole("option", { name: /Jolene - Dolly Parton/ }).tap();
   await expect(rows.nth(1).locator(".match-title")).toHaveText("Jolene - Dolly Parton");
-  // (The parser's confidence is shown with it: "Manually selected (50%)".)
+  // Followed by the parser's confidence, e.g. "(50%)".
   await expect(rows.nth(1).locator(".explanation")).toHaveText(/^Manually selected/);
-  // Confirmed now, so the picker folds back behind "Change song".
   await expect(rows.nth(1).getByRole("button", { name: "Change song for “Jolly”" })).toBeVisible();
 
   await confirm.tap();
@@ -160,14 +153,13 @@ test("a flagged copy of a listed song arrives removed, and cancel asks first", a
   await expect(first.locator(".dup-note")).toHaveText("Already in Requests");
   await expect(page.locator("#review-confirm")).toHaveText("Add 1 to Requests");
 
-  // Dismissing the prompt keeps the review; accepting discards it.
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.locator("#review-cancel").tap();
   await expect(page.locator("#review")).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.locator("#review-cancel").tap();
   await expect(page.locator("#review")).toBeHidden();
-  // Back to the camera (empty #add has no height, so check the flag itself).
+  // Empty #add has no height, so check the flag, not visibility.
   await expect(page.locator("#add")).not.toHaveAttribute("hidden");
   await expect(page.locator("#requests-rows").getByRole("listitem")).toHaveCount(1);
 });
@@ -180,7 +172,6 @@ test("a scan can be cancelled, and a server error says why", async ({
   const page = await phone();
   await startSession(page);
 
-  // A scan that never answers: Cancel is the way out.
   parseRows.current = "hang";
   await snap(page);
   await expect(page.locator("#scan-overlay")).toBeVisible();
@@ -189,7 +180,6 @@ test("a scan can be cancelled, and a server error says why", async ({
   await expect(page.locator("#scan-result")).toHaveText("Scan cancelled. Nothing was added.");
   await expect(page.locator("#preview-wrap")).toBeHidden();
 
-  // A server error keeps the photo up beside the API's own wording.
   allowConsole.push(/status of 502/);
   parseRows.current = { status: 502, detail: "Couldn't load the songbook" };
   await snap(page);
@@ -208,7 +198,6 @@ test("leaving the session drops a review in progress", async ({ phone, parseRows
 
   await page.locator("#back-home").tap();
   await expect(page.locator("#home")).toBeVisible();
-  // Back in from the history: the night is as it was, without the review.
   await page.locator("#next-session .next-session-card").tap();
   await expect(page.locator("#session-view")).toBeVisible();
   await expect(page.locator("#review")).toBeHidden();

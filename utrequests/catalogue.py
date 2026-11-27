@@ -1,13 +1,8 @@
-"""Fetch the songbook catalogue from the public GCS manifests.
+"""The songbook catalogue, from songbook-generator's public GCS manifests.
 
-songbook-generator publishes, per edition:
-
-    <bucket>/<edition>/latest.json      -> {"manifest_filename": ..., ...}
-    <bucket>/<edition>/<manifest_filename>
-
-The manifest's ``content_info.file_names`` lists songs as "Title - Artist"
-strings in final page order, and every song occupies exactly one page, so the
-printed page of song *i* is ``page_indices.body.first_page + i``.
+``<edition>/latest.json`` names the manifest. Its ``content_info.file_names``
+are in page order, one page per song, so song *i* is on
+``page_indices.body.first_page + i``.
 """
 
 import re
@@ -22,11 +17,9 @@ from .models import Catalogue, CatalogueEntry, EditionInfo
 
 _cache: dict[str, tuple[float, Catalogue]] = {}
 
-# Edition IDs are kebab-case YAML filenames in songbook-generator; Drive-based
-# editions publish under their raw Drive folder ID (mixed case) — skip those.
-# Also the guard on `edition` reaching a URL: httpx normalises dot segments, so
-# an unchecked value walks out of the bucket and takes the songbook — and the
-# prompt built from it — with it.
+# Skips Drive-based editions, published under mixed-case folder IDs. Also guards
+# `edition` in URLs: httpx normalises dot segments, so an unchecked value walks
+# out of the bucket and takes the songbook, and the prompt, with it.
 _EDITION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 

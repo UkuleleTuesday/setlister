@@ -1,22 +1,17 @@
-// Which sheet or popover is up. App.svelte mounts each only while it's set
-// here; the actions open and close them by setting these (a pick swaps the
-// songbook for the confirm sheet, leaving a session closes the share panel).
+// App.svelte mounts each overlay only while it's set here.
 
 import type { CatalogueEntry } from "./types.js";
 import type { WhatsNewEntry } from "./whats-new.js";
 
 class Overlays {
-  /** The share panel: open at its top, or at the request link (the window
-   * chip's shortcut); false while closed. */
+  /** "requests" opens the share panel scrolled to the request link. */
   share = $state<false | "top" | "requests">(false);
   settings = $state(false);
   newSession = $state(false);
   songbook = $state(false);
-  /** The confirm sheet, on a picked tune or (entry null) a rename; null while closed. */
+  /** The confirm sheet; entry null means a rename. */
   request = $state<{ entry: CatalogueEntry | null } | null>(null);
-  /** The release notes on show, or null while closed. */
   whatsNew = $state.raw<WhatsNewEntry[] | null>(null);
-  /** The scanned photo on show full-screen, or null. */
   photo = $state<string | null>(null);
 }
 

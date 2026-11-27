@@ -4,7 +4,7 @@
   // separate so `process`, `Buffer` and friends never type-check in app code.
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node", "svelte"]
   },
   "include": ["**/*.ts"]
 }

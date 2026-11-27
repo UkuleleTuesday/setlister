@@ -1,6 +1,5 @@
-// A stand-in for the Python API (utrequests/api.py), served through
-// page.route so the suite needs neither the API nor Gemini. Shapes mirror
-// utrequests/models.py.
+// Stands in for utrequests/api.py so the suite needs neither the API nor
+// Gemini. Shapes mirror utrequests/models.py.
 import type { BrowserContext, Route } from "@playwright/test";
 import type { CatalogueEntry } from "../types.js";
 
@@ -27,11 +26,7 @@ export const CATALOGUE: CatalogueEntry[] = [
 
 export const bySong = (title: string) => CATALOGUE.find((e) => e.title === title)!;
 
-/**
- * What /api/parse answers for the photo flow; tests swap it per case: the
- * rows of a successful parse, a server error with its user-facing detail, or
- * "hang" for a request that never answers (the cancel path).
- */
+/** What /api/parse answers: rows, an error, or "hang" (the cancel path). */
 export type ParseRows = unknown[] | { status: number; detail: string } | "hang";
 
 const json = (route: Route, body: unknown) =>

@@ -1,8 +1,3 @@
-// The "What's new" selection logic and — just as importantly — the shape of
-// whats-new.json itself. The hygiene suite at the bottom is what makes the
-// AGENTS.md convention ("user-visible changes get an entry") mechanical: a bad
-// append fails `npm test` before it ships.
-
 import { describe, expect, it } from "vitest";
 import {
   WHATS_NEW,
@@ -12,13 +7,10 @@ import {
   whatsNewDateLabel,
 } from "../whats-new.js";
 
-// Tuesday 4 August 2026, 21:00: same pinned clock as session-index.test.ts.
 const NOW = new Date(2026, 7, 4, 21, 0);
 
 describe("entryDate", () => {
   it("builds a LOCAL date, not a UTC one", () => {
-    // new Date("2026-08-05") would be UTC midnight — i.e. August 4th on a phone
-    // west of Greenwich. The whole point of entryDate is that it never is.
     const date = entryDate({ date: "2026-08-05" })!;
     expect(date.getFullYear()).toBe(2026);
     expect(date.getMonth()).toBe(7);
@@ -37,8 +29,6 @@ describe("entryDate", () => {
 
 describe("latestEntry", () => {
   it("picks the max date regardless of array order", () => {
-    // Newest-first is only a convention; a mis-ordered append must never
-    // surface stale news.
     const shuffled = [
       { date: "2026-07-16", items: ["b"] },
       { date: "2026-08-05", items: ["a"] },
@@ -65,7 +55,6 @@ describe("latestEntry", () => {
   });
 });
 
-// What the footer link opens: the whole history, not just the newest entry.
 describe("sortedEntries", () => {
   const shuffled = [
     { date: "2026-07-16", items: ["b"] },
@@ -119,7 +108,6 @@ describe("whatsNewDateLabel", () => {
   });
 });
 
-// The convention, enforced: whats-new.json stays machine-checkable data.
 describe("whats-new.json hygiene", () => {
   it("has at least one entry", () => {
     expect(WHATS_NEW.length).toBeGreaterThan(0);
@@ -146,14 +134,13 @@ describe("whats-new.json hygiene", () => {
     }
   });
 
-  it("has no duplicate dates — extend the day's entry instead", () => {
+  it("has no duplicate dates: extend the day's entry instead", () => {
     const dates = WHATS_NEW.map((entry) => entry.date);
     expect(new Set(dates).size).toBe(dates.length);
   });
 
-  it("keeps a day to at most 3 items — merge or drop, don't append", () => {
-    // Entries older than the cap shipped before it existed and stay as
-    // published; ISO dates compare correctly as strings.
+  it("keeps a day to at most 3 items: merge or drop, don't append", () => {
+    // Older entries predate the cap and stay as published.
     for (const entry of WHATS_NEW.filter((e) => e.date >= "2026-08-05")) {
       expect(entry.items.length, entry.date).toBeLessThanOrEqual(3);
     }

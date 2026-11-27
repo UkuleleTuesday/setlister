@@ -1,8 +1,6 @@
-// Multi-tap steps the specs share. Each one taps, as a thumb would.
 import { type Page, expect } from "@playwright/test";
 import { bySong } from "./api.js";
 
-/** From the history: New session, Start, and wait for the session view. */
 export async function startSession(page: Page): Promise<string> {
   await page.goto("/");
   await page.locator("#new-session").tap();
@@ -12,11 +10,7 @@ export async function startSession(page: Page): Promise<string> {
   return new URL(page.url()).searchParams.get("session")!;
 }
 
-/**
- * Open the songbook, pick `title` and confirm it in the request sheet. The
- * sheet asks for a name on this device's first request only, so pass `name`
- * then.
- */
+/** Pass `name` on a device's first request: only then does the sheet ask for one. */
 export async function addByName(page: Page, title: string, { name }: { name?: string } = {}) {
   await page.locator(".songbook-trigger:visible").tap();
   const sheet = page.locator("#songbook-sheet");

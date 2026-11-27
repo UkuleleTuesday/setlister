@@ -1,16 +1,4 @@
-<!--
-  One song on the night's lists: Up next, Requests, the played and bin
-  groups, and their read-only room-view versions. The card carries its
-  provenance line, the "I want this one" button, and the controls its list
-  allows; on Up next and Requests it also swipes.
-
-  Every change goes up through `actions` (rows.ts changes the lists); this only
-  draws the row and runs its swipe. Drag-to-reorder is the list's job
-  (UpNextSection.svelte), which catches presses on this row's handle.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
+<!-- UpNextSection.svelte runs drag-to-reorder, catching presses on the handle. -->
 <script module lang="ts">
   import type { RowVote } from "./lists.svelte.js";
   import type { CatalogueEntry } from "./types.js";
@@ -18,7 +6,6 @@
   export type RowContext =
     "upnext" | "requests" | "played" | "bin" | "room" | "room-upnext" | "room-played";
 
-  /** What a row can ask for, by row uid (rows.ts). */
   export interface RowActions {
     togglePlayed: (uid: string) => void;
     toggleBinned: (uid: string) => void;
@@ -55,9 +42,7 @@
     row: Row;
     context: RowContext;
     actions: RowActions;
-    /** The want button, or null where this list has none. */
     vote?: RowVote | null;
-    /** The first card of Up next: the tune to shout. */
     isNext?: boolean;
     dragging?: boolean;
     showSuggestions: boolean;
@@ -68,11 +53,6 @@
   // ...and this share of the card's width to commit.
   const COMMIT = 0.35;
 
-  // Swipe is the fast one-thumb path on a phone. In Requests, right promotes
-  // to Up next and left bins; in Up next, left demotes back to Requests and
-  // right marks played. The hint layer sits behind the body and shows as the
-  // body slides, so its icons follow suit. Only these two lists swipe: the
-  // class also gates the clipping styles.
   const swipeable = $derived(context === "upnext" || context === "requests");
 
   let li: HTMLLIElement | undefined = $state();
@@ -84,10 +64,7 @@
     swipeDx === null || !li ? null : Math.min(1, Math.abs(swipeDx) / (COMMIT * li.clientWidth)),
   );
 
-  // The working lists get one quiet line: provenance plus only the facts
-  // worth saying. The board text shows only where it differs from the match.
-  // The page leads the line: beside the title it would take the width the
-  // thumbs pill and the row tools need.
+  // The page badge leads this line: beside the title it would squeeze the tools.
   const metaText = $derived.by(() => {
     const parts: string[] = [];
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
@@ -101,14 +78,12 @@
         parts.push(`board says p.${row.raw_page}`);
       }
     } else {
-      // No stripe colour out here (see style.css): say it in words instead.
+      // The working lists have no status stripe, so say it in words.
       parts.push("not in the songbook");
     }
     if (row.notes) parts.push(row.notes);
     if (row.crossed_out) parts.push("crossed out");
-    // When it was ticked off or binned, in the viewer's own clock. Only in
-    // the two groups: on the working lists the row isn't in that state. Rows
-    // marked before times were recorded show none.
+    // Rows marked before times were recorded show none.
     const playedAt =
       context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
     if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
@@ -120,12 +95,7 @@
   const showMeta = $derived(metaText !== "" || Boolean(row.match));
   const alternatives = $derived(alternativesOf(row));
 
-  // The want button says whose vote it is: "You" (filled) once this device
-  // wants the tune, which includes every request it added, and "+1"
-  // (outlined) while it doesn't, so it reads as a button to press rather than
-  // a tally someone else ran up. The count follows only when it adds
-  // something. The aria-label says it in words, since "+1 · 2" doesn't say
-  // what it counts.
+  // "+1 · 2" doesn't say what it counts, so the aria-label does.
   const voteLabel = $derived.by(() => {
     if (!vote) return "";
     const others = vote.mine ? vote.count - 1 : vote.count;
@@ -139,9 +109,7 @@
       : `I want this one too, ${others} ${others === 1 ? "person wants" : "people want"} it`;
   });
 
-  // Keyboard sibling of drag: with the handle focused, the arrow keys nudge
-  // the row one slot. Focus comes back to this row's handle after the
-  // re-render, so a keyboard user can move a song several slots in a row.
+  // Refocus after the re-render, so a song can move several slots in a row.
   async function onHandleKeydown(event: KeyboardEvent) {
     let delta: -1 | 1;
     if (event.key === "ArrowUp") delta = -1;
@@ -153,13 +121,10 @@
     handle?.focus();
   }
 
-  // Horizontal-swipe sibling of drag (pointer events, so touch works). The
-  // body tracks the finger; committing past the threshold fires the list's
-  // action. Vertical intent goes back to the page (touch-action: pan-y), so
-  // the list scrolls. An attachment, so a row that unmounts mid-gesture still
-  // drops its document listeners and releases held snapshots.
+  // An attachment, so a row unmounting mid-gesture still drops its listeners
+  // and held snapshots.
   function swipe(card: HTMLLIElement) {
-    // Ends the gesture in flight, if any.
+    // Ends the gesture in flight.
     let finish: (() => void) | null = null;
 
     const offDown = on(card, "pointerdown", (event) => {
@@ -168,11 +133,10 @@
       finish?.();
       // Buttons and the drag handle own their own gestures.
       if ((event.target as Element).closest("button")) return;
-      if (event.button != null && event.button !== 0) return; // right/middle click
+      if (event.button != null && event.button !== 0) return;
 
-      // Hold remote snapshots for the whole touch (a committed swipe, or even
-      // a plain tap) so a peer's change can't re-render the row mid-gesture;
-      // sync applies any held snapshot on release.
+      // Hold remote snapshots for the whole touch, taps included, so a peer's
+      // change can't re-render the row mid-gesture.
       actions.gesture(true);
       const startX = event.clientX;
       const startY = event.clientY;
@@ -187,8 +151,7 @@
           if (context === "upnext") actions.demote(row.uid);
           else actions.toggleBinned(row.uid);
         }
-        // A committed action takes the row off this list; otherwise it
-        // animates back to rest.
+        // A committed row leaves this list; otherwise it animates back.
         swipeDx = null;
         tracking = false;
       };
@@ -197,11 +160,11 @@
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         if (!engaged) {
-          // A vertical scroll: we bow out.
+          // Vertical: leave it to the page scroll.
           if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > ACTIVATE) return finish?.();
           if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) <= ACTIVATE) return;
           engaged = true;
-          tracking = true; // follow the finger 1:1 while dragging
+          tracking = true;
           try {
             card.setPointerCapture(e.pointerId);
           } catch {
@@ -228,7 +191,6 @@
       finish = () => {
         for (const off of offs) off();
         finish = null;
-        // Any local action has already been applied and pushed by settle().
         actions.gesture(false);
       };
     });
@@ -258,7 +220,6 @@
   {@attach swipe}
 >
   {#if swipeable}
-    <!-- The left half shows on a swipe right, the right half on a swipe left. -->
     <div class="swipe-hint" aria-hidden="true">
       <span class="swipe-hint-left">
         <Icon name={context === "requests" ? "promote" : "played"} />
@@ -267,9 +228,6 @@
       </span>
     </div>
   {/if}
-  <!-- The text has its own column so the action buttons sit beside it,
-       vertically centred, rather than in a row of their own that would
-       roughly double each card's height. -->
   <div
     class="row-body compact"
     class:has-handle={context === "upnext"}
@@ -277,8 +235,6 @@
     style:transition={tracking ? "none" : undefined}
   >
     {#if context === "upnext"}
-      <!-- A full-height grab strip (see .drag-handle in style.css). Drag is
-           the primary gesture; the arrow keys are its keyboard equivalent. -->
       <button
         bind:this={handle}
         class="drag-handle"
@@ -291,8 +247,7 @@
       </button>
     {/if}
     <div class="row-main">
-      <!-- The set plays from the top, so the first card IS the next tune:
-           marked, as real text so assistive tech reads it too. -->
+      <!-- Real text, so assistive tech reads it too. -->
       {#if isNext}<span class="next-tag">Next</span>{/if}
       <div class="row-top">
         <span class="match-title">{row.match ? row.match.display : `“${row.raw_title}”`}</span>
@@ -313,9 +268,8 @@
       {/if}
     </div>
     <div class="row-tools">
-      <!-- "I want this one" (#83), first in the row so the buttons after it
-           sit where the thumb expects. Up next is deliberately NOT re-sorted
-           by it like the pool is: the set plays from the top. -->
+      <!-- Up next is deliberately not re-sorted by votes: the set plays from
+           the top. -->
       {#if vote}
         <button
           type="button"
@@ -334,7 +288,6 @@
         </button>
       {/if}
       {#if context === "upnext"}
-        <!-- Back to the Requests pool, without deleting it. -->
         <button
           title="Move to Requests"
           aria-label="Move to Requests"
@@ -351,8 +304,6 @@
           <Icon name="promote" />
         </button>
       {:else if context === "bin"}
-        <!-- The way back out of the bin: the row reappears in its home list,
-             at its original spot. -->
         <button
           type="button"
           title="Un-bin"
@@ -362,7 +313,6 @@
           <Icon name="restore" />
         </button>
       {:else if context === "played"}
-        <!-- The rescue for a stray swipe-right: back into the running order. -->
         <button
           type="button"
           title="Mark not played"
@@ -372,8 +322,6 @@
           <Icon name="restore" />
         </button>
       {/if}
-      <!-- Each working list's buttons mirror its two swipes: Up next demotes
-           and ticks off, Requests promotes and bins. -->
       {#if context === "upnext"}
         <button
           type="button"

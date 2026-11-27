@@ -1,7 +1,5 @@
-// What a scan's rows mean for the night: the split between straight-in,
-// review and skipped, and the words for each outcome.
-import { describe, expect, it } from "vitest";
-import { planScan, reviewNote, scanResultMessage } from "../scan.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { planScan, requestParse, reviewNote, scanResultMessage } from "../scan.js";
 import type { Row } from "../types.js";
 import { row, song } from "./fixtures.js";
 
@@ -53,9 +51,44 @@ describe("planScan", () => {
     expect(plan.flagged.find((r) => r.uid === "c")?.removed).toBeFalsy();
   });
 
+  it("sends crossed-out confirmed rows straight in, flag kept", () => {
+    const crossed = row({ uid: "a", match: jolene, status: "confirmed", crossed_out: true });
+    const plan = planScan([crossed], [], []);
+    expect(plan.fresh).toEqual([crossed]);
+    expect(plan.flagged).toEqual([]);
+  });
+
   it("leaves unmatched flagged rows alone: nothing to compare", () => {
     const plan = planScan([scanned("a", null, "unmatched")], [], []);
     expect(plan.flagged[0].removed).toBeFalsy();
+  });
+});
+
+describe("requestParse", () => {
+  const options = {
+    edition: "uke-9",
+    model: "",
+    disableThinking: false,
+    sendCatalogue: true,
+    maxImageEdge: 1600,
+  };
+  const failWith = (status: number, body: unknown) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(body), { status })),
+    );
+  const parse = () => requestParse("", new Blob(["x"]), options, new AbortController().signal);
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("throws the server's detail as the message", async () => {
+    failWith(422, { detail: "That photo is too blurry." });
+    await expect(parse()).rejects.toThrow("That photo is too blurry.");
+  });
+
+  it("falls back to the status when the server gives no detail", async () => {
+    failWith(502, "not json");
+    await expect(parse()).rejects.toThrow("Server error (502)");
   });
 });
 

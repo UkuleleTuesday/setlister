@@ -1,8 +1,3 @@
-// Boot: restore this device's copy of the night, mount the page, follow the
-// session, and go wherever the URL says. The state lives in the *.svelte.ts
-// modules, App.svelte draws it, and the actions that change it are their own
-// modules (adds, rows, routing, sharing, ...).
-
 import { mount } from "svelte";
 import App from "./App.svelte";
 import {
@@ -30,14 +25,10 @@ retireModeLinks();
 restore();
 // After restore(): needs the saved name.
 startRegistration();
-// Search from the cached catalogue at once; the network fetch below replaces
-// it (a Cloud Function cold start can take several seconds). Keyed by the
-// edition restore() brought back: joining a session with a different book
-// re-scopes when its doc arrives.
+// Search the cached catalogue at once: a Cloud Function cold start can take
+// seconds. A session with a different book re-scopes when its doc arrives.
 hydrateCatalogue(night.edition?.id || "current");
-// The right view before any network work, so a cold open shows the history
-// (with its own loading note) straight away. The route lives in the URL, so a
-// mid-gig reload lands back in the session it was in.
+// The view before any network work, so a cold open shows the history at once.
 const routeId = currentRouteId();
 setView(routeId ? "session" : "home");
 
@@ -52,9 +43,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") refreshCatalogueIfStale();
 });
 
-// Routing, editions and the catalogue are independent requests: don't
-// waterfall them. Firestore is on the critical path for every user (the
-// history needs it), so it must not gate the catalogue.
+// Independent requests, so no waterfall: Firestore must not gate the catalogue.
 navigateTo(routeId, { replace: true });
 loadEditions();
 loadCatalogue(catalogue.editionId);

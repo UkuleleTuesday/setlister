@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { parseEdition, parseEditions } from "../editions.js";
+import { editionLabel, parseEdition, parseEditions } from "../editions.js";
+
+describe("editionLabel", () => {
+  it("uses the title", () => {
+    expect(editionLabel({ id: "wexford-2026", title: "Wexford Weekend" })).toBe("Wexford Weekend");
+  });
+
+  it("makes the id readable when the title is missing or just the id", () => {
+    expect(editionLabel({ id: "wexford-2026" })).toBe("Wexford 2026");
+    expect(editionLabel({ id: "current", title: "current" })).toBe("Current");
+  });
+});
 
 describe("parseEditions", () => {
   it("keeps entries with an id and drops the rest", () => {

@@ -1,7 +1,3 @@
-<!--
-  The organiser registration sheet (#151); organiser.svelte.ts runs the steps.
-  Ids are load-bearing (style.css, e2e).
--->
 <script lang="ts">
   import Sheet from "./Sheet.svelte";
   import {
@@ -16,7 +12,7 @@
   let name = $state("");
   let heading: HTMLHeadingElement | undefined = $state();
 
-  // Screen readers follow the step via its heading.
+  // Refocus the heading on each step so screen readers follow it.
   $effect(() => {
     void organiser.sheet;
     heading?.focus();

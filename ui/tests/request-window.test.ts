@@ -1,10 +1,3 @@
-// The request window's pure decision logic (#127) — no Firestore, no DOM.
-//
-// Every branch here is relative to "now" or to a session's own createdAt, so
-// every test pins the clock explicitly, same discipline as
-// session-index.test.ts: a test that reads the wall clock here is a test that
-// fails at midnight.
-
 import { describe, expect, it } from "vitest";
 import {
   defaultClosesAt,
@@ -47,9 +40,6 @@ describe("defaultClosesAt", () => {
   });
 
   it("attributes a session created just after midnight to the PREVIOUS night", () => {
-    // 01:15 still belongs to the night that started the evening before (see
-    // startOfNight in session-index.ts): that evening's 22:30 has passed, so
-    // it closes at that same night's 04:00, not a whole extra day later.
     expect(defaultClosesAt(at(2026, 7, 5, 1, 15))).toEqual(at(2026, 7, 5, 4, 0));
   });
 });
@@ -235,8 +225,6 @@ describe("defaultWindowLabel", () => {
   });
 });
 
-// The <input type="datetime-local"> bridge — local time only, same footgun
-// toDateInputValue/fromDateInputValue in session-index.ts already dodge.
 describe("datetime-local input helpers", () => {
   it("renders the local date and time", () => {
     expect(toDateTimeInputValue(at(2026, 7, 5, 0, 30))).toBe("2026-08-05T00:30");
@@ -258,7 +246,7 @@ describe("datetime-local input helpers", () => {
 });
 
 describe("linkState and its wording", () => {
-  // A Tuesday session started at 20:00: auto opens 19:30, closes 04:00.
+  // Auto window: 19:30 to 22:30.
   const created = at(2026, 7, 4, 20);
   const auto = { requestsOpen: null, requestsOpensAt: null, requestsClosesAt: null };
 

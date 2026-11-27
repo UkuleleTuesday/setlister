@@ -1,27 +1,9 @@
-// Shared setup for every e2e test:
-// - a clean Firestore emulator, so no test sees another's sessions (starting
-//   a shared night is refused while another is planned);
-// - no route to real Google APIs: the app only talks to the emulator because
-//   the page is on localhost (firebase.ts), so any request that escapes to
-//   *.googleapis.com fails the test instead of reaching production;
-// - the API stubbed (e2e/api.ts);
-// - any console error or uncaught exception fails the test, which is the
-//   "no console errors" half of the manual check in README > Development.
-//
-// `phone()` opens another device (its own context, so its own localStorage and
-// client id) with the same treatment, for the multi-phone flows. It is an
-// organiser's phone, registered through the organiser link (#152);
-// `phone({ room: true })` is a room phone that never signs in.
 import { type BrowserContext, type Page, expect, test as base } from "@playwright/test";
 import { firebaseConfig } from "../firebase-config.js";
 import { type ParseRows, stubApi } from "./api.js";
 
-// firebase.json's emulator port. The emulator keys data by the project id the
-// APP connects with, not test:e2e's --project, so clear that one.
-//
-// This is the emulator's own admin endpoint on this machine. Production
-// Firestore has no such route, so the wipe can only ever empty the local
-// emulator, whatever project id it names.
+// The emulator keys data by the app's project id, not test:e2e's --project.
+// Its admin routes don't exist in production, so the wipe can only hit the emulator.
 const EMULATOR = "http://127.0.0.1:8081";
 const PROJECT = firebaseConfig.projectId;
 
@@ -29,6 +11,7 @@ const PROJECT = firebaseConfig.projectId;
 export const ORGANISER_KEY = "0123456789abcdef0123456789abcdef";
 
 interface Fixtures {
+  /** A new device (own context, localStorage and client id), registered as an organiser unless `room`. */
   phone: (options?: { room?: boolean }) => Promise<Page>;
   parseRows: { current: ParseRows };
   /** Console errors a test expects (a stubbed server error logs one). */
@@ -43,9 +26,8 @@ async function clearFirestore() {
   if (!res.ok) throw new Error(`Couldn't clear the Firestore emulator (${res.status})`);
 }
 
-// How many rows the emulator holds for a session: proof a push has landed,
-// for tests that must not act inside sync's push debounce (#153). "owner"
-// is the emulator's rules bypass; like the wipe, it only exists locally.
+// Proof a push landed, for tests that must not act inside sync's push debounce
+// (#153). "Bearer owner" is the emulator-only rules bypass.
 export async function storedRowCount(sessionId: string): Promise<number> {
   const res = await fetch(
     `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents/sessions/${sessionId}`,
@@ -60,7 +42,6 @@ export async function storedRowCount(sessionId: string): Promise<number> {
 
 const DOCS = `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
 
-// Console-only in production; seeded via the emulator's owner bypass.
 export async function setOrganiserKey(key: string): Promise<void> {
   const res = await fetch(`${DOCS}/clubConfig/organiserKey`, {
     method: "PATCH",
@@ -82,8 +63,7 @@ export async function organiserRows(): Promise<{ name?: string; key?: string }[]
   }));
 }
 
-// Through the real link, then back to a phone with no saved name, so specs
-// that expect the first-request name prompt still get it.
+// Clears the saved name afterwards so specs still get the first-request name prompt.
 async function registerOrganiser(page: Page) {
   await page.goto(`/#organise=${ORGANISER_KEY}`);
   await page.locator("#organiser-name").fill("Organiser");
@@ -97,8 +77,7 @@ async function registerOrganiser(page: Page) {
 }
 
 export const test = base.extend<Fixtures>({
-  // Playwright reads a fixture's dependencies off a destructured first
-  // argument, so a fixture with none must still destructure.
+  // Playwright reads dependencies off a destructured first argument, so `{}` is required.
   // eslint-disable-next-line no-empty-pattern
   parseRows: async ({}, use) => {
     await use({ current: [] });
@@ -110,6 +89,7 @@ export const test = base.extend<Fixtures>({
   },
 
   phone: async ({ browser, parseRows, allowConsole }, use) => {
+    // Starting a night is refused while another is planned, so no state may leak.
     await clearFirestore();
     const contexts: BrowserContext[] = [];
     const errors: string[] = [];
@@ -120,6 +100,8 @@ export const test = base.extend<Fixtures>({
       const context = await browser.newContext();
       contexts.push(context);
       await stubApi(context, () => parseRows.current);
+      // The app reaches the emulator only because it's on localhost; anything
+      // that escapes to googleapis.com would hit production.
       await context.route(/^https:\/\/[^/]*googleapis\.com\//, (route) => {
         errors.push(`${label}: blocked a real Google API call: ${route.request().url()}`);
         return route.abort();

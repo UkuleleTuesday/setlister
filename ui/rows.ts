@@ -1,7 +1,3 @@
-// What a row on the night's lists can do (RowActions, by uid), the drag's
-// committed order, and the export pair. Each change edits the night in place
-// and saves it.
-
 import type { RowActions } from "./Row.svelte";
 import { catalogue } from "./catalogue.svelte.js";
 import { exportPayload, exportText, exportedRows } from "./export.js";
@@ -13,11 +9,10 @@ import { settings } from "./settings.svelte.js";
 import { copyToClipboard } from "./share-link.js";
 import * as sync from "./sync.js";
 import type { Row } from "./types.js";
-import { sendRoomWrite } from "./adds.js";
+import { sendRoomWrite } from "./room-writes.js";
 import { view } from "./view.svelte.js";
 import { hasVoted, toggleVote } from "./votes.js";
 
-// The row behind a uid, changed in place and saved.
 function withRow(uid: string, change: (row: Row) => void) {
   const row = [...night.upNext, ...night.requests].find((e) => e.uid === uid);
   if (!row) return;
@@ -25,7 +20,6 @@ function withRow(uid: string, change: (row: Row) => void) {
   persist();
 }
 
-// Moves a row between the lists: Requests -> Up next (promote) or back.
 function move(from: Row[], to: Row[], uid: string) {
   const index = from.findIndex((e) => e.uid === uid);
   if (index === -1) return;
@@ -34,9 +28,8 @@ function move(from: Row[], to: Row[], uid: string) {
   persist();
 }
 
-// Played/binned rows sit interleaved in the array but not in the visible list,
-// so a one-slot move must land past the next *visible* neighbour; otherwise
-// the row burrows invisibly through a hidden cluster one keypress at a time.
+// Step past hidden (played/binned) rows, or a row burrows invisibly through a
+// hidden cluster one keypress at a time.
 function moveBy(uid: string, delta: -1 | 1) {
   const list = night.upNext;
   const index = list.findIndex((e) => e.uid === uid);
@@ -51,8 +44,6 @@ function moveBy(uid: string, delta: -1 | 1) {
 }
 
 export const rowActions: RowActions = {
-  // Played and binned are mutually exclusive (gig-state.ts owns that, and
-  // stamps when each was set).
   togglePlayed: (uid) => withRow(uid, (row) => setPlayed(row, !row.played)),
   toggleBinned: (uid) => withRow(uid, (row) => setBinned(row, !row.binned)),
   promote: (uid) => move(night.requests, night.upNext, uid),
@@ -78,15 +69,12 @@ export const rowActions: RowActions = {
       row.alternatives = [];
     }),
   moveBy,
-  // Hold remote snapshots while a finger is on a row (see sync.ts).
+  // Holds remote snapshots while a finger is on a row.
   gesture: (active) => sync.setGestureActive(active),
 };
 
-// A drag ended (UpNextSection.svelte): the visible rows' uids in their new
-// order. Played/binned rows aren't among them, so indexOf gives them -1 and
-// the (stable) sort parks them at the front in their existing order. That's
-// relied on: played songs belong at the top conceptually, and binned rows are
-// position-agnostic until un-binned.
+// `uids` holds the visible rows only: indexOf's -1 and the stable sort park
+// played/binned rows at the front, in order. Relied on: played songs belong on top.
 export function commitOrder(uids: string[]) {
   night.upNext.sort((a, b) => uids.indexOf(a.uid) - uids.indexOf(b.uid));
   persist();

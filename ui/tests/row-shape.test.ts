@@ -1,4 +1,3 @@
-// Row checks for remote and saved data (#157).
 import { describe, expect, it } from "vitest";
 import { alternativesOf, isRow } from "../row-shape.js";
 import type { Row } from "../types.js";

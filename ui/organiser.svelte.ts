@@ -1,5 +1,4 @@
-// Organiser registration (#151): sign in anonymously, write
-// `organisers/{uid}` with the link's key. Room phones never load Auth.
+// Room phones never load Auth.
 
 import { getAuth, getFirestore } from "./firebase.js";
 import { night } from "./night.svelte.js";
@@ -139,8 +138,7 @@ async function writeRow(key: string, name: string): Promise<void> {
   });
 }
 
-/** Boot: read back this phone's row, if it registered before. Offline keeps
- * the stored status. */
+/** Boot: read back this phone's row, if it registered before. */
 export async function restoreOrganiser(): Promise<void> {
   if (!organiserStatus.isOrganiser) return;
   try {

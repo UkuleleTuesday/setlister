@@ -1,7 +1,5 @@
-// Two views, one page, no router: `?session=<id>` in the URL means "show that
-// session", no param means "show the history". The URL is the only source of
-// truth, which is what makes the phone's Back button (and iOS edge-swipe)
-// work for free.
+// `?session=<id>` is the only source of truth for the view, so the phone's
+// Back button and iOS edge-swipe work for free.
 
 import type { NewSessionChoice } from "./NewSessionSheet.svelte";
 import { catalogue, scopeCatalogueToEdition } from "./catalogue.svelte.js";
@@ -25,7 +23,7 @@ export function currentRouteId(): string | null {
 export function setView(page: "home" | "session") {
   view.page = page;
   if (page === "home") overlays.share = false;
-  overlays.settings = false; // reachable in both views, just closed
+  overlays.settings = false;
 }
 
 // pushState for anything the user did (so Back retraces it), replaceState for
@@ -43,22 +41,17 @@ export function navigateTo(
   return applyRoute(id);
 }
 
-// Apply whatever the URL says. Safe to call repeatedly: popstate can re-fire
-// the route we're already on.
 async function applyRoute(id: string | null): Promise<void> {
-  // Already connected to this session: nothing to join, but make sure it's
-  // showing. Both a re-fired popstate and the hop from startSession land here.
+  // A re-fired popstate and startSession's hop both land here.
   if (id && id === sync.getSessionId()) {
     setView("session");
     return;
   }
 
   if (!id) {
-    // ORDER MATTERS. leaveSession() first: clearing the lists before detaching
-    // would push the empty lists through persist() -> notifyLocalChange() and
-    // wipe the session for everyone in it. Once sync has torn down, its
-    // pending push is cleared and flushPush early-returns, so nothing escapes.
-    sync.leaveSession(); // also clears the session's createdAt
+    // ORDER MATTERS: leave first, or persist() pushes the emptied lists and
+    // wipes the session for everyone in it.
+    sync.leaveSession();
     night.upNext = [];
     night.requests = [];
     persist();
@@ -67,8 +60,6 @@ async function applyRoute(id: string | null): Promise<void> {
     return;
   }
 
-  // A malformed share link can't be a real session: say so without touching
-  // Firestore.
   if (!isValidSessionId(id)) {
     sync.leaveSession();
     notices.home.show("That share link doesn’t look right.");
@@ -81,9 +72,8 @@ async function applyRoute(id: string | null): Promise<void> {
     readSync();
     persist();
     setView("session");
-    // Sessions predating visibility have no listing row: give them one. A
-    // no-op for everything else, crucially a session someone deliberately
-    // unlisted. Best-effort, never blocks opening.
+    // Sessions predating visibility get a listing row; a no-op otherwise,
+    // crucially for one deliberately unlisted.
     if (view.mode === "full") sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
@@ -96,7 +86,6 @@ async function applyRoute(id: string | null): Promise<void> {
   }
 }
 
-/** Android's hardware Back and iOS's edge-swipe. */
 export function followBackButton() {
   window.addEventListener("popstate", () => applyRoute(currentRouteId()));
 }
@@ -112,13 +101,9 @@ export function openSession(id: string) {
   return navigateTo(id, { cameFromHome: true });
 }
 
-// Starting a night: NewSessionSheet.svelte owns the fields, the planned-night
-// gate and Start's states; this creates the session and goes there.
 export async function startSession({ createdAt, listed, editionId }: NewSessionChoice) {
-  // The songbook picked on the sheet, resolved through the editions listing
-  // so the doc carries a real {id, title}; if the listing never loaded, the
-  // id alone is enough (loadCatalogue enriches it). Never null: every session
-  // names its book explicitly.
+  // Never null: every session names its book. If the listing never loaded,
+  // the bare id will do (loadCatalogue enriches it).
   const chosenEdition = catalogue.editions.find((e) => e.id === editionId) || {
     id: editionId,
     title: "",

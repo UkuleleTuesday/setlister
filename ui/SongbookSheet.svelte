@@ -1,19 +1,6 @@
 <!--
-  The way to add by name, in both modes: the whole songbook, browsable. At the
-  club people rarely know an exact title ("that Beatles one", "p.42"), so a
-  blank type-ahead asks for recall they don't have; a list lets them
-  recognise the tune instead, in the printed book's page order. Every row
-  carries tonight's state, so "already asked for" becomes a thumbs up rather
-  than a refusal after the tap. Pinned chrome like What's new: it runs
-  several screens long, so Close is always under the thumb.
-
-  It reports picks through `onPick`; what a pick DOES (thumbs up, played
-  note, cool-down, the confirm sheet) is adds.ts's pickSong, which answers
-  with a note (notices.songbook) or by closing the sheet. Matching is
-  search.ts, tonight's state dupes.ts and votes.ts, the brake room-limits.ts.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
+  A browsable list, not a blank type-ahead: people rarely know an exact title.
+  adds.ts's pickSong decides what a pick does and answers via notices.songbook.
 -->
 <script lang="ts">
   import { onMount, tick } from "svelte";
@@ -36,9 +23,8 @@
 
   let query = $state("");
   let waiting = $state(false);
-  // Why a tap didn't add, said in the sheet the person is looking at. It
-  // stands in for the wait line while shown: the cool-down note says the same
-  // thing with the number in it.
+  // Replaces the wait line while shown: the cool-down note says the same, with
+  // the number.
   const status = $derived(notices.songbook.text);
   let waitTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -47,8 +33,6 @@
   let closeButton: HTMLButtonElement | undefined = $state();
 
   const songs = $derived(query.trim() ? searchSongs(catalogue.entries, query) : catalogue.entries);
-  // Peers keep adding, voting and playing while the sheet is open: the book
-  // re-tags in place, so the reader keeps their scroll.
   const tonight = $derived(indexTonight(night.upNext, night.requests));
   const rows = $derived(
     songs.map((entry) => {
@@ -67,11 +51,7 @@
     }),
   );
 
-  // Each opening mounts the sheet afresh: the top of an unfiltered book.
-  // Focus goes to Close, not the search field: focusing that raises the
-  // keyboard over the list, and browsing is the point. Typing is one tap
-  // away at the top. However it closes (Close, or a pick that moved on to
-  // the confirm sheet), any note on show goes with it, and the wait's timer.
+  // Focus Close, not the search field: that would raise the keyboard over the list.
   onMount(() => {
     notices.songbook.clear();
     refreshWait();
@@ -82,11 +62,8 @@
     };
   });
 
-  // The wait between requests, told up front rather than discovered on a
-  // tap. No number in it: a figure that sat still for a minute would be
-  // wrong, and a ticking one would chatter at screen readers. The exact wait
-  // comes with the tap (notices.songbook). Re-checked once, when the wait runs
-  // out.
+  // No number in the wait line: a still one goes stale, a ticking one chatters
+  // at screen readers. The tap's note has the exact wait.
   function refreshWait() {
     clearTimeout(waitTimer);
     const remaining = view.mode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
@@ -100,14 +77,12 @@
     if (list) list.scrollTop = 0;
   }
 
-  // The keyboard's search key means "show me": drop the keyboard so the
-  // results it was covering come into view.
+  // The search key drops the keyboard to reveal the results it covered.
   function onSearchKeydown(event: KeyboardEvent) {
     if (event.key === "Enter") search?.blur();
   }
 
-  // Dragging the list means reading it, so put the keyboard away. touchmove,
-  // not scroll: the list also scrolls programmatically as you type.
+  // touchmove, not scroll: the list also scrolls programmatically as you type.
   function onListTouchmove() {
     if (document.activeElement === search) search?.blur();
   }
@@ -127,22 +102,16 @@
     bind:this={search}
     onkeydown={onSearchKeydown}
   />
-  <!-- Shown while this phone's one-a-minute wait runs: new requests pause,
-       browsing and thumbs up don't. -->
   <p id="songbook-wait" class="note songbook-wait" hidden={!waiting || Boolean(status)}>
     Your next request opens up shortly. Thumbs up work any time.
   </p>
-  <!-- Why a tap didn't add. aria-live so it reaches screen readers without
-       moving focus. -->
   <p id="songbook-status" class="songbook-status" aria-live="polite" hidden={!status}>
     {status}
   </p>
   <ul id="songbook-list" class="songbook-list" bind:this={list} ontouchmove={onListTouchmove}>
     {#each rows as { entry, existing, count, mine, state }, i (i)}
       <li>
-        <!-- click, not pointerdown: in a list you scroll with the same
-             finger, and a pick on touch-down would fire on every scroll
-             that starts on a row. -->
+        <!-- click, not pointerdown: a scroll starting on a row would pick it. -->
         <button
           type="button"
           class={["songbook-song", existing?.where]}

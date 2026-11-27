@@ -1,14 +1,3 @@
-<!--
-  "Up next": the curated running order, the tunes you'll actually play,
-  promoted (in order) from the Requests pool below. Played songs collapse into
-  a one-line group above the list, so it always starts at the next tune.
-
-  It renders the night (night.svelte.ts) and hands every change back through
-  `actions`; drag-to-reorder is run here, since it spans the whole list.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import { flushSync } from "svelte";
   import { on } from "svelte/events";
@@ -32,11 +21,8 @@
     onDownload: () => void;
   } = $props();
 
-  // Played and binned rows are lifted out (played into the group above,
-  // binned into the bin at the foot), so the list shows what's left to play.
   const visible = $derived(night.upNext.filter((e) => !e.binned && !e.played));
   const played = $derived(night.upNext.filter((e) => e.played));
-  // While a drag is in flight the list shows its order, not the stored one.
   let dragOrder: string[] | null = $state(null);
   let dragUid: string | null = $state(null);
   const shown = $derived.by(() => {
@@ -44,17 +30,14 @@
     const byUid = new Map(visible.map((row) => [row.uid, row]));
     return dragOrder.map((uid) => byUid.get(uid)).filter((row) => row !== undefined);
   });
-  // The set plays from the top, so the first card is the next tune. Marked
-  // from the stored order: a drag in flight doesn't move the tag.
+  // From the stored order, so a drag in flight doesn't move the Next tag.
   const nextUid = $derived(visible[0]?.uid);
 
   let list: HTMLUListElement | undefined = $state();
   let copied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // The card under the finger's y, among the others: the drag lands before
-  // the first card whose midpoint is below it.
-  function dragAfterUid(y: number): string | null {
+  function dropBeforeUid(y: number): string | null {
     if (!list) return null;
     let closest = { offset: Number.NEGATIVE_INFINITY, uid: null as string | null };
     for (const child of list.querySelectorAll<HTMLElement>(".row-card:not(.dragging)")) {
@@ -67,14 +50,10 @@
     return closest.uid;
   }
 
-  // Pointer-events drag so touch works on the mobile browsers this app
-  // targets (HTML5 drag-and-drop is desktop-only on touch). A press on a
-  // row's handle starts it; the list reorders live as the row crosses its
-  // neighbours' midpoints, and the final order goes out through onReorder on
-  // release. An attachment, so leaving mid-drag drops the document listeners
-  // and releases held snapshots.
+  // Pointer events, since HTML5 drag-and-drop doesn't work on touch. An
+  // attachment, so leaving mid-drag drops the listeners and held snapshots.
   function reorder(ul: HTMLUListElement) {
-    // Ends the drag in flight, if any, committing `order` when given.
+    // Ends the drag in flight, committing `order` when given.
     let finish: ((order?: string[]) => void) | null = null;
 
     const offDown = on(ul, "pointerdown", (event) => {
@@ -85,16 +64,13 @@
       // A drag whose release never arrived (it ended outside the window).
       finish?.();
       event.preventDefault();
-      // Hold remote snapshots while dragging, so a peer's change can't yank
-      // the row out from under the finger; sync applies it on release.
+      // Hold remote snapshots so a peer's change can't yank the row from under
+      // the finger.
       actions.gesture(true);
       dragUid = uid;
       dragOrder = visible.map((row) => row.uid);
-      // Where within the row the finger landed, kept pinned under the pointer
-      // as it moves (no jump on the first move).
       const grabY = event.clientY - li.getBoundingClientRect().top;
-      // Capture keeps touch from scrolling the page; move/up listen on the
-      // document, so events keep flowing as the row moves in the list.
+      // Capture keeps touch from scrolling the page.
       try {
         handle.setPointerCapture(event.pointerId);
       } catch {
@@ -103,17 +79,16 @@
 
       const onMove = (e: PointerEvent) => {
         if (!dragOrder) return;
-        const after = dragAfterUid(e.clientY);
+        const before = dropBeforeUid(e.clientY);
         const next = dragOrder.filter((id) => id !== uid);
-        const at = after === null ? next.length : next.indexOf(after);
+        const at = before === null ? next.length : next.indexOf(before);
         next.splice(at, 0, uid);
         if (next.join() !== dragOrder.join()) {
           dragOrder = next;
           flushSync(); // move the card now, so it can be measured in place
         }
-        // Lift the row to follow the finger 1:1: clear the transform to read
-        // its true in-flow position, then translate it back under the grab
-        // point. The gap it leaves marks where it will land.
+        // Clear the transform to read the in-flow position, then translate
+        // back under the grab point.
         li.style.transform = "none";
         const top = li.getBoundingClientRect().top;
         li.style.transform = `translateY(${e.clientY - grabY - top}px)`;
@@ -143,8 +118,7 @@
     };
   }
 
-  // A transient tick in place of the icon: the button is icon-only, so a
-  // word would grow it mid-tap and shove the heading sideways.
+  // A tick, not a word: a word would grow the button and shove the heading.
   async function copy() {
     await onCopy();
     copied = true;
@@ -153,9 +127,6 @@
   }
 </script>
 
-<!-- Nothing queued and nothing played: the room CSS shrinks the section to
-     a one-line bar, so an empty box doesn't take the top of a page whose job
-     is adding a tune. -->
 <section
   id="upnext"
   class:empty={visible.length === 0 && !night.upNext.some((e) => e.played && !e.binned)}
@@ -166,11 +137,6 @@
         · {visible.length}
       </span>
     </h2>
-    <!-- Export is what the night produces, so it's on the page rather than
-         behind the gear. It covers BOTH lists, but sits beside the running
-         order: that's the artifact people mean by "the setlist". Icon-only
-         like the rest of the chrome; the accessible name carries the
-         meaning. With nothing to export, both go inert. -->
     <div class="setlist-actions">
       <button
         id="copy"
@@ -194,11 +160,7 @@
       </button>
     </div>
   </div>
-  <!-- What the list is, said once it has something in it. -->
   <p id="upnext-hint" class="list-hint" hidden={visible.length === 0}>Coming up, in order.</p>
-  <!-- Played songs collapse into a one-line count here (the list consumes
-       itself from the top); expanding shows the night's history, dated, and
-       the un-play control. The room gets the same disclosure, read-only. -->
   <RowGroup
     id="played-group"
     iconName="played"
@@ -208,8 +170,6 @@
     {actions}
     showSuggestions={settings.showSuggestions}
   />
-  <!-- Room mode watches the set and can want a tune, nothing else: no
-       handle, no buttons, no swipe. -->
   <ul id="upnext-rows" bind:this={list} {@attach reorder}>
     {#each shown as row (row.uid)}
       <RowCard
@@ -223,8 +183,6 @@
       />
     {/each}
   </ul>
-  <!-- The full app's note points at promote, a control the room doesn't
-       have. -->
   <p id="upnext-empty" class="note" hidden={visible.length > 0}>
     {lists.room ? "Nothing queued yet" : "Nothing queued yet. Promote a request from below."}
   </p>

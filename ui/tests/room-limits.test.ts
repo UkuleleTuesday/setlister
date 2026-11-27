@@ -1,12 +1,8 @@
-// Room mode's add cool-down (#88): the pure timing logic. The decisions under
-// test — a fresh device is never blocked, the window expires on time, and a
-// nonsensical stored time fails OPEN rather than locking someone out of
-// requesting for the rest of the night.
 import { describe, expect, it } from "vitest";
 
 import { ROOM_ADD_COOLDOWN_MS, cooldownLabel, cooldownRemaining } from "../room-limits.js";
 
-const NOW = 1_770_000_000_000; // pinned: these are durations, not dates
+const NOW = 1_770_000_000_000;
 
 describe("cooldownRemaining", () => {
   it("never blocks a device that hasn't added anything", () => {

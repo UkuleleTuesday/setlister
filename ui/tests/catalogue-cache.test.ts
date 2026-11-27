@@ -1,7 +1,3 @@
-// The per-edition catalogue cache: the decisions under test — a malformed or
-// empty entry reads as a miss (never a crash), the cap evicts the least
-// recently SAVED edition (not an arbitrary one), and the one-time legacy fold
-// never overwrites a fresher entry for the same edition.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,7 +12,7 @@ import {
 } from "../catalogue-cache.js";
 import { song } from "./fixtures.js";
 
-const NOW = 1_770_000_000_000; // pinned: relative order is what matters
+const NOW = 1_770_000_000_000;
 
 function entry(id: string, n = 1): CachedCatalogue {
   return {
@@ -75,7 +71,6 @@ describe("putCachedCatalogue", () => {
     for (let i = 0; i < CATALOGUE_CACHE_LIMIT; i++) {
       store = putCachedCatalogue(store, `book-${i}`, entry(`book-${i}`), NOW + i);
     }
-    // book-0 is oldest; refresh it, then overflow — book-1 should go instead.
     store = putCachedCatalogue(store, "book-0", entry("book-0"), NOW + 100);
     store = putCachedCatalogue(store, "book-new", entry("book-new"), NOW + 101);
     expect(store["book-0"]).toBeDefined();
@@ -104,8 +99,6 @@ describe("migrateLegacyCatalogue", () => {
   });
 });
 
-// The weekly regen shifts pages: a long-lived tab must re-check, but not on
-// every foregrounding.
 describe("catalogueNeedsRefresh", () => {
   it("refreshes when never tried", () => {
     expect(catalogueNeedsRefresh(0, NOW)).toBe(true);

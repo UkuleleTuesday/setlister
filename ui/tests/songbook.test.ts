@@ -1,4 +1,3 @@
-// The shared song-list wording: an empty list always says why.
 import { describe, expect, it } from "vitest";
 import { catalogueEmptyMessage, tonightTagLabel } from "../songbook.js";
 
