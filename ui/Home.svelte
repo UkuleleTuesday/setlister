@@ -4,7 +4,6 @@
   import { notices } from "./notices.svelte.js";
   import { organiserStatus } from "./organiser-status.svelte.js";
   import {
-    DEFAULT_BLURB,
     type LabelledEntry,
     type MonthGroup,
     type SessionEntry,
@@ -46,8 +45,6 @@
         ? "Couldn’t load sessions."
         : "",
   );
-  // Everyone sees the same words, so organisers see what the room reads.
-  const pitch = $derived(next?.blurb || DEFAULT_BLURB);
 
   function meta(entry: Entry) {
     const who = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
@@ -110,19 +107,25 @@
 <!-- The night is the hero: it's what most phones come to home for. -->
 <div id="next-session" hidden={!next}>
   {#if next}
+    <!-- The note describes the card rather than naming it, so a screen reader
+         hears the night first and 160 characters second. -->
     <button
       type="button"
       class="next-session-card"
       data-id={next.id}
+      aria-labelledby="next-session-name next-session-meta next-session-open"
+      aria-describedby={next.blurb ? "next-session-note" : undefined}
       onclick={() => onPick(next.id)}
     >
       {@render tile(next, true)}
       <span class="session-item-text">
-        <span class="next-session-name">{next.label || "Date pending"}</span>
-        <span class="next-session-meta">{meta(next)}</span>
+        <span id="next-session-name" class="next-session-name">{next.label || "Date pending"}</span>
+        <span id="next-session-meta" class="next-session-meta">{meta(next)}</span>
       </span>
-      <span class="next-session-pitch">{pitch}</span>
-      <span class="next-session-open">
+      {#if next.blurb}
+        <span id="next-session-note" class="next-session-note">{next.blurb}</span>
+      {/if}
+      <span id="next-session-open" class="next-session-open">
         Open the setlist<Icon name="forward" />
       </span>
     </button>

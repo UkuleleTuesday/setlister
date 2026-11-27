@@ -1061,10 +1061,28 @@ footer#edition-note:empty {
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
-.next-session-pitch {
+.next-session-note {
   grid-column: 1 / -1;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+/* Above the room's controls, not in them: those hide while requests are shut,
+   which is when people plan. */
+.night-note {
+  margin: var(--space-1) 0 var(--space-5);
+}
+.night-note .eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--accent);
+}
+.night-note-text {
+  margin: 0;
+  color: var(--text);
   font-size: var(--text-base);
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 .next-session-open {
   grid-column: 1 / -1;

@@ -1,5 +1,6 @@
 <!-- routing.ts creates the session behind `onStart`: this sheet never writes to Firestore. -->
 <script lang="ts">
+  import BlurbField from "./BlurbField.svelte";
   import Icon from "./Icon.svelte";
   import Sheet from "./Sheet.svelte";
   import { catalogue } from "./catalogue.svelte.js";
@@ -8,8 +9,6 @@
   import { history } from "./history.svelte.js";
   import { defaultWindowLabel } from "./request-window.js";
   import {
-    BLURB_MAX,
-    DEFAULT_BLURB,
     type SessionEntry,
     fromDateInputValue,
     listSessions,
@@ -131,17 +130,11 @@
   </label>
   <!-- Read-only: the request link sheet edits the window once the session exists. -->
   <p class="note" id="new-session-window-note">{windowNote}</p>
-  <label class="field">
-    <span>Note for the room</span>
-    <textarea
-      id="new-session-blurb"
-      rows="2"
-      maxlength={BLURB_MAX}
-      placeholder={DEFAULT_BLURB}
-      bind:value={blurb}
-      onkeydown={(event) => event.key === "Enter" && event.preventDefault()}></textarea>
-  </label>
-  <p class="note">Shows under the night on everyone’s home screen. Optional.</p>
+  <BlurbField
+    id="new-session-blurb"
+    help="Optional. Everyone sees it on home and at the top of the night. Public, and it stays with the night."
+    bind:value={blurb}
+  />
   <label class="field">
     <span>Songbook</span>
     <select id="new-session-edition" bind:value={editionId}>

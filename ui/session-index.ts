@@ -13,7 +13,6 @@ export interface SessionEntry {
 }
 
 export const BLURB_MAX = 160;
-export const DEFAULT_BLURB = "Ask for the tunes you want to play and follow what’s up next.";
 
 /** One line, trimmed and capped: what firestore.rules accepts and the card shows. */
 export function cleanBlurb(text: string): string {

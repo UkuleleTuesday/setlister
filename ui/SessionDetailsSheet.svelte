@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import BlurbField from "./BlurbField.svelte";
   import Icon from "./Icon.svelte";
   import Sheet from "./Sheet.svelte";
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { features } from "./features.js";
   import { linkStateText } from "./request-window.js";
-  import { BLURB_MAX, DEFAULT_BLURB, cleanBlurb, sessionLongDate } from "./session-index.js";
+  import { cleanBlurb, sessionLongDate } from "./session-index.js";
   import { session } from "./session.svelte.js";
   import { view } from "./view.svelte.js";
 
@@ -54,34 +56,48 @@
     }
   }
 
-  // A draft, saved on blur, Enter or Close: a write per keystroke would flood peers.
+  // A draft, saved on blur, Enter or Close: a write per keystroke would flood
+  // peers. It's compared with the value it started from, not the live one, so
+  // another organiser's save never reads as an edit here and gets overwritten.
+  let blurbBase = $state(session.meta.blurb);
   let blurbDraft = $state(session.meta.blurb);
   let blurbBusy = $state(false);
-  const blurbDirty = $derived(cleanBlurb(blurbDraft) !== session.meta.blurb);
+  const blurbDirty = $derived(cleanBlurb(blurbDraft) !== blurbBase);
 
-  async function saveBlurb() {
-    if (!blurbDirty || blurbBusy) return;
+  // An untouched draft follows the live note.
+  $effect(() => {
+    const remote = session.meta.blurb;
+    untrack(() => {
+      if (blurbDirty || blurbBusy) return;
+      blurbBase = remote;
+      blurbDraft = remote;
+    });
+  });
+
+  let saving: Promise<boolean> | null = null;
+
+  /** Resolves false if the write didn't land; the draft stays to retry. */
+  function saveBlurb(): Promise<boolean> {
+    if (saving) return saving;
+    if (!blurbDirty) return Promise.resolve(true);
     blurbBusy = true;
-    try {
-      await onBlurb(blurbDraft);
-      blurbDraft = session.meta.blurb;
-    } catch {
-      /* sharing.ts shows why; the draft stays to retry */
-    } finally {
-      blurbBusy = false;
-    }
+    saving = onBlurb(blurbDraft)
+      .then(() => {
+        blurbBase = session.meta.blurb;
+        blurbDraft = session.meta.blurb;
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        blurbBusy = false;
+        saving = null;
+      });
+    return saving;
   }
 
-  // One line on the card: Enter finishes the note, which saves it.
-  function onBlurbKeydown(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    event.currentTarget.blur();
-  }
-
-  function close() {
-    void saveBlurb();
-    onclose();
+  // Stays open if the save failed, so the note isn't lost with the sheet.
+  async function close() {
+    if (await saveBlurb()) onclose();
   }
 </script>
 
@@ -98,19 +114,13 @@
   </p>
 
   {#if !session.past}
-    <label class="field blurb-field">
-      <span>Note for the room</span>
-      <textarea
-        id="session-blurb"
-        rows="2"
-        maxlength={BLURB_MAX}
-        placeholder={DEFAULT_BLURB}
-        disabled={blurbBusy}
-        bind:value={blurbDraft}
-        onchange={saveBlurb}
-        onkeydown={onBlurbKeydown}></textarea>
-    </label>
-    <p class="note">Shows under the night on everyone’s home screen.</p>
+    <BlurbField
+      id="session-blurb"
+      help="Everyone sees it on home and at the top of the night. Public, and it stays with the night."
+      disabled={blurbBusy}
+      bind:value={blurbDraft}
+      onchange={saveBlurb}
+    />
   {/if}
 
   <label class="field" id="edition-setting">
