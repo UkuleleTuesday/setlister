@@ -7,6 +7,7 @@ import {
   roomRequestUpdates,
   roomVoteUpdates,
   serialize,
+  setSessionBlurb,
 } from "../sync.js";
 import type { Row, SyncFields, Votes } from "../types.js";
 import { row as baseRow } from "./fixtures.js";
@@ -302,5 +303,11 @@ describe("room writes", () => {
     expect(isPermissionDenied({ code: "permission-denied" })).toBe(true);
     expect(isPermissionDenied({ code: "unavailable" })).toBe(false);
     expect(isPermissionDenied(null)).toBe(false);
+  });
+});
+
+describe("setSessionBlurb", () => {
+  it("refuses before a session is joined, rather than reading as saved", async () => {
+    await expect(setSessionBlurb("Upstairs tonight")).rejects.toThrow(/connecting/);
   });
 });

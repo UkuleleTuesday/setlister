@@ -349,8 +349,10 @@ export async function setSessionListed(listed: boolean): Promise<void> {
 }
 
 // Mirrored onto the index row, which is all home reads. Empty deletes the field.
+// Throws rather than no-ops: the page shows before joinSession lands, and a
+// silent return would read as saved and the sheet would drop the note.
 export async function setSessionBlurb(text: string): Promise<void> {
-  if (!sessionId) return;
+  if (!sessionId) throw new Error("still connecting to the session");
   const id = sessionId;
   const blurb = cleanBlurb(text);
   const { db, fx } = await getFirestore();

@@ -102,6 +102,8 @@ test("an open details sheet never writes over another organiser's note", async (
 
   const second = await phone();
   await second.goto(`/?session=${id}`);
+  // The page shows before the night's data arrives; its label waits for it.
+  await expect(second.locator("#session-title")).toContainText(/Today|Tonight/);
   await second.locator("#session-title").tap();
   await second.locator("#session-blurb").fill(NOTE);
   await second.locator("#session-blurb").press("Enter");

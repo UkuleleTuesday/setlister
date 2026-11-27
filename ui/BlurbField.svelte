@@ -5,12 +5,14 @@
     id,
     value = $bindable(),
     help,
+    error = "",
     disabled = false,
     onchange,
   }: {
     id: string;
     value: string;
     help: string;
+    error?: string;
     disabled?: boolean;
     onchange?: () => void;
   } = $props();
@@ -43,3 +45,4 @@
 <p class="note" id="{id}-help">
   {help}{#if left <= 20}<span class="blurb-left"> {left} left.</span>{/if}
 </p>
+{#if error}<p class="error">{error}</p>{/if}

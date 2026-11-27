@@ -62,6 +62,7 @@
   let blurbBase = $state(session.meta.blurb);
   let blurbDraft = $state(session.meta.blurb);
   let blurbBusy = $state(false);
+  let blurbError = $state("");
   const blurbDirty = $derived(cleanBlurb(blurbDraft) !== blurbBase);
 
   // An untouched draft follows the live note.
@@ -81,13 +82,17 @@
     if (saving) return saving;
     if (!blurbDirty) return Promise.resolve(true);
     blurbBusy = true;
+    blurbError = "";
     saving = onBlurb(blurbDraft)
       .then(() => {
         blurbBase = session.meta.blurb;
         blurbDraft = session.meta.blurb;
         return true;
       })
-      .catch(() => false)
+      .catch((err: unknown) => {
+        blurbError = `Couldn’t save the note: ${err instanceof Error ? err.message : String(err)}. Try again.`;
+        return false;
+      })
       .finally(() => {
         blurbBusy = false;
         saving = null;
@@ -117,6 +122,7 @@
     <BlurbField
       id="session-blurb"
       help="Everyone sees it on home and at the top of the night. Public, and it stays with the night."
+      error={blurbError}
       disabled={blurbBusy}
       bind:value={blurbDraft}
       onchange={saveBlurb}
