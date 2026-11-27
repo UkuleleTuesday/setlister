@@ -1,8 +1,8 @@
 # Design system
 
 Foundations (the tokens) and components live at the top of `style.css`. The
-rest of the file composes them; Patterns says how they make a page. Mobile-first rules (touch, dismissal, notches) are in
-`AGENTS.md`.
+rest of the file composes them; Patterns says how they make a page. The UI is
+mobile-first: phone and touch come first, desktop is a bonus.
 
 ## Rules
 
@@ -17,7 +17,8 @@ rest of the file composes them; Patterns says how they make a page. Mobile-first
    `link-button`.
 4. **Every tappable thing is at least 44px and gives feedback when pressed.**
    The global `button:active` dims it. The platform's tap flash is off, so
-   don't bring it back. Keyboard focus shows `--focus-ring`.
+   don't bring it back. Keyboard focus shows `--focus-ring`. No hover-only
+   affordances.
 5. **Anything that opens something shows it.** A row or pill that opens a
    view or sheet ends in a `forward` chevron; a heading that opens details
    ends in `chevron`. Lists you open things from are `.inset-list`; lists you
@@ -27,9 +28,15 @@ rest of the file composes them; Patterns says how they make a page. Mobile-first
    rely on colour alone: pair it with an icon, a dot or text.
 7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
    somewhere or open something; arrows only move a row (`earlier`, `later`).
-8. **One header for every view.** `.app-header` says where you are and what
-   you can do. The way out and the night's status sit under it, in
-   `.session-bar`. See Page structure.
+8. **Forgiving dismissal.** Sheets and popovers close on a tap anywhere outside
+   them, not just a thin backdrop margin; hint when that isn't discoverable.
+   Every sheet also has a visible close button. Escape is a desktop bonus.
+9. **Small screens.** Size overlays with `max-height`/`max-width` (`dvh` for
+   height) and scroll inside them. Anything pinned to an edge pads with
+   `env(safe-area-inset-*)`, as in Page structure.
+10. **One header for every view.** `.app-header` says where you are and what
+    you can do. The way out and the night's status sit under it, in
+    `.session-bar`. See Page structure.
 
 ## Foundations
 

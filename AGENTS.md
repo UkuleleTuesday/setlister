@@ -14,13 +14,8 @@ how to run it, and every command; this file doesn't repeat them.
 The UI is mobile-first.
 
 - **Design system.** Style with the foundations, components and patterns in
-  `ui/DESIGN.md`. No raw colours, sizes or shadows outside `:root`.
-- **Touch.** Tap targets ≥ 44px, no hover-only affordances. Escape is a desktop
-  bonus, never the only way out.
-- **Forgiving dismissal.** Overlays close on tapping anywhere obvious, not just a
-  thin backdrop margin. Hint when the gesture isn't discoverable.
-- **Small viewports and notches.** Use `max-height`/`max-width`, and
-  `env(safe-area-inset-*)` for anything pinned to an edge.
+  `ui/DESIGN.md`, and follow its rules (touch, dismissal and small screens
+  included). No raw colours, sizes or shadows outside `:root`.
 - **Verify on a phone-sized touch viewport**, never just a desktop window (README
   > Development has the Playwright setup).
 
