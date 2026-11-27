@@ -26,7 +26,7 @@ test("tonight leads, and blocks a second night", async ({ phone }) => {
   await page.locator("#back-home").tap();
 
   const card = page.locator("#next-session .next-session-card");
-  await expect(card).toContainText("Next session");
+  await expect(card).toContainText("Open the setlist");
   await expect(card).toContainText(/Tonight|Today/);
   await expect(page.locator("#new-session")).toHaveClass(/btn-soft/);
 

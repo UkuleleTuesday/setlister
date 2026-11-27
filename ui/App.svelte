@@ -43,7 +43,7 @@
     writeWhatsNewSeen,
   } from "./whats-new.js";
 
-  const BRAND_TITLE = "🎶 Setlister";
+  const BRAND_TITLE = "Setlister";
 
   // Imperative because a file input's click() has to run inside the tap itself.
   let scanFlow: ScanFlow | undefined = $state();
@@ -161,10 +161,20 @@
     <Icon name="settings" />
   </button>
   <div class="title-stack">
-    <p class="club-name eyebrow">Ukulele Tuesday</p>
+    <p class={["club-name", { eyebrow: inSession }]}>Ukulele Tuesday</p>
     <h1>{inSession ? session.label : BRAND_TITLE}</h1>
   </div>
-  <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
+  {#if !inSession}
+    <button
+      id="whats-new-banner"
+      class="whats-new-banner tap-target"
+      type="button"
+      hidden={!latest || bannerSeen}
+      onclick={() => latest && openWhatsNew([latest])}
+    >
+      <Icon name="news" /><span class="btn-label">What’s new</span>
+    </button>
+  {/if}
 
   {#if overlays.share}
     <SharePanel
@@ -309,16 +319,6 @@
     </div>
   {:else}
     <section id="home">
-      <button
-        id="whats-new-banner"
-        class="whats-new-banner callout"
-        type="button"
-        hidden={!latest || bannerSeen}
-        onclick={() => latest && openWhatsNew([latest])}
-      >
-        <Icon name="news" /><span class="btn-label">What’s new</span>
-      </button>
-
       <Home
         onPick={openSession}
         onNewSession={() => {

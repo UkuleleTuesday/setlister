@@ -5,7 +5,7 @@ test("opens on the session history", async ({ phone }) => {
   const page = await phone();
   await page.goto("/");
   await expect(page.locator("#home")).toBeVisible();
-  await expect(page.locator("#session-list-status")).toHaveText(/no sessions/i);
+  await expect(page.locator("#no-night")).toContainText("No night planned yet");
 });
 
 test("runs a night: add, promote, play, bin and restore, surviving a reload", async ({ phone }) => {

@@ -29,11 +29,11 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 
 | Group       | Tokens                                                                                     | Notes                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Brand       | `--accent`, `--accent-fill`, `--accent-soft`, `--on-accent`                                | `--accent-fill` is the primary gradient. `--accent-bright` only feeds it.             |
+| Brand       | `--accent`, `--accent-fill`, `--accent-soft`, `--on-accent(-muted, -divider)`              | `--accent-fill` is the primary gradient. `--accent-bright` only feeds it.             |
 | Surfaces    | `--bg`, `--card`, `--surface-sunken`, `--border`, `--divider`, `--scrim`, `--scrim-strong` | `--border` outlines controls and cards. `--divider` is for hairlines inside them.     |
 | Text        | `--text`, `--text-secondary`, `--muted`                                                    | `--muted` is the lightest text that passes AA.                                        |
 | Status      | `--confirmed(-strong, -soft)`, `--review`, `--conflict(-soft)`, `--unmatched`              | `-soft` for backgrounds, `-strong` for text on `-soft`.                               |
-| Type        | `--text-micro` … `--text-3xl`, `--weight-medium/semibold/bold`, `--tracking-caps`          | Inputs never go below `--text-base`, or iOS zooms in on focus.                        |
+| Type        | `--text-micro` … `--text-3xl`, `--text-display`, `--weight-*`, `--tracking-caps/-tight`    | `--text-display` is the home hero's night only. Inputs never go below `--text-base`.  |
 | Space       | `--space-1` (0.2rem) … `--space-10` (2rem)                                                 | Steps of 0.2rem.                                                                      |
 | Radius      | `--radius-xs` 6, `-sm` 8, `-md` 12, `-lg` 16, `-full`                                      | Badges `xs`, inputs and menus `sm`, cards and buttons `md`, sheets and big CTAs `lg`. |
 | Elevation   | `--shadow-xs`, `-card`, `-raised`, `-cta`, `-popover`, `-modal`                            | Lowest to highest. `-raised` marks "next" and "upcoming".                             |
@@ -58,7 +58,7 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.note`, `.error`                          | Help text and failures.                                                                           |
 | `.callout`                                 | A tinted note: a confirmation, a status, the edit-mode notice. Set its margin per use.            |
 | `.inset-list`                              | Rows in one card, split by hairlines, for lists you open things from.                             |
-| `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large, on the accent fill, for the hero.    |
+| `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large for the home hero's next night.       |
 | `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
 | `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills.                                                                          |
 
