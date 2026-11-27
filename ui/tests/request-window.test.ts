@@ -339,7 +339,7 @@ describe("linkState and its wording", () => {
     const date = opens.toLocaleDateString(undefined, { day: "numeric", month: "short" });
     const cases: [Date, string][] = [
       [at(2026, 7, 4, 12), `at ${time}`],
-      [at(2026, 7, 3, 12), `tomorrow at ${time}`],
+      [at(2026, 7, 3, 12), `${weekday} at ${time}`],
       [at(2026, 7, 1, 12), `${weekday} at ${time}`],
       [at(2026, 6, 20, 12), `${date} at ${time}`],
     ];

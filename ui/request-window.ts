@@ -174,11 +174,11 @@ function calendarDaysBetween(from: Date, to: Date): number {
 }
 
 // A time alone reads as today, so name the day when it isn't (#241).
-/** "" today, else "tomorrow", a short weekday within the week, or a short date. */
+// No "tomorrow": the pill must fit a 320px phone, and "tomorrow" doesn't.
+/** "" today, else a short weekday within the week, or a short date. */
 function shortDay(at: Date, now: Date): string {
   const days = calendarDaysBetween(now, at);
   if (days <= 0) return "";
-  if (days === 1) return "tomorrow";
   return days < 7 ? WEEKDAY_SHORT_FORMAT.format(at) : DAY_MONTH_SHORT_FORMAT.format(at);
 }
 
