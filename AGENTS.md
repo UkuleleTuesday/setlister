@@ -13,8 +13,8 @@ how to run it, and every command; this file doesn't repeat them.
 
 The UI is mobile-first.
 
-- **Design system.** Style with the tokens and primitives in `ui/DESIGN.md`. No
-  raw colours, sizes or shadows outside `:root`.
+- **Design system.** Style with the foundations, components and patterns in
+  `ui/DESIGN.md`. No raw colours, sizes or shadows outside `:root`.
 - **Touch.** Tap targets ≥ 44px, no hover-only affordances. Escape is a desktop
   bonus, never the only way out.
 - **Forgiving dismissal.** Overlays close on tapping anywhere obvious, not just a

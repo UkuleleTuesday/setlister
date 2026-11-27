@@ -142,7 +142,7 @@ button:not(:disabled):active {
   outline-offset: 2px;
 }
 
-/* --- Primitives (DESIGN.md has when to use each) ------------------------- */
+/* --- Components (DESIGN.md has when to use each) ------------------------- */
 
 /* Buttons: .btn plus one fill (.btn-primary, .btn-soft) and optionally .btn-lg.
    .link-button is the text-only button. */

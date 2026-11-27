@@ -1,7 +1,7 @@
 # Design system
 
-Tokens and primitives live at the top of `style.css`. The rest of the file
-composes them; Patterns says how they make a page. Mobile-first rules (touch, dismissal, notches) are in
+Foundations (the tokens) and components live at the top of `style.css`. The
+rest of the file composes them; Patterns says how they make a page. Mobile-first rules (touch, dismissal, notches) are in
 `AGENTS.md`.
 
 ## Rules
@@ -10,7 +10,7 @@ composes them; Patterns says how they make a page. Mobile-first rules (touch, di
    z-indexes outside `:root`. Spacing uses `--space-*`. Off-grid values are
    for optical nudges and component geometry, such as icon sizes and badge
    offsets.
-2. **Reuse a primitive before writing a component rule.** Keep the old
+2. **Reuse a component before writing a one-off rule.** Keep the old
    class next to it when tests or mode CSS select on it, for example
    `class="songbook-trigger btn btn-primary btn-lg"`.
 3. **One primary action per view.** Everything else is `btn-soft` or
@@ -31,7 +31,7 @@ composes them; Patterns says how they make a page. Mobile-first rules (touch, di
    you can do. The way out and the night's status sit under it, in
    `.session-bar`. See Page structure.
 
-## Tokens
+## Foundations
 
 | Group       | Tokens                                                                                     | Notes                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ composes them; Patterns says how they make a page. Mobile-first rules (touch, di
 | Interaction | `--tap-min`, `--pressed-opacity`, `--disabled-opacity`, `--focus-ring`                     |                                                                                       |
 | Layout      | `--page-max`, `--control-size`                                                             | The column every view shares. Icon-buttons and the pills beside them.                 |
 
-## Primitives
+## Components
 
 | Class                                      | Use for                                                                                           |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
