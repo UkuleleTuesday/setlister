@@ -301,9 +301,9 @@ describe("linkState and its wording", () => {
     expect(soon.open).toBe(false);
     expect(soon.soonMinutes).toBe(12);
     expect(soon.status.state).toBe("later");
-    expect(windowChipText(soon.status, now)).toMatch(/^Request link opens at /);
-    expect(linkStateText(soon.status, now)).toMatch(/^Opens at /);
-    expect(switchHelp(null, soon, now)).toMatch(/^On schedule, opens at /);
+    expect(windowChipText(soon.status, now)).toMatch(/^Request link opens at\s/);
+    expect(linkStateText(soon.status, now)).toMatch(/^Opens at\s/);
+    expect(switchHelp(null, soon, now)).toMatch(/^On schedule, opens at\s/);
     expect(roomNote(soon.open)).toMatch(/^View only:/);
     expect(openingSoonNote(12)).toBe(
       "Requests open in 12 minutes. Pop your tune on the whiteboard of wishes for now.",
@@ -343,12 +343,17 @@ describe("linkState and its wording", () => {
       [at(2026, 7, 1, 12), `${weekday} at ${time}`],
       [at(2026, 6, 20, 12), `${date} at ${time}`],
     ];
+    // The time travels with "at" in non-breaking spaces.
+    const plain = (text: string) => text.replace(/\u00a0/g, " ");
     for (const [now, when] of cases) {
       const link = linkState(auto, created, now);
-      expect(windowChipText(link.status, now)).toBe(`Request link opens ${when}`);
-      expect(linkStateText(link.status, now)).toBe(`Opens ${when}`);
-      expect(switchHelp(null, link, now)).toBe(`On schedule, opens ${when}`);
+      expect(plain(windowChipText(link.status, now))).toBe(`Request link opens ${when}`);
+      expect(plain(linkStateText(link.status, now))).toBe(`Opens ${when}`);
+      expect(plain(switchHelp(null, link, now))).toBe(`On schedule, opens ${when}`);
     }
+    expect(
+      windowChipText(linkState(auto, created, at(2026, 7, 1, 12)).status, at(2026, 7, 1, 12)),
+    ).toMatch(/at\u00a0\S+/);
     expect(
       scheduleLabel(linkState(auto, created, at(2026, 7, 1, 12)).window, at(2026, 7, 1, 12)),
     ).toMatch(new RegExp(`^${weekday}, `));

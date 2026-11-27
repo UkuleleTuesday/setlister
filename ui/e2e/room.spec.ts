@@ -107,7 +107,7 @@ test("days before the night, the room hears when requests open, not that they're
   await organiser.waitForURL(/[?&]session=/);
   const id = new URL(organiser.url()).searchParams.get("session")!;
   // A time alone would read as tonight (#241).
-  await expect(organiser.locator("#window-chip")).toHaveText(/^Request link opens \S+ at /);
+  await expect(organiser.locator("#window-chip")).toHaveText(/^Request link opens \S+ at\s/);
   const chip = (await organiser.locator("#window-chip").boundingBox())!;
   expect(chip.x + chip.width).toBeLessThanOrEqual(320 - 16);
 

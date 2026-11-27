@@ -185,7 +185,9 @@ function shortDay(at: Date, now: Date): string {
 /** "at 7:30 PM" today, "Mon at 7:30 PM" on another day. */
 function whenOpens(at: Date, now: Date): string {
   const day = shortDay(at, now);
-  return `${day ? `${day} ` : ""}at ${sessionTimeLabel(at)}`;
+  // Non-breaking, so a pill that wraps never splits "at 7:30 PM".
+  const time = `at ${sessionTimeLabel(at)}`.replace(/ /g, "\u00a0");
+  return `${day ? `${day} ` : ""}${time}`;
 }
 
 /** The help line under the request link switch: who set it, and when it next changes. */
