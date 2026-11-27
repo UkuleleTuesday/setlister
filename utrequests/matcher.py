@@ -33,8 +33,7 @@ def normalize(text: str) -> str:
     text = unidecode(text).casefold()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    if text.startswith("the "):
-        text = text[4:]
+    text = text.removeprefix("the ")
     return text
 
 
