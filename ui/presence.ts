@@ -167,7 +167,7 @@ function makeAnonName(): string {
   return `Anonymous ${pick(ANON_ADJECTIVES)} ${pick(ANON_ANIMALS)}`;
 }
 
-function getAnonName(): string {
+export function getAnonName(): string {
   try {
     let name = localStorage.getItem(ANON_NAME_KEY);
     if (!name) {

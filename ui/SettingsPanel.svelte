@@ -3,17 +3,29 @@
   import { night } from "./night.svelte.js";
   import { organiserStatus } from "./organiser-status.svelte.js";
   import { registerFromPaste } from "./organiser.svelte.js";
+  import { getAnonName } from "./presence.js";
 
   let {
     onName,
     onclose,
+    focusName = false,
   }: {
     /** Fires on every keystroke. */
     onName: (name: string) => void;
     onclose: () => void;
+    focusName?: boolean;
   } = $props();
 
   let panel: HTMLDivElement | undefined = $state();
+  let nameInput: HTMLInputElement | undefined = $state();
+
+  // What the room sees while the field is empty.
+  const anonName = getAnonName();
+  const named = $derived(Boolean(night.name.trim()));
+
+  $effect(() => {
+    if (focusName) nameInput?.focus();
+  });
 
   // The gear's tap stops propagation in App.svelte, so it toggles instead.
   function onDocumentClick(event: MouseEvent) {
@@ -45,26 +57,30 @@
   <section class="settings-group">
     <h3 class="eyebrow">You</h3>
     <label class="field">
-      <span>Your name</span>
+      <span>Name</span>
       <input
         type="text"
         id="player-name"
-        placeholder="e.g. Alex"
+        placeholder={anonName}
         autocomplete="name"
+        bind:this={nameInput}
         bind:value={() => night.name, onName}
       />
     </label>
-    <p class="setting-help">Shown on songs you add, in “Here now”, and on sessions you start.</p>
-  </section>
-  <details class="disclosure" id="organiser-setting">
-    <summary>Organisers<Icon name="chevron" extraClass="disclosure-chevron" /></summary>
+    <p id="player-name-help" class="setting-help">
+      {named
+        ? "Shown on songs you add, in “Here now” and on nights you start."
+        : `Until you add one, the room sees you as ${anonName}.`}
+    </p>
     {#if organiserStatus.isOrganiser}
-      <p id="organiser-status" class="note">
-        This device is on the organiser list{organiserStatus.name
-          ? `, as ${organiserStatus.name}`
-          : ""}.
+      <p id="organiser-status" class="callout organiser-status">
+        <Icon name="check" />Organiser on this device
       </p>
-    {:else}
+    {/if}
+  </section>
+  {#if !organiserStatus.isOrganiser}
+    <details class="disclosure" id="organiser-setting">
+      <summary>Organisers<Icon name="chevron" extraClass="disclosure-chevron" /></summary>
       <label class="field">
         <span>Paste your organiser link</span>
         <input
@@ -99,6 +115,6 @@
         Use this if Setlister lives on your home screen: links from the chat open in your browser
         instead.
       </p>
-    {/if}
-  </details>
+    </details>
+  {/if}
 </div>

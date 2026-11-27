@@ -1,7 +1,17 @@
 <script lang="ts">
+  import { night } from "./night.svelte.js";
   import type { RosterEntry } from "./presence.js";
 
-  let { roster }: { roster: RosterEntry[] } = $props();
+  let {
+    roster,
+    onAddName,
+  }: {
+    roster: RosterEntry[];
+    /** Offered on your own row while you're anonymous. */
+    onAddName: (event: MouseEvent) => void;
+  } = $props();
+
+  const named = $derived(Boolean(night.name.trim()));
 </script>
 
 <div id="share-presence" class="share-presence" hidden={roster.length === 0}>
@@ -14,6 +24,16 @@
         <span class="presence-dot" aria-hidden="true"></span><span class="presence-name">
           {peer.isSelf ? `${peer.name} (you)` : peer.name}
         </span>
+        {#if peer.isSelf && !named}
+          <button
+            type="button"
+            id="share-add-name"
+            class="share-add-name link-button"
+            onclick={onAddName}
+          >
+            Add your name
+          </button>
+        {/if}
       </li>
     {/each}
   </ul>

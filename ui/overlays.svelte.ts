@@ -7,7 +7,8 @@ class Overlays {
   share = $state(false);
   requestLink = $state(false);
   sessionDetails = $state(false);
-  settings = $state(false);
+  /** "name" opens it with the name field focused. */
+  settings = $state<boolean | "name">(false);
   newSession = $state(false);
   songbook = $state(false);
   /** The confirm sheet; entry null means a rename. */
