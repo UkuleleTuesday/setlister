@@ -1,21 +1,10 @@
 // An optimisation, never a gate: every failure returns the original file for
 // the server to resize, so a scan never fails because the shrink did.
 
-/** Matches the API's own default and the settings field's placeholder. */
+/** Matches the API's own default (`max_image_edge` in utrequests/config.py). */
 export const DEFAULT_MAX_EDGE = 1600;
 /** Matches `image.save(..., quality=85)` in utrequests/preprocess.py. */
 const JPEG_QUALITY = 0.85;
-/** The bounds the API clamps `max_image_edge` to (utrequests/api.py). */
-const MIN_EDGE = 256;
-const MAX_EDGE = 4096;
-
-// Clamped like the API, so client and server agree on the size.
-export function resolveMaxEdge(value: unknown): number {
-  const edge = Math.round(Number(value));
-  if (!Number.isFinite(edge) || edge <= 0) return DEFAULT_MAX_EDGE;
-  return Math.min(Math.max(edge, MIN_EDGE), MAX_EDGE);
-}
-
 export function targetSize(
   width: number,
   height: number,

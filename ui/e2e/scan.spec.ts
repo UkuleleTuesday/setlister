@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
+import { features } from "../features.js";
 import { expect, storedRowCount, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
@@ -136,6 +137,43 @@ test("review: remove and restore, correct a song, check the photo", async ({
   const requests = page.locator("#requests-rows").getByRole("listitem");
   await expect(requests.filter({ hasText: "Lean on Me" })).toBeVisible();
   await expect(requests.filter({ hasText: "Jolene" })).toBeVisible();
+});
+
+test("review offers runner-up songs only where the reader wasn't sure", async ({
+  phone,
+  parseRows,
+}) => {
+  test.skip(!features.reviewSuggestions, "features.reviewSuggestions is off");
+  const page = await phone();
+  await startSession(page);
+  const runnerUp = (title: string) => ({ entry: bySong(title), title_score: 60, page_delta: 0 });
+  parseRows.current = [
+    // Clean: straight to Requests, never offered alternatives.
+    { ...parsed("Here Comes the Sun", "confirmed"), alternatives: [runnerUp("Lean on Me")] },
+    {
+      ...parsed("Hallelujah", "conflict"),
+      alternatives: [runnerUp("Jolene"), runnerUp("Let It Be")],
+    },
+    parsed("Lean on Me", "needs_review"),
+  ];
+  await snap(page);
+
+  const rows = page.locator("#review-rows > li");
+  await expect(rows).toHaveCount(2);
+  const conflict = rows.filter({ hasText: "Hallelujah" });
+  await expect(conflict.locator(".chips button")).toHaveCount(2);
+  await expect(rows.filter({ hasText: "Lean on Me" }).locator(".chips")).toHaveCount(0);
+
+  await conflict.getByRole("button", { name: "Change to Jolene - Dolly Parton, page 6" }).tap();
+  const corrected = rows.nth(0);
+  await expect(corrected.locator(".match-title")).toHaveText("Jolene - Dolly Parton");
+  await expect(corrected.locator(".explanation")).toHaveText(/^Manually selected/);
+  await expect(corrected.locator(".chips")).toHaveCount(0);
+
+  await expect.poll(() => storedRowCount(new URL(page.url()).searchParams.get("session")!)).toBe(1);
+  await page.locator("#review-confirm").tap();
+  await expect(page.locator("#requests-rows > li")).toHaveCount(3);
+  await expect(page.locator("#requests-rows .chips")).toHaveCount(0);
 });
 
 test("a flagged copy of a listed song arrives removed, and cancel asks first", async ({
