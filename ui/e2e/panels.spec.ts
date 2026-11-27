@@ -1,24 +1,30 @@
 import type { Page } from "@playwright/test";
+import { features } from "../features.js";
 import { expect, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
 
 // Empty page below both popovers, which end around y=705 at this viewport.
 const tapOutside = (page: Page) => page.touchscreen.tap(195, 800);
 
-test("the share panel names the night and unlists it, leaving the link working", async ({
-  phone,
-}) => {
+test("the share panel names the night", async ({ phone }) => {
   const page = await phone();
   const id = await startSession(page);
 
   await page.locator("#share-toggle").tap();
-  const panel = page.locator("#share-panel");
-  await expect(panel).toBeVisible();
+  await expect(page.locator("#share-panel")).toBeVisible();
   await expect(page.locator("#share-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#share-session-name")).toHaveText(/Tonight|Today/);
   await expect(page.locator("#share-session-id")).toHaveText(id);
-  await expect(page.locator("#share-visibility")).toHaveValue("shared");
+  if (!features.unlistedSessions) await expect(page.locator("#share-visibility")).toHaveCount(0);
+});
 
+test("Visibility unlists a night, leaving the link working", async ({ phone }) => {
+  test.skip(!features.unlistedSessions, "features.unlistedSessions is off");
+  const page = await phone();
+  const id = await startSession(page);
+
+  await page.locator("#share-toggle").tap();
+  await expect(page.locator("#share-visibility")).toHaveValue("shared");
   await page.locator("#share-visibility").selectOption("unlisted");
   await expect(page.locator("#share-visibility")).toBeEnabled();
   await page.locator("#share-toggle").tap();

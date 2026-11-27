@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { features } from "../features.js";
 import { expect, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
 
@@ -19,9 +20,7 @@ async function startPastNight(page: Page, date: string) {
   await expect(page.locator("#home")).toBeVisible();
 }
 
-test("tonight leads, and blocks a second shared night but not an unlisted one", async ({
-  phone,
-}) => {
+test("tonight leads, and blocks a second night", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
   await page.locator("#back-home").tap();
@@ -35,9 +34,14 @@ test("tonight leads, and blocks a second shared night but not an unlisted one", 
   const start = page.locator("#new-session-start");
   await expect(page.locator("#new-session-notice")).toContainText("already planned");
   await expect(start).toBeDisabled();
-  await page.locator("#new-session-visibility").selectOption("unlisted");
-  await expect(page.locator("#new-session-notice")).toBeHidden();
-  await expect(start).toBeEnabled();
+  if (features.unlistedSessions) {
+    await page.locator("#new-session-visibility").selectOption("unlisted");
+    await expect(page.locator("#new-session-notice")).toBeHidden();
+    await expect(start).toBeEnabled();
+  } else {
+    await expect(page.locator("#new-session-notice")).toHaveText(/home screen\.$/);
+    await expect(page.locator("#new-session-visibility")).toHaveCount(0);
+  }
 
   await page.locator("#new-session-cancel").tap();
   await expect(page.locator("#new-session-sheet")).toBeHidden();

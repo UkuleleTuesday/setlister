@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Presence from "./Presence.svelte";
+  import { features } from "./features.js";
   import { fromDateTimeInputValue, requestNote, toDateTimeInputValue } from "./request-window.js";
   import { session } from "./session.svelte.js";
   import type { RequestsSwitch, SessionMeta } from "./types.js";
@@ -141,20 +142,22 @@
   <p class="note">
     Anyone with the link can follow the night and add requests. Only organisers can run it.
   </p>
-  <!-- Not a privacy control: the link works either way (see firestore.rules). -->
-  <label class="field">
-    <span>Visibility</span>
-    <select
-      id="share-visibility"
-      value={visibility}
-      disabled={visibilityBusy}
-      onchange={(event) => changeVisibility(event.currentTarget.value as "shared" | "unlisted")}
-    >
-      <option value="shared">Shared</option>
-      <option value="unlisted">Unlisted</option>
-    </select>
-  </label>
-  <p class="note">Anyone with the link can open it either way.</p>
+  {#if features.unlistedSessions}
+    <!-- Not a privacy control: the link works either way (see firestore.rules). -->
+    <label class="field">
+      <span>Visibility</span>
+      <select
+        id="share-visibility"
+        value={visibility}
+        disabled={visibilityBusy}
+        onchange={(event) => changeVisibility(event.currentTarget.value as "shared" | "unlisted")}
+      >
+        <option value="shared">Shared</option>
+        <option value="unlisted">Unlisted</option>
+      </select>
+    </label>
+    <p class="note">Anyone with the link can open it either way.</p>
+  {/if}
   <!-- Named for the link: "Requests: Closed" would read as the club no longer
        taking requests while the whiteboard carries on. -->
   <label class="field" bind:this={requestsField}>

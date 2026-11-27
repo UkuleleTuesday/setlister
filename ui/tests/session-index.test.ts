@@ -270,10 +270,13 @@ describe("plannedSessionMessage", () => {
     );
   });
 
-  it("always offers the Unlisted escape hatch", () => {
+  it("offers the Unlisted escape hatch only while the feature is on", () => {
     for (const createdAt of [at(2026, 7, 4, 20), at(2026, 7, 11), null]) {
-      expect(plannedSessionMessage({ createdAt }, NOW)).toMatch(
+      expect(plannedSessionMessage({ createdAt }, NOW, true)).toMatch(
         /set Visibility to Unlisted to start a private session\.$/,
+      );
+      expect(plannedSessionMessage({ createdAt }, NOW, false)).toMatch(
+        /Open it from the home screen\.$/,
       );
     }
   });
