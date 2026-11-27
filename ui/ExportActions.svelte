@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
+  import { features } from "./features.js";
   import { lists } from "./lists.svelte.js";
 
   let { onCopy, onDownload }: { onCopy: () => Promise<void>; onDownload: () => void } = $props();
@@ -16,25 +17,27 @@
   }
 </script>
 
-<div class="setlist-actions">
-  <button
-    id="copy"
-    type="button"
-    title="Copy list"
-    aria-label="Copy the setlist to the clipboard"
-    disabled={lists.exportEmpty}
-    onclick={copy}
-  >
-    <Icon name={copied ? "check" : "copy"} />
-  </button>
-  <button
-    id="download"
-    type="button"
-    title="Download JSON"
-    aria-label="Download the setlist as JSON"
-    disabled={lists.exportEmpty}
-    onclick={onDownload}
-  >
-    <Icon name="download" />
-  </button>
-</div>
+{#if features.exportButtons}
+  <div class="setlist-actions">
+    <button
+      id="copy"
+      type="button"
+      title="Copy list"
+      aria-label="Copy the setlist to the clipboard"
+      disabled={lists.exportEmpty}
+      onclick={copy}
+    >
+      <Icon name={copied ? "check" : "copy"} />
+    </button>
+    <button
+      id="download"
+      type="button"
+      title="Download JSON"
+      aria-label="Download the setlist as JSON"
+      disabled={lists.exportEmpty}
+      onclick={onDownload}
+    >
+      <Icon name="download" />
+    </button>
+  </div>
+{/if}
