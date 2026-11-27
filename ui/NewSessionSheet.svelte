@@ -54,6 +54,9 @@
   let planned: SessionEntry | null = $derived(
     partitionSessions(history.entries).upcoming[0] ?? null,
   );
+  const changed = $derived(
+    date !== dateDefault || editionId !== "current" || visibility !== "shared",
+  );
   let busy = $state(false);
   let error = $state("");
 
@@ -107,7 +110,7 @@
 </script>
 
 <!-- No autofocus: today is usually right, so the date picker stays shut. -->
-<Sheet id="new-session-sheet" labelledby="new-session-title" {onclose}>
+<Sheet id="new-session-sheet" labelledby="new-session-title" {onclose} holdsInput={changed}>
   <h2 id="new-session-title">New session</h2>
   <label class="field">
     <span>Date</span>
@@ -155,5 +158,4 @@
     </button>
     <button id="new-session-cancel" class="btn btn-soft" onclick={onclose}>Cancel</button>
   </div>
-  <p class="sheet-hint">Tap outside to close</p>
 </Sheet>

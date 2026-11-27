@@ -114,5 +114,4 @@
       Close
     </button>
   </div>
-  <p class="sheet-hint">Tap outside to close</p>
 </Sheet>
