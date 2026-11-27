@@ -242,7 +242,7 @@
           onDownload={downloadSetlist}
         />
       {:else}
-        <p id="past-edit-note" class="past-edit-note" hidden={!session.past}>
+        <p id="past-edit-note" class="past-edit-note callout" hidden={!session.past}>
           Editing a past night. Changes reach everyone who opens it.
         </p>
 
@@ -311,7 +311,7 @@
     <section id="home">
       <button
         id="whats-new-banner"
-        class="whats-new-banner"
+        class="whats-new-banner callout"
         type="button"
         hidden={!latest || bannerSeen}
         onclick={() => latest && openWhatsNew([latest])}

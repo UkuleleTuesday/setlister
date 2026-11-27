@@ -8,6 +8,7 @@
   --accent: #4a148c;
   --accent-bright: #5e1ca9;
   --accent-soft: #ede7f6;
+  --accent-fill: linear-gradient(160deg, var(--accent-bright), var(--accent) 70%);
   --on-accent: #fff;
 
   /* Surfaces */
@@ -154,7 +155,7 @@ button:not(:disabled):active {
 }
 .btn-primary {
   color: var(--on-accent);
-  background: linear-gradient(160deg, var(--accent-bright), var(--accent) 70%);
+  background: var(--accent-fill);
 }
 .btn-soft {
   color: var(--accent);
@@ -246,6 +247,90 @@ button:not(:disabled):active {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-popover);
+}
+
+/* Tinted note: a confirmation, a status, the edit-mode notice. Margin and
+   alignment are per use. */
+.callout {
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+
+/* Rows in one card, split by hairlines: for lists you open things from. Lists
+   you act on (swipe, vote, reorder) use row cards. */
+.inset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.inset-list > li + li {
+  border-top: 1px solid var(--divider);
+}
+
+/* A calendar leaf: scanned by day number, so the number leads. */
+.date-tile {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.date-tile-weekday {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.date-tile-day {
+  margin-top: 0.15rem;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.date-tile-lg {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.date-tile-lg .date-tile-day {
+  color: var(--on-accent);
+  font-size: var(--text-2xl);
+}
+
+/* The number is decoration: the <ol> already tells assistive tech. */
+.numbered {
+  counter-reset: setlist;
+}
+.numbered > .row-card {
+  counter-increment: setlist;
+}
+.numbered > .row-card .row-body::before {
+  content: counter(setlist);
+  content: counter(setlist) / "";
+  flex: none;
+  min-width: 1.3rem;
+  text-align: right;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 svg.icon {
@@ -745,19 +830,6 @@ footer#edition-note:empty {
   margin: var(--space-2) 0 var(--space-4);
   font-size: var(--text-lg);
 }
-.session-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.session-list > li + li {
-  border-top: 1px solid var(--divider);
-}
 #upcoming-list {
   margin-top: var(--space-3);
 }
@@ -805,33 +877,6 @@ footer#edition-note:empty {
   color: var(--muted);
 }
 
-/* A calendar leaf: scanned by day number, so the number leads. */
-.date-tile {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 2.8rem;
-  height: 2.8rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
-  line-height: 1;
-}
-.date-tile-weekday {
-  font-size: var(--text-micro);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-.date-tile-day {
-  margin-top: 0.15rem;
-  color: var(--text);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  font-variant-numeric: tabular-nums;
-}
 .session-item.upcoming .date-tile {
   background: var(--accent-soft);
   color: var(--accent);
@@ -839,18 +884,6 @@ footer#edition-note:empty {
 .session-item.upcoming .date-tile-day {
   color: var(--accent);
 }
-.date-tile-lg {
-  width: 3.6rem;
-  height: 3.6rem;
-  border-radius: var(--radius-md);
-  background: linear-gradient(160deg, var(--accent-bright), var(--accent) 70%);
-  color: var(--on-accent);
-}
-.date-tile-lg .date-tile-day {
-  color: var(--on-accent);
-  font-size: var(--text-2xl);
-}
-
 .next-session-card {
   min-height: 56px;
   margin: var(--space-2) 0 0;
@@ -882,16 +915,10 @@ h2#past-heading {
   justify-content: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap-min);
   margin: 0 0 var(--space-5);
-  padding: var(--space-3) var(--space-4);
   border: none;
-  border-radius: var(--radius-md);
   cursor: pointer;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font: inherit;
-  font-size: var(--text-md);
 }
 .whats-new-banner .icon {
   width: 1.1rem;
@@ -1015,12 +1042,7 @@ h2#past-heading {
 }
 .flash-note {
   margin: var(--space-4) 0 0;
-  padding: var(--space-3) var(--space-4);
   text-align: center;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius-md);
-  font-size: var(--text-md);
 }
 #add-feedback {
   margin: 0 0 var(--space-4);
@@ -1246,31 +1268,7 @@ body.room-mode #edition-note {
 }
 .past-edit-note {
   margin: var(--space-2) 0 0;
-  padding: var(--space-3) var(--space-4);
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius-md);
-  font-size: var(--text-md);
 }
-/* The number is decoration: the <ol> already tells assistive tech. */
-.numbered {
-  counter-reset: setlist;
-}
-.numbered > .row-card {
-  counter-increment: setlist;
-}
-.numbered > .row-card .row-body::before {
-  content: counter(setlist);
-  content: counter(setlist) / "";
-  flex: none;
-  min-width: 1.3rem;
-  text-align: right;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  font-variant-numeric: tabular-nums;
-}
-
 .room-request-song {
   margin: 0 0 var(--space-5);
   font-size: var(--text-lg);
@@ -1836,11 +1834,6 @@ body.room-mode #edition-note {
 }
 .songbook-status {
   margin: 0 0 var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius-md);
-  font-size: var(--text-md);
 }
 .songbook-list {
   flex: 1 1 auto;

@@ -94,7 +94,7 @@
   {#each groups as group, i (i)}
     <section class="month-group">
       {#if group.label}<h3 class="month-label eyebrow">{group.label}</h3>{/if}
-      <ul class="session-list">
+      <ul class="inset-list">
         {#each group.entries as entry (entry.id)}
           {@render item(
             entry,
@@ -138,7 +138,7 @@
     </button>
   {/if}
 </div>
-<ul id="upcoming-list" class="session-list" hidden={layout.upcoming.length < 2}>
+<ul id="upcoming-list" class="inset-list" hidden={layout.upcoming.length < 2}>
   {#each layout.upcoming.slice(1) as entry (entry.id)}
     {@render item(entry, entry.label || "Date pending", "upcoming")}
   {/each}
