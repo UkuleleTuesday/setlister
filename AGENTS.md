@@ -52,6 +52,11 @@ where a field written at session creation breaks "New session". Run
   does, and pin behaviour with explicit tests. Comment only the why: reasons,
   hazards, non-obvious mechanisms.
 
+## Pull requests
+
+- **Descriptions are short:** what changed, why, and anything a reviewer must
+  act on. No test counts, file lists or restating the diff.
+
 ## Before you push
 
 - Check what tests CI is running, and make a best effort to run the part of the test suite
