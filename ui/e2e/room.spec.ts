@@ -72,3 +72,20 @@ test("a tune already asked for gets a thumbs up instead of a copy", async ({ pho
   await expect(room.locator("#add-feedback")).toHaveText("Your thumbs up is on “Jolene”.");
   await expect(room.locator("#requests-rows").getByRole("listitem")).toHaveCount(1);
 });
+
+test("the room can leave for the session list and come back", async ({ phone }) => {
+  const organiser = await phone();
+  const id = await startSession(organiser);
+
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
+  await expect(room.locator("body")).toHaveClass(/room-mode/);
+  await expect(room.locator("#window-chip")).toBeHidden();
+
+  await room.locator("#back-home").tap();
+  await expect(room).toHaveURL(/\/$/);
+  await expect(room.locator("#new-session")).toHaveCount(0);
+  await room.locator(`#home [data-id="${id}"]`).tap();
+  await expect(room).toHaveURL(new RegExp(`\\?session=${id}$`));
+  await expect(room.locator("#room-window")).toBeVisible();
+});

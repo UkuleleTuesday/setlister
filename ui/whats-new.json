@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-27",
+    "items": [
+      "The request view has an All sessions button again, so you can hop back to the list of nights."
+    ]
+  },
+  {
     "date": "2026-11-26",
     "items": [
       "One link for everyone: the share link now opens the request view, and running the night (starting a session, the running order, the request link) needs the organiser link from the organisers' chat.",
