@@ -65,6 +65,6 @@ where a field written at session creation breaks "New session". Run
 - Check what tests CI is running, and make a best effort to run the part of the test suite
   that your change likely affects
 - Python changes: `ruff check` / `ruff format` and the offline test suite.
-- UI changes: `npm run test:emulator` in `ui/`, then exercise the flow in a
-  mobile-sized browser with no console errors. If user-facing, confirm
-  "What's New" has an entry.
+- UI changes: `npm run lint` and `npm run format:check` in `ui/`, then
+  `npm run test:emulator` and exercise the flow in a mobile-sized browser with
+  no console errors. If user-facing, confirm "What's New" has an entry.
