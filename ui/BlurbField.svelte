@@ -34,7 +34,7 @@
     {id}
     rows="3"
     maxlength={BLURB_MAX}
-    placeholder="A theme, a room change, a guest"
+    placeholder={disabled ? "" : "A theme, a room change, a guest"}
     enterkeyhint="done"
     aria-describedby="{id}-help"
     {disabled}

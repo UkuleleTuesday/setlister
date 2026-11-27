@@ -732,6 +732,9 @@ footer#edition-note:empty {
   border-radius: var(--radius-sm);
   background: var(--card);
 }
+.field textarea:disabled {
+  color: var(--muted);
+}
 .field textarea {
   display: block;
   resize: vertical;

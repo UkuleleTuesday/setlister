@@ -11,6 +11,9 @@ function yesterday(): string {
 
 async function startPastNight(page: Page): Promise<string> {
   await page.goto("/");
+  // The no-night callout lands above the button when the list loads; a tap
+  // before then can miss it.
+  await expect(page.locator("#session-list-status")).toBeHidden();
   await page.locator("#new-session").tap();
   await page.locator("#new-session-date").fill(yesterday());
   await page.locator("#new-session-start").tap();
@@ -28,13 +31,15 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
 
   // Read-only by default: no adding, no running-order tools.
   await expect(page.locator("#recap")).toBeVisible();
+  await expect(page.locator("#night-note")).toHaveCount(0);
   await expect(page.locator("#recap-empty")).toContainText("Tap Edit");
   await expect(page.locator("#window-chip")).toHaveCount(0);
   await expect(page.locator(".songbook-trigger:visible")).toHaveCount(0);
 
-  // Its songbook is part of the record: locked until Edit.
+  // Its songbook and note are part of the record: locked until Edit.
   await page.locator("#session-title").tap();
   await expect(page.locator("#session-details-sheet #edition")).toBeDisabled();
+  await expect(page.locator("#session-blurb")).toBeDisabled();
   await expect(page.locator("#session-details-request-link")).toHaveCount(0);
   await page.locator("#session-details-close").tap();
 
@@ -43,6 +48,12 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
   await edit.tap();
   await expect(page.locator("#past-edit-note")).toBeVisible();
   await expect(edit).toHaveText("Done");
+
+  await page.locator("#session-title").tap();
+  await page.locator("#session-blurb").fill("Christmas night at the Wild Duck.");
+  await page.locator("#session-blurb").press("Enter");
+  await page.locator("#session-details-close").tap();
+  await expect(page.locator("#night-note")).toContainText("Christmas night at the Wild Duck.");
 
   await addByName(page, "Jolene", { name: "Alex" });
   await addByName(page, "Hallelujah");
@@ -95,6 +106,7 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
   const room = await phone({ room: true });
   await room.goto(`/?session=${id}`);
   await expect(room.locator("#recap")).toBeVisible();
+  await expect(room.locator("#night-note")).toContainText("Christmas night at the Wild Duck.");
   await expect
     .poll(() => titles(room, "#recap-rows"))
     .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
