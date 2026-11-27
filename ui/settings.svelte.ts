@@ -1,6 +1,4 @@
-// This device's settings: two display toggles and the scan parser's knobs.
-// The settings panel edits them in place; save.ts saves them with the night
-// (persist()) and restores them on load.
+// save.ts persists these with the night.
 
 export interface Settings {
   model: string;
@@ -20,7 +18,6 @@ export const settings = $state<Settings>({
   maxImageEdge: "",
 });
 
-/** Restore saved settings; anything of the wrong type is ignored. */
 export function applySettings(saved: unknown) {
   if (!saved || typeof saved !== "object") return;
   const s = saved as Record<string, unknown>;

@@ -1,14 +1,5 @@
-// Executable coverage for firestore.rules.
-//
-// These rules ARE the app's access-control layer — the browser writes Firestore
-// directly, there is no backend to fall back on — so this is the one file in
-// the repo where a silent regression is a security bug rather than a broken
-// screen. Run it against the emulator:
-//
-//   npm run test:emulator          (from ui/)
-//
-// A bare `npm test` will fail these with a connection error, which is the
-// intended outcome: skipping the security suite must never look like passing.
+// Needs the emulator (`npm run test:emulator`). A bare `npm test` fails these
+// on purpose: skipping the security suite must never look like passing.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -39,11 +30,9 @@ const RULES = fileURLToPath(new URL("../../firestore.rules", import.meta.url));
 let testEnv: RulesTestEnvironment;
 let db: Firestore;
 
-// The test contexts are typed as the compat SDK, but the modular functions
-// used throughout accept them at runtime (the library's own recommended use).
+// Contexts are typed as the compat SDK; the modular functions accept them at runtime.
 const modular = (compat: unknown) => compat as Firestore;
 
-// Test docs are deliberately loose: many cases ARE the malformed shapes.
 type Doc = Record<string, unknown>;
 
 const NOW = Timestamp.fromMillis(1_770_000_000_000); // fixed, well in the past
@@ -51,8 +40,6 @@ const NOW = Timestamp.fromMillis(1_770_000_000_000); // fixed, well in the past
 const ORGANISER = "org";
 const CURRENT_KEY = "0123456789abcdef0123456789abcdef";
 
-// A minimal valid session doc. Spread and override to build the failing cases,
-// so each test states only what it is actually testing.
 function session(overrides: Doc = {}): Doc {
   return {
     v: 1,
@@ -60,8 +47,6 @@ function session(overrides: Doc = {}): Doc {
     upNextOrder: [],
     requestsOrder: [],
     edition: null,
-    // Legacy field: current clients never write a name, but docs carrying one
-    // must keep validating (see isValidSession).
     name: "Tuesday 4 August 2026",
     createdBy: "Alex",
     listed: true,
@@ -82,7 +67,6 @@ beforeAll(async () => {
     projectId: "demo-setlister",
     firestore: { rules: readFileSync(RULES, "utf8"), host: "127.0.0.1", port: 8081 },
   });
-  // An organiser's phone (#150): the row seeded below makes it one.
   db = modular(testEnv.authenticatedContext(ORGANISER).firestore());
 });
 
@@ -102,7 +86,6 @@ beforeEach(async () => {
   });
 });
 
-// Bypasses rules — for seeding the "already exists" state an update test needs.
 function seed(fn: (adminDb: Firestore) => Promise<unknown>) {
   return testEnv.withSecurityRulesDisabled(async (ctx) => {
     await fn(modular(ctx.firestore()));
@@ -115,8 +98,7 @@ describe("sessions/{id}", () => {
   });
 
   it("still accepts a legacy doc carrying expiresAt", async () => {
-    // A browser running a cached pre-#77 bundle keeps writing this field. CI
-    // deploys rules and UI in parallel, so both shapes must validate at once.
+    // Cached pre-#77 bundles still write it, and CI deploys rules and UI in parallel.
     await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), session({ expiresAt: NOW })));
   });
 
@@ -202,10 +184,7 @@ describe("sessions/{id}", () => {
     await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ votes: 3 })));
   });
 
-  // The whole reason votes live in their own top-level map instead of on the
-  // row: nested field paths merge per key, so the room all voting at once
-  // converges instead of last-writer-wins. Both path segments are UUIDs with
-  // hyphens, which is the part worth proving rather than assuming.
+  // Real UUIDs: hyphens in both path segments are the part worth proving.
   it("merges concurrent votes written as nested field paths", async () => {
     const ref = doc(db, "sessions", "misty-banjo");
     const row = "c028d0b7-0206-48a6-bd90-e9cf7cd8afc6";
@@ -219,19 +198,15 @@ describe("sessions/{id}", () => {
     await assertSucceeds(updateDoc(ref, { [`votes.${row}.${b}`]: true }));
     expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [a]: true, [b]: true });
 
-    // Un-voting takes out one leaf and leaves the other standing.
     await assertSucceeds(updateDoc(ref, { [`votes.${row}.${a}`]: deleteField() }));
     expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [b]: true });
 
-    // And a whole-row write can't take votes with it.
     await assertSucceeds(updateDoc(ref, { [`rows.${row}`]: { uid: row } }));
     expect((await getDoc(ref)).data()!.votes[row]).toEqual({ [b]: true });
   });
 
-  // Row contents are an unvalidated map, so gig-state.ts's timestamps need no
-  // hasOnly entry — pinned here so a future row-schema rule can't quietly
-  // break "mark played" for a bundle that already writes them.
-  it("accepts a row carrying played/binned times", async () => {
+  // Pinned so a future row-schema rule can't break "mark played" for deployed bundles.
+  it("accepts a row carrying gig-state.ts's played/binned times", async () => {
     const ref = doc(db, "sessions", "misty-banjo");
     await setDoc(ref, session());
     await assertSucceeds(
@@ -249,7 +224,7 @@ describe("sessions/{id}", () => {
     }
   });
 
-  it("never allows a delete — history is kept forever", async () => {
+  it("never allows a delete: history is kept forever", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessions", "misty-banjo"), session()));
     await assertFails(deleteDoc(doc(db, "sessions", "misty-banjo")));
   });
@@ -265,7 +240,7 @@ describe("sessionIndex/{id}", () => {
     await assertSucceeds(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry()));
   });
 
-  it("is listable — this is what the home screen does", async () => {
+  it("is listable, as the home screen does", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     const snap = await assertSucceeds(getDocs(collection(db, "sessionIndex")));
     expect(snap.size).toBe(1);
@@ -281,17 +256,15 @@ describe("sessionIndex/{id}", () => {
     await assertFails(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ rows: {} })));
   });
 
-  it("rejects a name — rows have no names any more, the date is the identity", async () => {
+  it("rejects a name: the date is the identity", async () => {
     await assertFails(
       setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry({ name: "Open mic night" })),
     );
   });
 
   it("accepts a future createdAt inside the planning window", async () => {
-    // A session can be created ahead of its night (prepping next Tuesday's
-    // set); these are real wall-clock offsets, since request.time is the
-    // emulator's own clock. One id per case — a second write to the same id
-    // would be an update, where createdAt is immutable.
+    // Wall-clock offsets: request.time is the emulator's clock. One id per case,
+    // since a second write would be an update, where createdAt is immutable.
     for (const [days, id] of [
       [7, "misty-banjo"],
       [59, "sunny-kazoo"],
@@ -305,7 +278,7 @@ describe("sessionIndex/{id}", () => {
     }
   });
 
-  it("rejects a createdAt more than 60 days out — no pinning yourself to the top for good", async () => {
+  it("rejects a createdAt more than 60 days out", async () => {
     await assertFails(
       setDoc(
         doc(db, "sessionIndex", "misty-banjo"),
@@ -314,10 +287,8 @@ describe("sessionIndex/{id}", () => {
     );
   });
 
-  it("allows a same-provenance rewrite, but not rewriting provenance", async () => {
+  it("allows a same-provenance rewrite (re-listing), but not rewriting provenance", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
-    // Re-listing set()s over any row a racing client already wrote — that full
-    // overwrite with unchanged provenance must stay legal.
     await assertSucceeds(setDoc(doc(db, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertFails(
       updateDoc(doc(db, "sessionIndex", "misty-banjo"), { createdBy: "Someone else" }),
@@ -327,15 +298,13 @@ describe("sessionIndex/{id}", () => {
     );
   });
 
-  it("allows a delete — this is how a session gets un-listed", async () => {
+  it("allows a delete, which un-lists the session", async () => {
     await seed((adminDb) => setDoc(doc(adminDb, "sessionIndex", "misty-banjo"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "misty-banjo")));
   });
 });
 
-// Who may write a session (#152). The room (unauthenticated, signed in without
-// a row, or holding a retired key) may only add one request and toggle votes,
-// in the shapes sync.ts writes them; organisers may do anything valid.
+// "The room": unauthenticated, signed in without a row, or holding a retired key.
 describe("session writes: organisers and the room", () => {
   const ID = "misty-banjo";
   const OLD_KEY = "ffffffffffffffffffffffffffffffff";
@@ -355,7 +324,7 @@ describe("session writes: organisers and the room", () => {
     binned: false,
   });
 
-  // What adds.ts builds for a room request.
+  // Mirrors adds.ts.
   const roomRow = (uid: string, overrides: Doc = {}): Doc => ({
     uid,
     source: "room",
@@ -511,7 +480,6 @@ describe("session writes: organisers and the room", () => {
   });
 });
 
-// Organiser registration (#151): writing the key into your own row proves you hold it.
 describe("organisers/{uid}", () => {
   const KEY = "0123456789abcdef0123456789abcdef";
   const OLD_KEY = "ffffffffffffffffffffffffffffffff";

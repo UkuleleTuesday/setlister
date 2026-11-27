@@ -1,48 +1,12 @@
-// Realtime sync for shared sessions (epic #25).
+// Conflict model: last-write-wins per row and per order array, per-leaf merge
+// for votes (see diff). Only organisers push the debounced diff; the room
+// writes nothing but the two updates firestore.rules allows (see Room writes).
 //
-// Mirrors the night's synced state (the two lists, edition and votes) to one
-// Firestore document at `sessions/{id}` and applies remote changes back live.
-// UI-free: live.ts, routing.ts and the actions drive it through the exports.
+// firestore.rules checks the doc with hasOnly: a new field needs its rules
+// entry in the same change. Metadata (createdBy, listed, requests*) stays out
+// of serialize()/diff() so the debounced row push never touches it.
 //
-// It is also the parse boundary for the session doc: Firestore data enters as
-// `unknown` through parseSyncFields() / readMeta() / readCreatedAt(), and
-// leaves as the shapes in types.ts. Only diff()'s base reads raw doc fields
-// (see rawSyncFields).
-//
-// firestore.rules (#26) validates the doc's schema: adding a field here means
-// adding it to the rules' hasOnly list in the same change:
-//   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
-//     edition, votes: {uid: {clientId: true}}, createdBy, listed, requestsOpen,
-//     requestsOpensAt, requestsClosesAt, createdAt, updatedAt }
-//
-// `createdBy` / `listed` / `requestsOpen` / `requestsOpensAt` /
-// `requestsClosesAt` are session METADATA (#77, #86, #127), not list state:
-// they're deliberately outside serialize()/parseSyncFields()/diff() so the
-// debounced row push never touches them, and their own small helpers write
-// them. A listed session also has a `sessionIndex/{id}` row (see
-// session-index.ts) written in the same transaction that mints the session.
-// Sessions have no names: their identity is `createdAt`, rendered live (legacy
-// docs may carry a `name` field, which is tolerated and ignored).
-//
-// Sessions have no expiry. Docs created before #77 may carry an
-// `expiresAt` TTL field, stripped on their next push (see flushPush).
-//
-// Firebase loads lazily through firebase.ts (#27): importing this module
-// doesn't pull the Firestore SDK; the first getFirestore() call does. ids
-// come from session-id.ts (#28).
-//
-// Conflict model (accepted per the epic): per-row last-write-wins for row
-// content, whole-array last-write-wins for the two order arrays, per-leaf
-// merge for votes (see diff).
-//
-// Only organiser phones push the debounced diff. The room writes nothing but
-// the two narrow updates firestore.rules allows it (addRoomRequest,
-// setRoomVote) and takes everything else from snapshots.
-//
-// Firestore's default in-memory cache, not persistentLocalCache: writes made
-// while briefly offline queue in memory and flush on reconnect, enough for a
-// live-in-the-room session. persistentLocalCache (surviving a reload while
-// offline) is a possible follow-up.
+// Default in-memory cache: offline writes flush on reconnect, not after a reload.
 
 import type { Firestore, Unsubscribe } from "firebase/firestore";
 import { parseEdition } from "./editions.js";
@@ -60,7 +24,6 @@ import type {
   Votes,
 } from "./types.js";
 
-/** What the app hands over to push: votes and edition may be missing. */
 export type LocalState = Pick<ListState, "upNext" | "requests"> &
   Partial<Pick<ListState, "edition" | "votes">>;
 
