@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getAnonName } from "./presence.js";
   import Sheet from "./Sheet.svelte";
   import {
     closeOrganiserSheet,
@@ -39,7 +40,7 @@
         autocapitalize="words"
         enterkeyhint="go"
         maxlength="60"
-        placeholder="e.g. Alex"
+        placeholder={getAnonName()}
         bind:value={name}
         onkeydown={(event) => {
           if (event.key === "Enter") submit();

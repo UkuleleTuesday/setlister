@@ -7,12 +7,14 @@
   let {
     onShareLink,
     onRequestLink,
+    onAddName,
     onclose,
     openers,
   }: {
     /** True when the link was copied rather than shared. */
     onShareLink: () => Promise<boolean>;
     onRequestLink: () => void;
+    onAddName: (event: MouseEvent) => void;
     onclose: () => void;
     /** Taps on these don't count as outside. */
     openers: () => Element[];
@@ -73,5 +75,5 @@
       </button>
     </div>
   {/if}
-  <Presence roster={session.id ? session.roster : []} />
+  <Presence roster={session.id ? session.roster : []} {onAddName} />
 </div>
