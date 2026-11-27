@@ -28,9 +28,11 @@ mobile-first: phone and touch come first, desktop is a bonus.
    rely on colour alone: pair it with an icon, a dot or text.
 7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
    somewhere or open something; arrows only move a row (`earlier`, `later`).
-8. **Forgiving dismissal.** Sheets and popovers close on a tap anywhere outside
-   them, not just a thin backdrop margin; hint when that isn't discoverable.
-   Every sheet also has a visible close button. Escape is a desktop bonus.
+8. **A visible way out, no instructions.** Every sheet has a Close or Cancel
+   button. Tapping outside also closes sheets and popovers: it's a shortcut
+   people already know, so don't label it. Hint only when nothing on screen
+   shows the way out, as in the photo lightbox. A tap outside never throws
+   away what someone typed. Escape is a desktop bonus.
 9. **Small screens.** Size overlays with `max-height`/`max-width` (`dvh` for
    height) and scroll inside them. Anything pinned to an edge pads with
    `env(safe-area-inset-*)`, as in Page structure.
