@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     catalogue_in_prompt: bool = True
     default_edition: str = "current"
     cors_allowed_origins: list[str] = [
+        "https://setlister.ukuleletuesday.ie",
+        # The old Pages origin: open tabs and cached copies still call from it.
         "https://ukuleletuesday.github.io",
         "http://localhost:3000",
         "http://127.0.0.1:3000",

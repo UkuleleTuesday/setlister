@@ -1,6 +1,6 @@
 # Setlister
 
-**Live app:** https://ukuleletuesday.github.io/setlister/
+**Live app:** https://setlister.ukuleletuesday.ie/
 
 The shared setlist for a Ukulele Tuesday night, run from phones. Two live lists:
 **Requests** (what people want) and **Up next** (the running order). Rows are
@@ -35,7 +35,7 @@ see the room's view, open the link in a private tab.
 ## Organisers
 
 A phone becomes an organiser's by tapping
-`https://ukuleletuesday.github.io/setlister/#organise=<key>`, pinned in the
+`https://setlister.ukuleletuesday.ie/#organise=<key>`, pinned in the
 organisers' chat (#150). Pin it with: "Tap this on the phone you run nights
 from. If you use Setlister from your home screen, paste it in Settings →
 Organisers instead."
@@ -124,12 +124,13 @@ Every merge to `main` deploys (`.github/workflows/ci.yaml`):
   `requirements.txt` exported from `uv.lock`. Vertex AI stays in
   `us-central1`. Uploads are capped at 20 MB, `/api/parse` at 8 requests a
   minute per IP, and `--max-instances 1` bounds spend.
-- **UI:** `ui/dist` to the `gh-pages` branch, served by Pages. Allowed API
-  origins: `CORS_ALLOWED_ORIGINS` in `.env.deploy`.
+- **UI:** `ui/dist` to the `gh-pages` branch, served by Pages at the custom
+  domain in `ui/public/CNAME`. Allowed API origins: `CORS_ALLOWED_ORIGINS` in
+  `.env.deploy`.
 - **Firestore rules:** the `deploy-rules` job.
 
 Each PR gets a preview at
-`https://ukuleletuesday.github.io/setlister/pr-preview/pr-<N>/`
+`https://setlister.ukuleletuesday.ie/pr-preview/pr-<N>/`
 ([`pr-preview-action`](https://github.com/rossjrw/pr-preview-action)), removed
 when the PR closes. Production deploys skip `pr-preview/`.
 
@@ -146,12 +147,22 @@ The browser reads and writes Firestore directly, so
   `clubConfig/organiserKey`, which no client can read.
 
 Accepted risks: anyone can read every session, add requests and vote (votes
-are on trust). PR previews and other UkuleleTuesday Pages sites share
-production's origin, so their code could act as a signed-in organiser; only
-people with push access to an org repo can ship that. Keep a GCP budget alert
-on the project.
+are on trust). PR previews share production's origin, so their code could act
+as a signed-in organiser; only people with push access to this repo can ship
+that. Keep a GCP budget alert on the project.
 
 ### One-time setup
+
+Custom domain (DNS is at Blacknight):
+
+1. CNAME `setlister` → `ukuleletuesday.github.io.`
+2. Org Settings → Pages → verify `ukuleletuesday.ie` (a TXT record), so no
+   other repo can claim its subdomains.
+3. Repo Settings → Pages: custom domain `setlister.ukuleletuesday.ie`, then
+   **Enforce HTTPS** once the certificate is issued.
+
+The old `ukuleletuesday.github.io/setlister/` URLs redirect. Sign-ins are per
+origin, so organisers re-tap the link after a domain change.
 
 CI deploys through Workload Identity Federation: no keys or GitHub secrets. A
 project admin runs [`deploy-gcs.sh`](./deploy-gcs.sh) once (config in
@@ -179,13 +190,13 @@ firebase apps:sdkconfig web --project=songbook-generator
 The web `apiKey` is safe to commit
 ([Firebase](https://firebase.google.com/docs/projects/api-keys)) once
 restricted: in GCP Credentials, on "Browser key (auto created by Firebase)",
-allow only the referrer `https://ukuleletuesday.github.io/*` and the Identity
+allow only the referrer `https://setlister.ukuleletuesday.ie/*` and the Identity
 Toolkit, Token Service, Cloud Firestore and Cloud Datastore APIs.
 
 Organiser access:
 
 1. Firebase Authentication: enable **Anonymous**; check
-   `ukuleletuesday.github.io` is an authorised domain. Leave automatic
+   `setlister.ukuleletuesday.ie` is an authorised domain. Leave automatic
    clean-up of anonymous accounts off: it deletes organisers.
 2. Firestore: create `clubConfig/organiserKey` with string `key` =
    `openssl rand -hex 16`.
