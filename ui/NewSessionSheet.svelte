@@ -4,6 +4,7 @@
   import Sheet from "./Sheet.svelte";
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
+  import { features } from "./features.js";
   import { history } from "./history.svelte.js";
   import { defaultWindowLabel } from "./request-window.js";
   import {
@@ -78,7 +79,9 @@
           found = partitionSessions(await listSessions()).upcoming[0];
         } catch {
           throw new Error(
-            "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted",
+            features.unlistedSessions
+              ? "couldn’t check for planned sessions. Try again, or set Visibility to Unlisted"
+              : "couldn’t check for planned sessions. Try again",
           );
         }
         if (found) {
@@ -126,14 +129,16 @@
       {/each}
     </select>
   </label>
-  <label class="field">
-    <span>Visibility</span>
-    <select id="new-session-visibility" bind:value={visibility}>
-      <option value="shared">Shared</option>
-      <option value="unlisted">Unlisted</option>
-    </select>
-  </label>
-  <p class="note">Anyone with the link can open it either way.</p>
+  {#if features.unlistedSessions}
+    <label class="field">
+      <span>Visibility</span>
+      <select id="new-session-visibility" bind:value={visibility}>
+        <option value="shared">Shared</option>
+        <option value="unlisted">Unlisted</option>
+      </select>
+    </label>
+    <p class="note">Anyone with the link can open it either way.</p>
+  {/if}
   <div id="new-session-notice" class="note planned-notice" hidden={!blocked}>
     {planned ? plannedSessionMessage(planned) : ""}
   </div>

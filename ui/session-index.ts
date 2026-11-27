@@ -2,6 +2,7 @@
 // listing `sessions` would download every night's rows on every app open.
 // Writes live in sync.ts, batched with the session's `listed` flag.
 
+import { features } from "./features.js";
 import { getFirestore } from "./firebase.js";
 
 export interface SessionEntry {
@@ -204,12 +205,13 @@ export function partitionSessions<T extends Pick<SessionEntry, "createdAt">>(
 export function plannedSessionMessage(
   entry: Pick<SessionEntry, "createdAt">,
   now = new Date(),
+  offerUnlisted = features.unlistedSessions,
 ): string {
   const label = sessionDateLabel(entry.createdAt, now) || "an upcoming night";
-  return (
-    `A session is already planned for ${label}. Open it from the home screen, ` +
-    `or set Visibility to Unlisted to start a private session.`
-  );
+  const open = `A session is already planned for ${label}. Open it from the home screen`;
+  return offerUnlisted
+    ? `${open}, or set Visibility to Unlisted to start a private session.`
+    : `${open}.`;
 }
 
 // Must pass firestore.rules: createdBy <= 60 chars, createdAt <= 60 days ahead.
