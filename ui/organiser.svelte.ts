@@ -94,7 +94,7 @@ export function reloadToRegister(): void {
   location.reload();
 }
 
-/** A write was denied: the key changed, so this phone is the room's now. */
+/** After a denied write: the key changed. */
 export function loseOrganiserAccess(): void {
   if (!organiserStatus.isOrganiser) return;
   setOrganiser(false);

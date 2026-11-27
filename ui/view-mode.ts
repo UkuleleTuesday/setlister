@@ -1,6 +1,5 @@
-// The two views of a session (#86): the full app for organisers, the room's
-// request view for everyone else (#150). The view follows organiser status
-// (view.svelte.ts), never the link. Pure, so tests run under node.
+// The session link and row provenance wording. Which view a phone gets is
+// view.svelte.ts's. Pure, so tests run under node.
 
 import type { RowSource } from "./types.js";
 
@@ -10,8 +9,7 @@ export type ViewMode = "full" | "room";
 // The pre-#152 sticky room flag, cleared at boot.
 const LEGACY_ROOM_MODE_KEY = "setlister.roomMode.v1";
 
-/** The one session link: `?session=<id>`, minus any old `mode` param. Built
- * on the given href so the GitHub Pages subpath survives. */
+/** The one session link (#152). */
 export function buildSessionUrl(href: string, id: string): string {
   const url = new URL(href);
   url.searchParams.set("session", id);
@@ -27,7 +25,7 @@ export function withoutModeParam(href: string): string | null {
   return url.toString();
 }
 
-/** Boot: old `?mode=full|request` links still open their session. */
+/** Boot: strip a retired `?mode=` and the old sticky flag. */
 export function retireModeLinks(): void {
   const clean = withoutModeParam(location.href);
   if (clean) history.replaceState(history.state, "", clean);

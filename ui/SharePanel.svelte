@@ -47,7 +47,6 @@
   let requestsMode: RequestsSwitch = $derived(modeOf(session.meta));
   let visibilityBusy = $state(false);
   let requestsBusy = $state(false);
-  // The share button is showing "Link copied".
   let flashing = $state(false);
   let flashTimer: ReturnType<typeof setTimeout> | undefined;
 

@@ -89,8 +89,7 @@
   </li>
 {/snippet}
 
-<!-- Organisers only (#152). While a night is coming up, starting ANOTHER
-     session is a secondary act, so the button steps back to a quiet style;
+<!-- While a night is coming up, starting ANOTHER session is a secondary act, so the button steps back to a quiet style;
      otherwise it's the hero. -->
 {#if organiserStatus.isOrganiser}
   <button

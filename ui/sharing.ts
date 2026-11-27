@@ -9,8 +9,6 @@ import * as sync from "./sync.js";
 import type { RequestsSwitch } from "./types.js";
 import { buildSessionUrl } from "./view-mode.js";
 
-// The session link, for everyone: organisers get the full app, the room the
-// request view (#150).
 export async function shareSessionLink(): Promise<boolean> {
   const id = sync.getSessionId();
   if (!id) return false;

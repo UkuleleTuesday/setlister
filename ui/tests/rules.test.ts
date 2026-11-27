@@ -442,7 +442,10 @@ describe("session writes: organisers and the room", () => {
       roomRow("not-x"),
     ];
     for (const row of bad) await assertFails(addRequest(anonymous, "x", row));
-    // Two rows at once.
+  });
+
+  it("refuses two room requests in one write", async () => {
+    const { anonymous } = contexts();
     await assertFails(
       write(anonymous, {
         "rows.a": roomRow("a"),
@@ -450,7 +453,10 @@ describe("session writes: organisers and the room", () => {
         requestsOrder: arrayUnion("a", "b"),
       }),
     );
-    // A row with no place in the order.
+  });
+
+  it("refuses a room request missing from requestsOrder", async () => {
+    const { anonymous } = contexts();
     await assertFails(write(anonymous, { "rows.a": roomRow("a") }));
   });
 

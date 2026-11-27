@@ -34,8 +34,7 @@ function newUid(): string {
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// The room's writes go out at once, through the only shapes the rules allow
-// it (sync.ts); a refusal puts the server's state back.
+// The room's writes, through the only shapes the rules allow it (sync.ts).
 export function sendRoomWrite(write: Promise<void>, failure: string) {
   write.catch((err) => {
     console.warn(failure, err);

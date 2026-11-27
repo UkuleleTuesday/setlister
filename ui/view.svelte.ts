@@ -1,6 +1,5 @@
 // What this phone is showing: home or a session (the URL decides, see
-// routing.ts), and which view of a session: organisers get the full app,
-// everyone else the room's request view (#86, #150).
+// routing.ts), and which view of a session (#86).
 
 import { organiserStatus } from "./organiser-status.svelte.js";
 import type { ViewMode } from "./view-mode.js";

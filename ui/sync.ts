@@ -566,7 +566,6 @@ export function setGestureActive(active: boolean): void {
   }
 }
 
-/** The rules said no: for an organiser, the key changed. */
 export function isPermissionDenied(err: unknown): boolean {
   return (err as { code?: unknown } | null)?.code === "permission-denied";
 }

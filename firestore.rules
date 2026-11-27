@@ -4,10 +4,7 @@ rules_version = '2';
 // reads/writes sessions/{id} directly via the Firebase Web SDK — there is no
 // backend sync endpoint, so these rules are the ENTIRE access-control layer.
 //
-// Anyone can read any session. Writes are organisers' (#150): a phone signed
-// in anonymously with a current `organisers` row. Everyone else may only add
-// one request and toggle votes (isRoomWrite). A closed schema (hasOnly locks
-// the key set) and deny-by-default cover the rest.
+// Who may write what (#150) is pinned by ui/tests/rules.test.ts.
 //
 // Sessions are now KEPT FOREVER (#77): the app opens on the club's session
 // history, so a night that disappears after 30 days is a bug, not a feature.
@@ -53,12 +50,11 @@ service cloud.firestore {
     match /sessionIndex/{id} {
       allow read: if true;                        // public by design, like sessions
       allow create: if isValidIndexEntry(id) && isOrganiser();
-      // Provenance is not rewritable. Update stays possible because re-listing
-      // set()s over any row a racing client already wrote.
+      // Update: re-listing set()s over a row a racing client already wrote.
       allow update: if isValidIndexEntry(id) && isOrganiser()
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy;
-      // Un-listing. The session doc itself can't be deleted.
+      // Un-listing.
       allow delete: if isOrganiser();
     }
 
@@ -85,8 +81,6 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/clubConfig/organiserKey).data.key;
     }
 
-    // A row counts only while its key is current, so changing the key
-    // de-registers everyone.
     function isOrganiser() {
       return request.auth != null && hasCurrentRow(request.auth.uid);
     }
@@ -96,9 +90,7 @@ service cloud.firestore {
       return exists(path) && get(path).data.key == currentKey();
     }
 
-    // The room's only write (sync.ts roomRequestUpdates / roomVoteUpdates):
-    // add one request, or toggle vote leaves, plus updatedAt. Existing rows
-    // and both orders are untouched.
+    // The room's write: sync.ts roomRequestUpdates / roomVoteUpdates.
     function isRoomWrite() {
       let before = resource.data;
       let after = request.resource.data;
@@ -132,7 +124,6 @@ service cloud.firestore {
         && (row.notes == null || (row.notes is string && row.notes.size() <= 120));
     }
 
-    // At most one row's votes change, that row exists, and no row's votes go.
     // Who voted inside a row stays on trust.
     function roomVotesOk(before, after) {
       let v = after.get('votes', {}).diff(before.get('votes', {}));

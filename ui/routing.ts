@@ -83,7 +83,7 @@ async function applyRoute(id: string | null): Promise<void> {
     setView("session");
     // Sessions predating visibility have no listing row: give them one. A
     // no-op for everything else, crucially a session someone deliberately
-    // unlisted. Best-effort, never blocks opening; organisers only.
+    // unlisted. Best-effort, never blocks opening.
     if (view.mode === "full") sync.backfillListing();
   } catch (err) {
     sync.leaveSession();

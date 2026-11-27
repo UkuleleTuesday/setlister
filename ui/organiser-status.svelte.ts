@@ -1,6 +1,5 @@
-// Whether this phone runs nights (#150). Read from storage at boot so the first
-// paint shows the right view; organiser.svelte.ts confirms it against the row
-// and drops it when a write is denied.
+// Whether this phone runs nights (#150). Read from storage at boot, so the
+// first paint shows the right view.
 
 const REGISTERED_KEY = "setlister.organiser.v1";
 
