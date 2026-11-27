@@ -1,63 +1,35 @@
-// Duplicate-request detection (#52).
-//
-// The same song can arrive twice — a re-scan of the board, a manual add on top
-// of a scan, two people writing it up — and with confident scan rows skipping
-// review (#80) there is no human checkpoint left to catch it. These helpers
-// answer "is this song already on the night's lists?" so the add paths in
-// app.js can skip or flag the copy instead of silently doubling it.
-//
-// Identity: a catalogue match's server-minted `id` (a slug of its display
-// string — stable within an edition) when present, else the normalized
-// display/raw title, so legacy rows and unmatched rows still compare.
-//
-// What counts as "already there" (decided in #52): rows sitting in Up next or
-// Requests, and PLAYED rows (re-requesting tonight's tune is #81's no). BINNED
-// rows don't block — binning meant "not this one", and a fresh, genuine
-// request later deserves a fresh row.
-//
-// Pure module, no DOM: exported for ui/tests (same precedent as sync.ts).
+// Binned copies never count: binning means "not this one", and a later genuine
+// request deserves a fresh row.
 
 import type { CatalogueEntry, Row } from "./types.js";
 
 export type DuplicateWhere = "played" | "upnext" | "requests";
 
-/** An existing copy of a song on the night's lists. */
 export interface Duplicate {
   where: DuplicateWhere;
   row: Row;
 }
 
-/**
- * Accent-insensitive lowercase form, mirroring the backend's matcher.py — so
- * "sara" equals "Sarà" here just like it does in search.
- */
-export function normalizeText(s: string): string {
-  return s
+// Mirrors matcher.py, so "sara" equals "Sarà" here as it does in search.
+// Coerced: synced titles aren't type-checked.
+export function normalizeText(s: unknown): string {
+  return String(s ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 
-/**
- * Identity of a catalogue entry (a combobox pick or a row's match). Both
- * fields are optional here, unlike CatalogueEntry: legacy rows embed matches
- * from before entries had ids.
- */
+// Partial: legacy rows embed matches from before entries had ids.
 export function matchKey(entry: Partial<Pick<CatalogueEntry, "id" | "display">>): string {
   return entry.id || normalizeText(entry.display || "");
 }
 
-/** Identity of a list row: its match if it has one, else what was written. */
 export function rowKey(row: Pick<Row, "match" | "raw_title">): string {
   return row.match ? matchKey(row.match) : normalizeText(row.raw_title || "");
 }
 
-/**
- * First non-binned row in either list with the same identity, or null.
- * Returns { where, row } with `where` one of "played" | "upnext" | "requests";
- * a played row reports as "played" whichever array it lives in (older clients
- * could sync a played row into Requests).
- */
+// "played" wherever the row sits: older clients could sync a played row into
+// Requests.
 export function findDuplicate(upNext: Row[], requests: Row[], key: string): Duplicate | null {
   if (!key) return null;
   for (const [list, where] of [
@@ -72,11 +44,7 @@ export function findDuplicate(upNext: Row[], requests: Row[], key: string): Dupl
   return null;
 }
 
-/**
- * Every song already on the night, keyed by identity: the same { where, row }
- * findDuplicate(key) would return, built in one pass so a list showing the
- * whole songbook can tag each tune without scanning the lists per entry.
- */
+// findDuplicate() for every key in one pass, for tagging a whole songbook.
 export function indexTonight(upNext: Row[], requests: Row[]): Map<string, Duplicate> {
   const index = new Map<string, Duplicate>();
   for (const [list, where] of [
@@ -92,7 +60,6 @@ export function indexTonight(upNext: Row[], requests: Row[]): Map<string, Duplic
   return index;
 }
 
-/** The user-facing wording for each kind of existing copy. */
 export function duplicateLabel(where: DuplicateWhere): string {
   return {
     played: "Already played tonight",

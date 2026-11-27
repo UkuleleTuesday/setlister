@@ -1,53 +1,29 @@
-// Core realtime sync engine for multiplayer session sharing (epic #25).
+// Conflict model: last-write-wins per row and per order array, per-leaf merge
+// for votes (see diff). Only organisers push the debounced diff; the room
+// writes nothing but the two updates firestore.rules allows (see Room writes).
 //
-// This module mirrors the app's durable state (the two lists + edition) to a
-// single Firestore document at `sessions/{id}` and applies remote changes back
-// live. It is deliberately UI-free: app.js owns all DOM and drives it through
-// a tiny API (the sharing UI from #30).
+// firestore.rules checks the doc with hasOnly: a new field needs its rules
+// entry in the same change. Metadata (createdBy, listed, requests*) stays out
+// of serialize()/diff() so the debounced row push never touches it.
 //
-// It is also the parse boundary for the session doc: Firestore data enters as
-// `unknown` through parseSyncFields() / readMeta() / readCreatedAt(), and
-// leaves as the shapes in types.ts. Nothing past them reads raw doc fields.
-// Row CONTENTS are not validated yet (#157 adds that, in parseSyncFields).
-//
-// The Firestore doc's schema is validated by firestore.rules (#26) — adding a
-// field here means editing the rules' hasOnly list in the same change:
-//   { v: 1, rows: {uid: Row}, upNextOrder: [uid], requestsOrder: [uid],
-//     edition, votes: {uid: {clientId: true}}, createdBy, listed, requestsOpen,
-//     requestsOpensAt, requestsClosesAt, createdAt, updatedAt }
-//
-// `createdBy` / `listed` / `requestsOpen` / `requestsOpensAt` /
-// `requestsClosesAt` are session METADATA (#77, #86, #NEW), not list state:
-// they're deliberately outside serialize()/syncFields()/diff() so the
-// debounced row push never touches them, and they're written by their own
-// small helpers instead. A listed session also has a `sessionIndex/{id}` row
-// (see session-index.ts) written in the same transaction that mints the session.
-// Sessions have no names: their identity is `createdAt`, rendered live (legacy
-// docs may still carry a `name` field, which is tolerated and ignored).
-//
-// Sessions are kept forever, so nothing writes `expiresAt` any more; legacy
-// docs get theirs stripped on first push (see flushPush).
-//
-// Firebase loads lazily through firebase.ts (#27): importing this module does
-// NOT pull the Firestore SDK — only the first create/join call does, via
-// getFirestore(). ids come from session-id.ts (#28).
-//
-// Conflict model (accepted per the epic): per-row last-write-wins for row
-// content, whole-array last-write-wins for the two order arrays.
-//
-// We use Firestore's default (in-memory) cache rather than persistentLocalCache:
-// writes made while briefly offline still queue in memory and flush on
-// reconnect, which is enough for a live-in-the-room gig session. Swapping in
-// persistentLocalCache (survives a full reload while offline) is a possible
-// follow-up if that ever matters.
+// Default in-memory cache: offline writes flush on reconnect, not after a reload.
 
 import type { Firestore, Unsubscribe } from "firebase/firestore";
+import { parseEdition } from "./editions.js";
 import { type Fx, getFirestore } from "./firebase.js";
+import { isRow } from "./row-shape.js";
 import { generateSessionId } from "./session-id.js";
 import { INDEX_COLLECTION, indexEntryData, timestampToDate } from "./session-index.js";
-import type { Edition, ListState, Row, SessionMeta, SyncFields, Votes } from "./types.js";
+import type {
+  Edition,
+  ListState,
+  RequestsSwitch,
+  Row,
+  SessionMeta,
+  SyncFields,
+  Votes,
+} from "./types.js";
 
-/** What app.js hands over to push: votes and edition may be missing. */
 export type LocalState = Pick<ListState, "upNext" | "requests"> &
   Partial<Pick<ListState, "edition" | "votes">>;
 
@@ -62,8 +38,7 @@ export type SyncStatus =
 /** An updateDoc payload: dotted field paths to values or sentinels. */
 export type Updates = Record<string, unknown>;
 
-// Coalesce a burst of local mutations (e.g. a drag that fires many moves, or
-// rapid taps) into a single remote write.
+// Coalesces a drag's burst of moves, or rapid taps, into one write.
 const PUSH_DEBOUNCE_MS = 300;
 
 const MAX_ID_ATTEMPTS = 5;
@@ -71,35 +46,24 @@ const MAX_ID_ATTEMPTS = 5;
 // --- Module state ----------------------------------------------------------
 let sessionId: string | null = null;
 let unsubscribe: Unsubscribe | null = null;
-// A deep copy of the last server state we applied or pushed, in serialized
-// shape ({rows, upNextOrder, requestsOrder, edition}). The push diff compares
-// against this so a single toggle writes only that row's path.
+// diff()'s base: the last state applied or pushed, as stored.
 let lastRemote: SyncFields | null = null;
-// Callback that writes a fresh {upNext, requests, edition} back into app.js,
-// re-rendering + persisting. Shared by the snapshot listener and the
-// gesture-deferral flush, so it is stored module-level.
 let applyState: ApplyState | null = null;
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingState: LocalState | null = null;
 
-// app.js sets this true during drags/swipes so an incoming snapshot doesn't
-// yank the row out from under the user's finger; the snapshot is stashed and
-// applied when the gesture ends.
+// During drags and swipes a snapshot is stashed until release, so a re-render
+// can't yank the row from under the finger.
 let gestureActive = false;
 let deferredSnapshot: unknown = null;
 
 let statusCallback: ((status: SyncStatus) => void) | null = null;
 let metaCallback: ((meta: SessionMeta) => void) | null = null;
 
-// The session's display metadata as last seen on the server. Kept so the UI can
-// ask without a re-read, and so setSessionListed() knows what to copy into a
-// freshly created index row.
 const EMPTY_META: SessionMeta = {
   createdBy: "",
   listed: false,
-  // Tri-state (#NEW): true = forced open, false = forced closed, null = auto
-  // (follow requestsOpensAt/requestsClosesAt below, see request-window.ts).
   requestsOpen: null,
   requestsOpensAt: null,
   requestsClosesAt: null,
@@ -107,17 +71,14 @@ const EMPTY_META: SessionMeta = {
 };
 let meta: SessionMeta = { ...EMPTY_META };
 
-// When the session was created, per the server. The history list is dated from
-// this, so it must survive a session being listed/un-listed/re-listed — writing
-// a fresh serverTimestamp instead would make an old night claim to be tonight.
+// The server's createdAt, copied into index rows: a fresh serverTimestamp on
+// re-listing would re-date an old night as tonight.
 let sessionCreatedAt: Date | null = null;
 
 export function getCreatedAt(): Date | null {
   return sessionCreatedAt;
 }
 
-// A plain object to read fields off, or an empty one: snapshot data is
-// unvalidated, so `null`, arrays and primitives must all read as "no fields".
 function asDoc(data: unknown): Record<string, unknown> {
   return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
 }
@@ -127,11 +88,6 @@ function readCreatedAt(data: unknown): Date | null {
 }
 
 // --- Status --------------------------------------------------------------
-// #30 consumes this to reflect connection state in the UI. Payload shapes:
-//   { status: "connected", id }   — create/join succeeded, listener attached
-//   { status: "expired", id }     — remote doc vanished (it was deleted)
-//   { status: "left" }            — leaveSession()
-//   { status: "error", error }    — snapshot/write error
 export function onStatusChange(cb: (status: SyncStatus) => void): void {
   statusCallback = cb;
 }
@@ -141,10 +97,6 @@ function emitStatus(payload: SyncStatus): void {
 }
 
 // --- Session metadata ------------------------------------------------------
-// Creator / listed-ness travel on the session doc but outside the synced list
-// state, so they get their own channel: the snapshot listener emits them
-// whenever they change, which is what makes a peer's visibility toggle land
-// live.
 export function onMetaChange(cb: (meta: SessionMeta) => void): void {
   metaCallback = cb;
 }
@@ -153,30 +105,16 @@ export function getMeta(): SessionMeta {
   return { ...meta };
 }
 
-// Exported for ui/tests: the legacy-vs-explicitly-false distinction below is the
-// whole of whether Unlisted works, and it is worth pinning down.
 export function readMeta(data: unknown): SessionMeta {
   const doc = asDoc(data);
   return {
     createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
     listed: doc.listed === true,
-    // Tri-state (#NEW): true/false are a deliberate override (forced open or
-    // closed, regardless of the window); absent is AUTO, not "always open"
-    // any more — see request-window.ts for how auto resolves against
-    // requestsOpensAt/requestsClosesAt (or their smart defaults). This is a
-    // real behaviour change for every session that predates this field: they
-    // move from permanently open to auto-per-window. The default window
-    // covers a whole ordinary night, so a session happening right now is
-    // unaffected; an old, already-finished session will now correctly read
-    // as closed instead of perpetually open.
     requestsOpen: doc.requestsOpen === true ? true : doc.requestsOpen === false ? false : null,
     requestsOpensAt: timestampToDate(doc.requestsOpensAt),
     requestsClosesAt: timestampToDate(doc.requestsClosesAt),
-    // A session created before visibility existed has NO `listed` field, which
-    // is emphatically not the same as an explicit `false`. Collapsing the two is
-    // how opening an *unlisted* session's own share link came to re-advertise it
-    // to the whole club: with no way to tell "never had the field" from
-    // "deliberately turned off", the backfill fired on both.
+    // Not the same as `listed: false`: backfillListing() firing on that would
+    // re-list an unlisted night whenever its share link is opened.
     legacy: !data || !("listed" in doc),
   };
 }
@@ -193,12 +131,8 @@ function emitMeta(data: unknown): void {
   if (changed && metaCallback) metaCallback({ ...meta });
 }
 
-// Sessions from before visibility existed have no listing row, so opening an old
-// share link quietly writes one and marks the session listed — they drift into
-// the club's history as people touch them instead of staying invisible.
-//
-// Only LEGACY sessions. A session someone deliberately created Unlisted has
-// `listed: false` and no row either, and must stay that way; see readMeta.
+// Lists a pre-visibility session when it's opened. Legacy only: a deliberately
+// unlisted session has no index row either (see readMeta).
 export async function backfillListing(): Promise<void> {
   if (!sessionId || !meta.legacy) return;
   const id = sessionId;
@@ -207,8 +141,7 @@ export async function backfillListing(): Promise<void> {
     if (sessionId !== id) return; // left while awaiting the SDK
     const indexRef = fx.doc(db, INDEX_COLLECTION, id);
     if ((await fx.getDoc(indexRef)).exists()) return; // another client got there first
-    // Both documents together: a listing row without the session flag is what
-    // made the share panel claim "Unlisted" for a session plainly in the list.
+    // One batch: an index row without `listed: true` reads as "Unlisted".
     const batch = fx.writeBatch(db);
     batch.update(fx.doc(db, "sessions", id), { listed: true });
     batch.set(
@@ -217,7 +150,7 @@ export async function backfillListing(): Promise<void> {
     );
     await batch.commit();
   } catch {
-    /* offline, denied, or racing another client — the next open retries */
+    /* offline, denied, or racing another client: the next open retries */
   }
 }
 
@@ -226,9 +159,6 @@ export function getSessionId(): string | null {
 }
 
 // --- Serialization ---------------------------------------------------------
-// App state {upNext, requests, edition} <-> the Firestore doc's row map + two
-// order arrays. Rows carry stable uids and embed their catalogue match, so the
-// map is self-contained.
 export function serialize(state: LocalState): SyncFields {
   const rows: Record<string, Row> = {};
   for (const row of state.upNext) rows[row.uid] = row;
@@ -242,12 +172,8 @@ export function serialize(state: LocalState): SyncFields {
   };
 }
 
-// Defensive by design: order arrays and the row map can disagree after a
-// concurrent move+edit merge (per-row + whole-array LWW). Drop order uids with
-// no row, dedupe, and append any orphan rows (in neither order array) to
-// requests so nothing silently disappears — the next push heals the doc.
-// Exported for ui/tests: this healing is the safety net that stops a merge
-// losing songs, and it's worth pinning down without a live Firestore.
+// A concurrent move+edit merge can leave the order arrays and row map
+// disagreeing: heal it here rather than lose songs; the next push fixes the doc.
 export function deserialize(remote: unknown): ListState {
   const { rows, upNextOrder, requestsOrder, edition, votes } = parseSyncFields(remote);
   const seen = new Set<string>();
@@ -269,17 +195,12 @@ export function deserialize(remote: unknown): ListState {
       requests.push(rows[uid]);
     }
   }
-  // Votes (#83) are keyed by row uid rather than living on the row, so they
-  // ride alongside the lists rather than inside them. No healing needed: a vote
-  // for a row that no longer exists simply counts for nothing.
   return { upNext, requests, edition, votes };
 }
 
-// The doc carries v/createdAt/updatedAt/expiresAt too; the diff only cares
-// about the mutable content, so pull just those fields. Each one falls back to
-// empty when it's the wrong kind of value; the casts below take the contents
-// on trust, which is what #157 replaces with real checks.
-export function parseSyncFields(data: unknown): SyncFields {
+// Unchecked, for diff()'s base only: whatever parseSyncFields() skips is then
+// deleted by the next push.
+function rawSyncFields(data: unknown): SyncFields {
   const doc = asDoc(data);
   const map = (value: unknown) => (value && typeof value === "object" ? value : {});
   return {
@@ -291,27 +212,23 @@ export function parseSyncFields(data: unknown): SyncFields {
   };
 }
 
+// votes.ts validates votes.
+function parseSyncFields(data: unknown): SyncFields {
+  const raw = rawSyncFields(data);
+  const rows: Record<string, Row> = {};
+  for (const [uid, row] of Object.entries(raw.rows as Record<string, unknown>)) {
+    if (isRow(row) && row.uid === uid) rows[uid] = row;
+  }
+  return { ...raw, rows, edition: parseEdition(raw.edition) };
+}
+
 function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
 // --- Create / join / leave -------------------------------------------------
-// Generate an id and claim it atomically. Inside the transaction: read the
-// candidate doc; if it already exists, regenerate and retry (ids are only
-// ~10k combos, so collisions are rare but possible); otherwise write the full
-// serialized state and return the id. `applyStateFn` powers the live listener.
-//
-// `sessionMeta` is { createdBy, listed, createdAt }. The new-session sheet
-// offers no requests-open choice, and the doc gets no `requestsOpen`,
-// `requestsOpensAt` or `requestsClosesAt` field at all, so readMeta's
-// defaults apply and every night starts in auto mode, taking requests on the
-// smart default window derived from its own createdAt (see request-window.ts
-// — the sheet only PREVIEWS that default, it never stores it). `createdAt` is
-// a Date only when the creator picked a day other than today (backfilling a
-// missed night, or prepping a future one); absent, the server stamps the
-// moment of creation.
-// When listed, the history row is written in the SAME transaction, so there can
-// never be a session without its listing or a listing without its session.
+// Ids have only ~10k combos, so claim one in a transaction and retry on a
+// collision. A listed session's index row goes in the same transaction.
 export async function createSession(
   getState: () => LocalState,
   applyStateFn: ApplyState,
@@ -337,19 +254,9 @@ export async function createSession(
           edition: serialized.edition,
           createdBy: next.createdBy,
           listed: next.listed,
-          // No `requestsOpen`, `requestsOpensAt` or `requestsClosesAt` here,
-          // deliberately. Absent already reads as auto-per-window (see
-          // readMeta), and the window's own default needs no stored state at
-          // all — it's derived from createdAt below. Writing any of the three
-          // here would buy nothing but a hard dependency on the new rules
-          // being live: firestore.rules deploys from main while the UI also
-          // ships to PR previews, and the two deploy jobs don't order
-          // themselves. A client that writes an unrecognised key gets the
-          // WHOLE set rejected by hasOnly, which would turn "start a
-          // session" — the app's primary action — into a permission error
-          // for as long as the bundle ran ahead of the rules. Each field
-          // mints itself on first explicit write instead (setRequestsMode /
-          // setRequestsWindow), never on create.
+          // No requests* fields: absent reads as auto. PR previews run against
+          // production's rules, where one unknown key fails hasOnly and so
+          // breaks "New session"; keep new fields out of this write.
           createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
@@ -365,15 +272,13 @@ export async function createSession(
     }
     throw new Error(`Could not allocate a free session id after ${MAX_ID_ATTEMPTS} tries`);
   });
-  // The transaction either set `id` or threw.
   if (!id) throw new Error("Session id was not allocated");
 
   sessionId = id;
   applyState = applyStateFn;
   lastRemote = deepCopy(serialized);
   meta = next;
-  // A picked date is the real value; on the server-stamped path, now is close
-  // enough until the first snapshot echoes back (same evening either way).
+  // Until the server's stamp echoes back, now is close enough.
   sessionCreatedAt = pickedAt ?? new Date();
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
@@ -381,9 +286,6 @@ export async function createSession(
   return id;
 }
 
-// Error thrown by joinSession when the doc is missing (never created or since
-// deleted — sessions are kept forever, so nothing expires any more). Flagged so
-// app.js can show its "not found" copy instead of a raw error.
 export class SessionNotFoundError extends Error {
   readonly notFound = true;
   readonly sessionId: string;
@@ -405,7 +307,7 @@ export async function joinSession(id: string, applyStateFn: ApplyState): Promise
   const remote = snap.data();
   sessionId = id;
   applyState = applyStateFn;
-  lastRemote = deepCopy(parseSyncFields(remote));
+  lastRemote = deepCopy(rawSyncFields(remote));
   applyStateFn(deserialize(remote));
   attachListener(db, fx);
   emitStatus({ status: "connected", id });
@@ -415,9 +317,7 @@ export async function joinSession(id: string, applyStateFn: ApplyState): Promise
 }
 
 // --- Metadata writes -------------------------------------------------------
-// List / un-list. Unlisted only removes the history row — the session stays
-// world-readable by id, exactly like every other session. This is advertising,
-// not access control (see firestore.rules).
+// Advertising, not access control: an unlisted session stays readable by id.
 export async function setSessionListed(listed: boolean): Promise<void> {
   if (!sessionId) return;
   const id = sessionId;
@@ -426,10 +326,6 @@ export async function setSessionListed(listed: boolean): Promise<void> {
   batch.update(fx.doc(db, "sessions", id), { listed, updatedAt: fx.serverTimestamp() });
   const indexRef = fx.doc(db, INDEX_COLLECTION, id);
   if (listed) {
-    // Carry the session's REAL createdAt across. Letting this fall through to a
-    // fresh serverTimestamp would re-date a night every time it was re-listed,
-    // sending a weeks-old session to the top of the history claiming to be
-    // tonight.
     batch.set(
       indexRef,
       indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx),
@@ -441,20 +337,9 @@ export async function setSessionListed(listed: boolean): Promise<void> {
   meta = { ...meta, listed };
 }
 
-// Force open / force closed / back to auto for the room's request link (#86,
-// #NEW). Unlike `listed` there is no sessionIndex row to keep in step, so a
-// plain update does — but like `listed` it rides outside the debounced row
-// push, and the snapshot listener is what carries the flip to every room
-// phone already on the session.
-//
-// Honour-system, deliberately: firestore.rules can't tell a room device from an
-// organiser's, so this closes the door on the link, not on the session.
-//
-// "auto" clears the field entirely (deleteField) rather than writing some
-// third sentinel value, so a session nobody has ever overridden keeps costing
-// nothing extra to read — exactly the absent-means-X convention `listed` and
-// the window overrides below already follow.
-export async function setRequestsMode(mode: "open" | "closed" | "auto"): Promise<void> {
+// Honour-system: firestore.rules can't tell a room device from an organiser's,
+// so this closes the request link, not the session. "auto" deletes the field.
+export async function setRequestsMode(mode: RequestsSwitch): Promise<void> {
   if (!sessionId) return;
   const id = sessionId;
   const { db, fx } = await getFirestore();
@@ -466,11 +351,7 @@ export async function setRequestsMode(mode: "open" | "closed" | "auto"): Promise
   meta = { ...meta, requestsOpen: mode === "open" ? true : mode === "closed" ? false : null };
 }
 
-// Overrides the request window's smart default (#NEW, see request-window.ts).
-// Either boundary may be omitted/null to clear it back to its derived
-// default — the two resolve independently, so clearing one never disturbs
-// the other. Called only from the share panel, once a session already
-// exists: never from createSession (see its header for why).
+// A missing boundary deletes its override, falling back to the derived default.
 export async function setRequestsWindow({
   opensAt,
   closesAt,
@@ -486,8 +367,6 @@ export async function setRequestsWindow({
   meta = { ...meta, requestsOpensAt: opensAt ?? null, requestsClosesAt: closesAt ?? null };
 }
 
-// Stop listening and forget everything. Kept idempotent so the snapshot
-// listener can call it on remote deletion without recursing back through it.
 function teardown(): void {
   if (unsubscribe) {
     unsubscribe();
@@ -519,14 +398,12 @@ function attachListener(db: Firestore, fx: Fx): void {
   unsubscribe = fx.onSnapshot(
     ref,
     (snap) => {
-      // Our own optimistic writes echo back as a snapshot first; skip them so
-      // we don't re-apply (and clobber) state we already have locally.
+      // Skip the echo of our own optimistic writes: it could clobber newer
+      // local state.
       if (snap.metadata.hasPendingWrites) return;
 
       if (!snap.exists()) {
-        // The doc was deleted remotely. With the TTL gone and client deletes
-        // denied by the rules this should be unreachable, but a session that
-        // silently stops syncing is far worse than one that says so.
+        // Rules deny client deletes, but say so rather than silently stop syncing.
         const goneId = sessionId;
         teardown();
         emitStatus({ status: "expired", id: goneId });
@@ -535,7 +412,6 @@ function attachListener(db: Firestore, fx: Fx): void {
 
       const remote = snap.data();
       if (gestureActive) {
-        // Defer: applying now would re-render mid-drag and yank the row.
         deferredSnapshot = remote;
         return;
       }
@@ -548,14 +424,12 @@ function attachListener(db: Firestore, fx: Fx): void {
 }
 
 function applyRemote(remote: unknown): void {
-  lastRemote = deepCopy(parseSyncFields(remote));
+  lastRemote = deepCopy(rawSyncFields(remote));
   applyState?.(deserialize(remote));
   sessionCreatedAt = readCreatedAt(remote) ?? sessionCreatedAt;
   emitMeta(remote);
 }
 
-// app.js flips this around drags/swipes (see wireDrag / wireSwipe). On release
-// we apply whatever snapshot arrived meanwhile so the two clients converge.
 export function setGestureActive(active: boolean): void {
   gestureActive = active;
   if (!active && deferredSnapshot && sessionId) {
@@ -565,6 +439,61 @@ export function setGestureActive(active: boolean): void {
   } else if (!active) {
     deferredSnapshot = null;
   }
+}
+
+export function isPermissionDenied(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === "permission-denied";
+}
+
+/** Re-read the doc after a denied write, so local state drops what didn't land. */
+export async function refresh(): Promise<void> {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  const snap = await fx.getDoc(fx.doc(db, "sessions", id));
+  if (sessionId === id && snap.exists()) applyRemote(snap.data());
+}
+
+// --- Room writes -------------------------------------------------------------
+// Must match what firestore.rules' isRoomWrite accepts from a non-organiser.
+export function roomRequestUpdates(
+  row: Row,
+  clientId: string,
+  fx: Pick<Fx, "arrayUnion" | "serverTimestamp">,
+): Updates {
+  return {
+    [`rows.${row.uid}`]: row,
+    requestsOrder: fx.arrayUnion(row.uid),
+    [`votes.${row.uid}.${clientId}`]: true,
+    updatedAt: fx.serverTimestamp(),
+  };
+}
+
+export function roomVoteUpdates(
+  uid: string,
+  clientId: string,
+  on: boolean,
+  fx: Pick<Fx, "deleteField" | "serverTimestamp">,
+): Updates {
+  return {
+    [`votes.${uid}.${clientId}`]: on ? true : fx.deleteField(),
+    updatedAt: fx.serverTimestamp(),
+  };
+}
+
+export async function addRoomRequest(row: Row, clientId: string): Promise<void> {
+  await roomWrite((fx) => roomRequestUpdates(row, clientId, fx));
+}
+
+export async function setRoomVote(uid: string, clientId: string, on: boolean): Promise<void> {
+  await roomWrite((fx) => roomVoteUpdates(uid, clientId, on, fx));
+}
+
+async function roomWrite(build: (fx: Fx) => Updates): Promise<void> {
+  if (!sessionId) return;
+  const id = sessionId;
+  const { db, fx } = await getFirestore();
+  await fx.updateDoc(fx.doc(db, "sessions", id), build(fx));
 }
 
 // --- Push (local -> remote) ------------------------------------------------
@@ -585,22 +514,16 @@ async function flushPush(): Promise<void> {
 
   const current = serialize(state);
   const { db, fx } = await getFirestore();
-  // The session may have been left while getFirestore() awaited.
-  if (!sessionId) return;
+  if (!sessionId) return; // left while awaiting the SDK
 
   const updates = diff(lastRemote, current, fx);
-  if (!updates) return; // nothing actually changed — don't churn the doc
+  if (!updates) return;
 
   updates.updatedAt = fx.serverTimestamp();
-  // Drain the legacy TTL field: sessions are kept forever now, but a doc
-  // created before #77 still carries an expiresAt that the (soon-disabled) TTL
-  // policy would sweep. A no-op on docs that don't have it, and it never
-  // triggers a write on its own — diff() still returns null when nothing
-  // changed, so this only rides along with a real edit.
+  // Legacy docs (before #77) carry a TTL field; strip it so the TTL policy
+  // can't sweep them.
   updates.expiresAt = fx.deleteField();
-  // Optimistic: assume the write lands so the next diff is against what we just
-  // sent. The echo snapshot (hasPendingWrites) is skipped, so this is the only
-  // place lastRemote advances on the push side.
+  // Optimistic: the echo snapshot is skipped, so lastRemote advances here.
   lastRemote = deepCopy(current);
 
   try {
@@ -611,11 +534,6 @@ async function flushPush(): Promise<void> {
   }
 }
 
-// One updateDoc payload with dotted paths: changed/added rows as
-// `rows.<uid>`, removed rows as deleteField(), order arrays only when changed.
-// Returns null when nothing changed so the caller can skip the write entirely.
-// Exported for ui/tests (a stub `fx` is enough to exercise it: diff only
-// passes deleteField()'s sentinel through, so any value will do).
 export function diff(
   prev: SyncFields | null,
   next: SyncFields,
@@ -650,12 +568,8 @@ export function diff(
     updates.edition = next.edition;
     changed = true;
   }
-  // Votes (#83) go out as individual leaves — `votes.<rowUid>.<clientId>` —
-  // never as a whole map. That is the entire point of the field existing:
-  // Firestore merges nested paths per key, so everyone voting the same song at
-  // once converges, where a wholesale write would be last-writer-wins and lose
-  // all but one. Writing `updates.votes = next.votes` here would silently undo
-  // the design; ui/tests/rules.test.js proves the merge against the emulator.
+  // Votes go out per leaf: Firestore merges nested paths, so a room voting one
+  // song at once keeps every vote; a whole-map write would keep only the last.
   const prevVotes = prev?.votes || {};
   const nextVotes = next.votes || {};
   const voters = (map: Votes, uid: string) =>

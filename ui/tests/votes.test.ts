@@ -1,12 +1,3 @@
-// Upvotes on requests (#83).
-//
-// Two things here are load bearing beyond "the arithmetic adds up": toggleVote
-// must not mutate its input (sync.ts's diff compares against the last server
-// state, and editing it underneath would make changes invisible to the push),
-// and the display sort must be stable (that is the whole of "ties keep arrival
-// order", and an unstable sort reshuffles the pool under the MC's thumb every
-// time an unrelated row is voted).
-
 import { describe, expect, it } from "vitest";
 import { ASKER, hasVoted, seedAsker, sortForDisplay, toggleVote, voteCount } from "../votes.js";
 import type { Votes } from "../types.js";
@@ -47,8 +38,6 @@ describe("toggleVote", () => {
     expect(toggleVote(votes, "song1", A)).toEqual({ song1: { [B]: true } });
   });
 
-  // Otherwise a session accumulates an empty object for every song anyone ever
-  // voted for and changed their mind about.
   it("drops the row's key when its last vote goes", () => {
     expect(toggleVote({ song1: { [A]: true } }, "song1", A)).toEqual({});
   });
@@ -69,10 +58,6 @@ describe("toggleVote", () => {
   });
 });
 
-// The point of seeding isn't warmth, it's parity: someone using the app can add
-// a song and then thumb it up, where whoever wrote on the whiteboard isn't in
-// the app to do either. Both channels have to enter the pool at the same score,
-// or the sort quietly ranks app requests above board ones.
 describe("seedAsker", () => {
   it("puts an app request in at one, as the requester's own vote", () => {
     const votes = seedAsker({}, "song1", A);
@@ -87,15 +72,13 @@ describe("seedAsker", () => {
     expect(hasVoted(votes, "song1", B)).toBe(false);
   });
 
-  it("leaves the two on equal footing", () => {
+  it("seeds an app request and a scanned row at the same score", () => {
     const fromApp = seedAsker({}, "song1", A);
     const fromBoard = seedAsker({}, "song2", ASKER);
     expect(voteCount(fromApp, "song1")).toBe(voteCount(fromBoard, "song2"));
   });
 
-  // Otherwise the requester's own tap would be a free second vote, which is the
-  // exact advantage the seeding exists to remove.
-  it("gives the requester nothing more to add", () => {
+  it("leaves the requester no free second vote: their tap un-votes", () => {
     const votes = seedAsker({}, "song1", A);
     expect(toggleVote(votes, "song1", A)).toEqual({});
   });

@@ -140,7 +140,7 @@ def catalogue(edition: str | None, as_json: bool):
 def serve(host: str, port: int, debug: bool):
     """Run the API locally via functions-framework.
 
-    The UI is served separately, e.g.: python3 -m http.server 3000 -d ui
+    The UI is served separately: `npm run dev` in ui/ (port 3000).
     """
     from functions_framework import create_app
 

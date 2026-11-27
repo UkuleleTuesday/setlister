@@ -1,49 +1,37 @@
-// Lazy Firebase / Firestore loader.
-//
-// Firebase is only needed for multiplayer session sharing — local-only use
-// must never trigger a Firestore network request. This module wraps the
-// dynamic imports in a single async function so Vite code-splits Firebase
-// into a separate chunk that is only fetched on first call.
-//
-// Usage:
-//   const { db, fx } = await getFirestore();
-//   const ref = fx.doc(db, "sessions", sessionId);
+// Dynamic imports, so Vite splits Firestore and Auth into lazy chunks (only
+// organiser phones load Auth). Callers use `fx`, never importing firebase.
 
+import type { FirebaseApp } from "firebase/app";
+import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config.js";
 
-/** The Firestore helpers callers use instead of importing firebase directly. */
+// localhost uses the emulators. A function: this module is imported under node.
+const onLocalhost = () => ["localhost", "127.0.0.1"].includes(location.hostname);
+
+let _app: Promise<FirebaseApp> | null = null;
+
+// Reuses an existing app across HMR.
+function getApp(): Promise<FirebaseApp> {
+  _app ??= import("firebase/app").then(({ initializeApp, getApps }) =>
+    getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig),
+  );
+  return _app;
+}
+
 export type Fx = Awaited<ReturnType<typeof _init>>["fx"];
 
-/** What getFirestore() resolves to. */
 export interface FirestoreHandle {
   db: Firestore;
   fx: Fx;
 }
 
-// Memoize the initialisation promise so repeated calls share a single load.
 let _promise: Promise<FirestoreHandle> | null = null;
 
-/**
- * Returns `{ db, fx }` where:
- *   - `db`  is the Firestore database instance
- *   - `fx`  is a namespace of Firestore helper functions so callers never
- *           need to import firebase directly:
- *           { doc, collection, getDoc, getDocs, query, orderBy, limit,
- *             onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch,
- *             runTransaction, serverTimestamp, deleteField, Timestamp }
- *
- * On the first call the Firebase SDK chunks are fetched; subsequent calls
- * return the memoized result instantly.
- *
- * Mirrors the `getApiBase()` localhost-detection pattern in app.js for the
- * emulator: when running on localhost / 127.0.0.1 the Firestore emulator on
- * port 8081 is used instead of production (8080 is the Python API).
- */
 export async function getFirestore(): Promise<FirestoreHandle> {
   if (_promise) return _promise;
   _promise = _init().catch((err: Error) => {
-    // Reset so a subsequent call can retry after a transient failure.
+    // Reset so a later call can retry after a transient failure.
     _promise = null;
     throw new Error(`Failed to load Firebase: ${err.message}`);
   });
@@ -51,10 +39,7 @@ export async function getFirestore(): Promise<FirestoreHandle> {
 }
 
 async function _init() {
-  const [{ initializeApp, getApps }, firestoreModule] = await Promise.all([
-    import("firebase/app"),
-    import("firebase/firestore"),
-  ]);
+  const [app, firestoreModule] = await Promise.all([getApp(), import("firebase/firestore")]);
   const {
     getFirestore: _getFirestore,
     connectFirestoreEmulator,
@@ -73,18 +58,14 @@ async function _init() {
     runTransaction,
     serverTimestamp,
     deleteField,
+    arrayUnion,
     Timestamp,
   } = firestoreModule;
 
-  // Re-use an existing Firebase app if one was already initialised (e.g.
-  // during hot-module replacement in dev).
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-
   const db = _getFirestore(app);
 
-  // Connect to the local Firestore emulator when developing — mirrors the
-  // getApiBase() localhost-detection pattern in app.js.
-  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+  // 8081: the Python API has 8080.
+  if (onLocalhost()) {
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
   }
 
@@ -104,8 +85,39 @@ async function _init() {
     runTransaction,
     serverTimestamp,
     deleteField,
+    arrayUnion,
     Timestamp,
   };
 
   return { db, fx };
+}
+
+export interface AuthHandle {
+  auth: Auth;
+  signInAnonymously: typeof import("firebase/auth").signInAnonymously;
+}
+
+let _auth: Promise<AuthHandle> | null = null;
+
+/** Resolves once a persisted sign-in is restored, so `currentUser` is final. */
+export async function getAuth(): Promise<AuthHandle> {
+  if (_auth) return _auth;
+  _auth = _initAuth().catch((err: Error) => {
+    _auth = null;
+    throw new Error(`Failed to load Firebase Auth: ${err.message}`);
+  });
+  return _auth;
+}
+
+async function _initAuth(): Promise<AuthHandle> {
+  const [app, { getAuth: _getAuth, connectAuthEmulator, signInAnonymously }] = await Promise.all([
+    getApp(),
+    import("firebase/auth"),
+  ]);
+  const auth = _getAuth(app);
+  if (onLocalhost() && !auth.emulatorConfig) {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  }
+  await auth.authStateReady();
+  return { auth, signInAnonymously };
 }

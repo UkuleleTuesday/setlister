@@ -1,209 +1,166 @@
-<!--
-  The home view's session history: "New session", the next night as a big
-  card, any further prepped nights, and the club's history below. Mounted
-  inside <section id="home"> between the What's new banner and footer, which
-  app.js keeps (they're the release notes' doors, not the history).
-
-  Driven by session-index.ts: listing, labelling, disambiguation and the
-  upcoming/past split all stay pure there. app.js reaches in through refresh()
-  and showError(), and hears back through the props.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
+  import { history, loadHistory } from "./history.svelte.js";
+  import { notices } from "./notices.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
   import {
+    type LabelledEntry,
+    type MonthGroup,
     type SessionEntry,
+    dateTile,
     disambiguate,
-    listSessions,
+    groupByMonth,
     partitionSessions,
+    pastSessionTitle,
+    sessionDateLabel,
+    sessionTimeLabel,
   } from "./session-index.js";
+
+  type Entry = LabelledEntry<SessionEntry>;
 
   let {
     onPick,
     onNewSession,
-    onPlanned,
   }: {
-    /** A session card was tapped. */
     onPick: (id: string) => void;
-    /** "New session" was tapped. */
     onNewSession: () => void;
-    /** The soonest upcoming night after each load, or null: the sheet's gate. */
-    onPlanned: (entry: SessionEntry | null) => void;
   } = $props();
-
-  // How many past nights show before the rest collapse. Enough to cover "the
-  // last month or so" at one Tuesday a week without the history burying the
-  // page.
-  const PAST_VISIBLE = 5;
-
-  let entries: SessionEntry[] = $state([]);
-  let status: "loading" | "ready" | "error" = $state("loading");
-  let error = $state("");
-  // Survives refresh() so a background refresh doesn't slam the history shut
-  // under someone's thumb.
-  let pastOlderOpen = $state(false);
 
   // Label the WHOLE list before splitting, so two sessions the same night get
   // their disambiguating time suffixes even when one of them is the hero.
-  const layout = $derived.by(() => {
+  const listing = $derived.by(() => {
     const now = new Date();
-    return partitionSessions(disambiguate(entries, now), now);
+    const layout = partitionSessions(disambiguate(history.entries, now), now);
+    return { now, layout, months: groupByMonth(layout.past, now) };
   });
+  const now = $derived(listing.now);
+  const layout = $derived(listing.layout);
+  const months = $derived(listing.months);
   const next = $derived(layout.upcoming[0]);
-  // Never hide a single item behind a tap: at the threshold, one more row
-  // costs less than a one-row disclosure.
-  const collapse = $derived(layout.past.length > PAST_VISIBLE + 1);
-  const pastVisible = $derived(collapse ? layout.past.slice(0, PAST_VISIBLE) : layout.past);
-  const pastOlder = $derived(collapse ? layout.past.slice(PAST_VISIBLE) : []);
 
   const statusText = $derived(
-    status === "loading"
+    history.status === "loading"
       ? "Loading sessions…"
-      : status === "error"
+      : history.status === "error"
         ? "Couldn’t load sessions."
-        : entries.length
-          ? ""
-          : "No sessions yet. Start one above.",
+        : "",
+  );
+  // Most phones on home are the room's, which can't snap or run the night.
+  const pitch = $derived(
+    organiserStatus.isOrganiser
+      ? "Snap the whiteboard, take requests and set the running order."
+      : "Ask for the tunes you want to play and follow what’s up next.",
   );
 
-  // Remembered by the new-session sheet for its gate. A failed load lands
-  // here as an empty list, clearing it to null: the sheet then shows no
-  // notice and its Start-time check fails closed instead of trusting stale
-  // state.
-  $effect(() => {
-    onPlanned(next ?? null);
-  });
-
-  /**
-   * Load the history. The list and "New session" are independent paths: a
-   * failed query must never stop someone starting tonight's set. What's on
-   * screen stays put while loading.
-   */
-  export async function refresh() {
-    status = "loading";
-    try {
-      entries = await listSessions();
-      status = "ready";
-    } catch {
-      // A failed query clears the whole layout, hero included: a stale "Next
-      // session" card over a "Couldn't load" error would be a lie.
-      entries = [];
-      status = "error";
-    }
-  }
-
-  /** Why the last route bounced back here (a bad link, a deleted session). */
-  export function showError(message: string) {
-    error = message;
-  }
-
-  export function clearError() {
-    error = "";
-  }
-
-  function startedBy(entry: SessionEntry) {
-    return entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+  function meta(entry: Entry) {
+    const who = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+    // disambiguate() only suffixes a night shared by two sessions.
+    const twin = entry.createdAt && entry.label !== sessionDateLabel(entry.createdAt, now);
+    return twin ? `${sessionTimeLabel(entry.createdAt)} · ${who}` : who;
   }
 </script>
 
-<!-- `label` is the session's date in this viewer's locale (see
-     disambiguate()/sessionDateLabel()). A just-created doc can still be
-     waiting on its server timestamp, which labels as "": name the state
-     rather than render a blank card. -->
-{#snippet item(entry: SessionEntry & { label: string }, extraClass = "")}
+<!-- A just-created doc awaiting its server timestamp has no date yet. -->
+{#snippet tile(entry: Entry, large = false)}
+  <span class={["date-tile", { "date-tile-lg": large }]}>
+    {#if entry.createdAt}
+      {@const parts = dateTile(entry.createdAt)}
+      <span class="date-tile-weekday">{parts.weekday}</span><span class="date-tile-day">
+        {parts.day}
+      </span>
+    {:else}
+      <span class="date-tile-day">?</span>
+    {/if}
+  </span>
+{/snippet}
+
+{#snippet item(entry: Entry, title: string, extraClass = "")}
   <li>
     <button
       type="button"
-      class={extraClass ? `session-item ${extraClass}` : "session-item"}
+      class={["session-item", extraClass]}
       data-id={entry.id}
       onclick={() => onPick(entry.id)}
     >
-      <span class="session-item-name">{entry.label || "Date pending"}</span><span
-        class="session-item-meta"
-      >
-        {startedBy(entry)}
+      {@render tile(entry)}
+      <span class="session-item-text">
+        <span class="session-item-name">{title}</span>
+        <span class="session-item-meta">{meta(entry)}</span>
       </span>
+      <Icon name="forward" extraClass="session-item-chevron" />
     </button>
   </li>
 {/snippet}
 
-<!-- While a night is coming up, starting ANOTHER session is a secondary act,
-     so the button steps back to a quiet style; otherwise it's the hero. -->
-<button
-  id="new-session"
-  class="primary-action"
-  class:secondary-new={Boolean(next)}
-  type="button"
-  onclick={onNewSession}
->
-  <Icon name="add" /><span class="btn-label">New session</span>
-</button>
-<div id="home-error" class="error" hidden={!error}>{error}</div>
+{#snippet monthGroups(groups: MonthGroup<Entry>[])}
+  {#each groups as group, i (i)}
+    <section class="month-group">
+      {#if group.label}<h3 class="month-label eyebrow">{group.label}</h3>{/if}
+      <ul class="inset-list">
+        {#each group.entries as entry (entry.id)}
+          {@render item(
+            entry,
+            entry.createdAt ? pastSessionTitle(entry.createdAt, now) : "Date pending",
+          )}
+        {/each}
+      </ul>
+    </section>
+  {/each}
+{/snippet}
 
-<!-- The joinable nights, above the history. The next one leads as a big card
-     (on a club night the screen's one job is getting you into tonight's
-     session), any further prepped nights queue beneath it. Heading and card
-     hidden when nothing is upcoming: then "New session" above is the hero
-     instead. -->
-<h2 id="upcoming-heading" hidden={layout.upcoming.length === 0}>Coming up</h2>
+<div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
+
+<!-- The night is the hero: it's what most phones come to home for. -->
 <div id="next-session" hidden={!next}>
   {#if next}
-    <!-- No CTA line: the home screen opens the FULL view, where people run the
-         whole night, so any verbs here would miscast someone. The card is a
-         button in a list of buttons; the night's name is the message. -->
     <button
       type="button"
       class="next-session-card"
       data-id={next.id}
       onclick={() => onPick(next.id)}
     >
-      <span class="next-session-kicker">Next session</span><span class="next-session-name">
-        {next.label || "Date pending"}
-      </span><span class="next-session-meta">{startedBy(next)}</span>
+      {@render tile(next, true)}
+      <span class="session-item-text">
+        <span class="next-session-name">{next.label || "Date pending"}</span>
+        <span class="next-session-meta">{meta(next)}</span>
+      </span>
+      <span class="next-session-pitch">{pitch}</span>
+      <span class="next-session-open">
+        Open the setlist<Icon name="forward" />
+      </span>
     </button>
   {/if}
 </div>
-<ul id="upcoming-list" class="session-list">
+<div id="no-night" class="no-night callout" hidden={history.status !== "ready" || !!next}>
+  <p class="no-night-title">No night planned yet</p>
+  <p>
+    {organiserStatus.isOrganiser
+      ? "Start one and the room can send requests."
+      : "When the organisers start the next one, it shows up here."}
+  </p>
+</div>
+
+{#if organiserStatus.isOrganiser}
+  <button
+    id="new-session"
+    class={["btn", next ? "btn-soft" : "btn-primary btn-lg"]}
+    type="button"
+    onclick={onNewSession}
+  >
+    <Icon name="add" /><span class="btn-label">New session</span>
+  </button>
+{/if}
+
+<h2 id="upcoming-heading" hidden={layout.upcoming.length < 2}>Coming up</h2>
+<ul id="upcoming-list" class="inset-list" hidden={layout.upcoming.length < 2}>
   {#each layout.upcoming.slice(1) as entry (entry.id)}
-    {@render item(entry, "upcoming")}
+    {@render item(entry, entry.label || "Date pending", "upcoming")}
   {/each}
 </ul>
 
-<!-- The club's history: a different job (looking back, not joining), so it
-     sits below under its own quiet heading. Only the most recent few show;
-     the rest collapse behind #past-older so a year of Tuesdays doesn't bury
-     the page. -->
 <h2 id="past-heading" hidden={layout.past.length === 0}>Past sessions</h2>
-<ul id="session-list" class="session-list">
-  {#each pastVisible as entry (entry.id)}
-    {@render item(entry)}
-  {/each}
-</ul>
-<!-- Same collapsed-disclosure idea as the session view's played/bin groups,
-     over session items rather than song rows. -->
-<div id="past-older" class="row-group" hidden={pastOlder.length === 0}>
-  {#if pastOlder.length}
-    <button
-      type="button"
-      class="group-toggle"
-      aria-expanded={pastOlderOpen ? "true" : "false"}
-      aria-controls="past-older-rows"
-      onclick={() => (pastOlderOpen = !pastOlderOpen)}
-    >
-      <span class="group-label">
-        {pastOlder.length} older {pastOlder.length === 1 ? "session" : "sessions"}
-      </span><Icon name="chevron" extraClass="group-chevron" />
-    </button>
-    {#if pastOlderOpen}
-      <ul id="past-older-rows" class="session-list group-rows">
-        {#each pastOlder as entry (entry.id)}
-          {@render item(entry)}
-        {/each}
-      </ul>
-    {/if}
-  {/if}
+<div id="session-list">
+  {@render monthGroups(months)}
 </div>
 <p id="session-list-status" class="note" aria-live="polite" hidden={statusText === ""}>
   {statusText}
@@ -212,8 +169,8 @@
   id="session-list-retry"
   class="link-button"
   type="button"
-  hidden={status !== "error"}
-  onclick={refresh}
+  hidden={history.status !== "error"}
+  onclick={loadHistory}
 >
   Try again
 </button>

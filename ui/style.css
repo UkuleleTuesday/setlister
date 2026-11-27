@@ -1,26 +1,104 @@
+/* Global on purpose: components have no scoped <style>. Their ids and classes
+   are load-bearing: these rules and the e2e suite select on them. */
+
+/* Design tokens. Full guide: DESIGN.md. Use a token, never a raw value; add a
+   token here (and to DESIGN.md) before inventing a new one. */
 :root {
-  /* Status colours (review-sheet semantics). */
+  /* Brand */
+  --accent: #4a148c;
+  --accent-bright: #5e1ca9;
+  --accent-soft: #ede7f6;
+  --accent-fill: linear-gradient(160deg, var(--accent-bright), var(--accent) 70%);
+  --on-accent: #fff;
+  --on-accent-muted: rgba(255, 255, 255, 0.8);
+  --on-accent-divider: rgba(255, 255, 255, 0.2);
+
+  /* Surfaces */
+  --bg: #faf7f2;
+  --card: #fff;
+  --surface-sunken: #efebe4;
+  --border: #ddd5c9;
+  --divider: #ece6dc;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim-strong: rgba(0, 0, 0, 0.88);
+
+  /* Text. --muted is ≥4.5:1 (AA) on --card and --bg: don't lighten it. */
+  --text: #222;
+  --text-secondary: #4f4f4f;
+  --muted: #6b6b6b;
+
+  /* Status: played/matched, needs a look, binned/error, unknown */
   --confirmed: #2e7d32;
+  --confirmed-strong: #1f5a23;
+  --confirmed-soft: #e7f2e7;
   --review: #ef6c00;
   --conflict: #c62828;
+  --conflict-soft: #fbe4e4;
   --unmatched: #616161;
-  /* Surfaces & ink. */
-  --bg: #faf7f2;
-  --card: #ffffff;
-  --text: #222;
-  /* Small/meta text on white or --bg: ≥4.5:1 AA — don't lighten. */
-  --muted: #6b6b6b;
-  /* One accent, used deliberately: primary actions, nav, the Next marker. */
-  --accent: #4a148c;
-  --accent-soft: #ede7f6;
-  /* Warm neutrals so borders sit in the page's palette instead of cooling it. */
-  --border: #ddd5c9;
-  /* Radius scale: cards/panels vs hero buttons & sheets. */
-  --radius: 12px;
+
+  /* Type */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --text-micro: 0.65rem;
+  --text-2xs: 0.7rem;
+  --text-xs: 0.8rem;
+  --text-sm: 0.85rem;
+  --text-md: 0.9rem;
+  --text-base: 1rem;
+  --text-lg: 1.1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.4rem;
+  --text-3xl: 1.6rem;
+  --text-display: 2.4rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --tracking-caps: 0.08em;
+  --tracking-tight: -0.02em;
+
+  /* Spacing: 0.2rem steps */
+  --space-1: 0.2rem;
+  --space-2: 0.4rem;
+  --space-3: 0.6rem;
+  --space-4: 0.8rem;
+  --space-5: 1rem;
+  --space-6: 1.2rem;
+  --space-7: 1.4rem;
+  --space-8: 1.6rem;
+  --space-10: 2rem;
+
+  /* Shape */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
-  /* Elevation: a soft warm two-layer lift for cards, deeper for the Next card. */
+  --radius-full: 999px;
+
+  /* Elevation, lowest to highest */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.07);
   --shadow-card: 0 1px 2px rgba(74, 20, 140, 0.05), 0 2px 8px rgba(60, 45, 20, 0.07);
-  --shadow-next: 0 2px 4px rgba(74, 20, 140, 0.08), 0 4px 14px rgba(60, 45, 20, 0.1);
+  --shadow-raised: 0 2px 4px rgba(74, 20, 140, 0.08), 0 4px 14px rgba(60, 45, 20, 0.1);
+  --shadow-cta: 0 2px 8px rgba(74, 20, 140, 0.25);
+  --shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Layers */
+  --z-lifted: 5;
+  --z-popover: 10;
+  --z-menu: 20;
+  --z-sheet: 30;
+  --z-lightbox: 50;
+
+  /* Motion */
+  --duration-fast: 0.15s;
+  --duration-base: 0.2s;
+  --ease: ease;
+
+  /* Interaction */
+  --tap-min: 44px;
+  --pressed-opacity: 0.85;
+  --disabled-opacity: 0.45;
+  --focus-ring: 2px solid var(--accent);
+
   color-scheme: light;
 }
 
@@ -28,8 +106,349 @@
   box-sizing: border-box;
 }
 
-/* Lucide control icons (see icons.js): stroke follows the button's text
-   colour, size follows its font-size, so one rule serves every context. */
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+/* The pressed state below replaces the platform's grey/blue tap flash, which
+   only some controls had. */
+button,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled):active {
+  opacity: var(--pressed-opacity);
+}
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* --- Primitives (DESIGN.md has when to use each) ------------------------- */
+
+/* Buttons: .btn plus one fill (.btn-primary, .btn-soft) and optionally .btn-lg.
+   .link-button is the text-only button. */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+.btn:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+.btn-primary {
+  color: var(--on-accent);
+  background: var(--accent-fill);
+}
+.btn-soft {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.btn-lg {
+  min-height: 54px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg);
+}
+.btn-lg.btn-primary {
+  box-shadow: var(--shadow-cta);
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  /* ~44px hit area; the negative margin keeps the layout unchanged. */
+  padding: var(--space-5) var(--space-2);
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-2));
+}
+
+/* Round, bordered icon-only button on a card surface. */
+.icon-button {
+  position: relative;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xl);
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: var(--shadow-xs);
+}
+.icon-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Grows a small control's hit area to 44px without moving the layout. The
+   control needs position: relative (or absolute). */
+.tap-target::before,
+.icon-button::before,
+.warn-icon::before,
+.row-tools button::before,
+.setlist-actions button::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--tap-min);
+  height: var(--tap-min);
+}
+
+/* Small caps label: section headings, kickers, the club name. */
+.eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--muted);
+}
+
+/* Anchored panel under a header button. */
+.popover {
+  position: absolute;
+  top: 3.4rem;
+  z-index: var(--z-popover);
+  max-height: calc(100vh - 4.5rem);
+  max-height: calc(100dvh - 4.5rem);
+  overflow-y: auto;
+  text-align: left;
+  padding: var(--space-5);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+}
+
+/* Tinted note: a confirmation, a status, the edit-mode notice. Margin and
+   alignment are per use. */
+.callout {
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+
+/* Rows in one card, split by hairlines: for lists you open things from. Lists
+   you act on (swipe, vote, reorder) use row cards. */
+.inset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.inset-list > li + li {
+  border-top: 1px solid var(--divider);
+}
+
+/* A calendar leaf: scanned by day number, so the number leads. */
+.date-tile {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.date-tile-weekday {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.date-tile-day {
+  margin-top: 0.15rem;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.date-tile-lg {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.date-tile-lg .date-tile-day {
+  color: var(--on-accent);
+  font-size: var(--text-2xl);
+}
+
+/* The number is decoration: the <ol> already tells assistive tech. */
+.numbered {
+  counter-reset: setlist;
+}
+.numbered > .row-card {
+  counter-increment: setlist;
+}
+.numbered > .row-card .row-body::before {
+  content: counter(setlist);
+  content: counter(setlist) / "";
+  flex: none;
+  min-width: 1.3rem;
+  text-align: right;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Settings: a group is an eyebrow over rows. A row is a label (and help) with
+   its control on the right, all one tap target. */
+.settings-group {
+  margin: 0 0 var(--space-5);
+}
+.settings-group > .eyebrow {
+  margin: 0 0 var(--space-2);
+}
+.settings-group .field {
+  margin-bottom: 0;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--tap-min);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+.setting-row + .setting-row {
+  border-top: 1px solid var(--divider);
+}
+.setting-row + .field {
+  margin-top: var(--space-3);
+}
+.setting-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-md);
+}
+.setting-help {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+
+/* On/off that applies at once: <input type="checkbox" role="switch">. The
+   off track is --muted, not --border, to keep 3:1 against the card. */
+.switch {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.75rem;
+  height: 1.6rem;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--duration-fast) var(--ease);
+}
+.switch:checked {
+  background: var(--accent);
+}
+.switch:checked::before {
+  transform: translateX(1.15rem);
+}
+.switch:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+
+/* A named, collapsed section: <details class="disclosure">. */
+.disclosure {
+  border-top: 1px solid var(--divider);
+}
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--tap-min);
+  list-style: none;
+  cursor: pointer;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure[open] > summary {
+  margin-bottom: var(--space-2);
+}
+.disclosure-chevron {
+  color: var(--muted);
+  transition: transform var(--duration-fast) var(--ease);
+}
+.disclosure[open] .disclosure-chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch::before,
+  .disclosure-chevron {
+    transition: none;
+  }
+}
+
 svg.icon {
   width: 1.2em;
   height: 1.2em;
@@ -54,166 +473,77 @@ svg.icon.spin {
   display: none !important;
 }
 
-body {
-  margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-
+/* Home: a quiet wordmark level with the corner buttons; the night is the hero. */
 header {
   position: relative;
-  padding: 1.2rem 1rem 0.4rem;
-  text-align: center;
-}
-/* Keep the centred title clear of the corner controls (Share top-left, gear
-   top-right) so it never tucks under them — even the long title at 320px. */
-header h1 {
+  max-width: 560px;
   margin: 0 auto;
-  font-size: 1.4rem;
-  max-width: calc(100% - 6rem);
+  padding: max(0.9rem, env(safe-area-inset-top)) max(var(--space-5), env(safe-area-inset-right)) 0
+    max(var(--space-5), env(safe-area-inset-left));
 }
-/* Same corner clearance as the h1: the tagline is long enough to reach the
-   gear button otherwise. */
-.subtitle {
-  margin: 0.2rem auto 0;
-  color: #666;
-  font-size: 0.9rem;
-  max-width: calc(100% - 6rem);
+.club-name {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.2;
 }
-/* In a session app.js swaps the h1's text for the night's date: one title
-   bar — share, date, settings — instead of a vestigial brand row stacked on a
-   separate session row. The tagline gets out of the way. The min-height keeps
-   the header at least as tall as the absolutely-pinned corner buttons (their
-   top offset + the 2.4rem card) — without it, a short date would let the
-   Share button overhang "All sessions" just below. */
+header h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+}
+/* min-height: at least as tall as the pinned corner buttons, or Share
+   overhangs "All sessions" below a short date. */
 body.in-session header {
+  max-width: none;
   min-height: calc(max(0.9rem, env(safe-area-inset-top)) + 2.7rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
+  padding: var(--space-2) var(--space-5);
+  text-align: center;
 }
 body.in-session header h1 {
-  font-size: 1.25rem;
+  letter-spacing: normal;
 }
-/* The club's name over the night's date: a link opened away from the pub
-   still says whose night it is. Session only; home's title is the brand. */
-.club-name {
-  display: none;
-}
+/* The club name says whose night it is on a link opened away from the pub. */
 body.in-session .title-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.1rem;
+  gap: var(--space-1);
   max-width: calc(100% - 6rem);
+  margin: 0;
 }
-/* The stack keeps the corner clearance itself; the h1's own max-width would
-   be taken from the stack's (shrink-wrapped) width and squeeze the date into
-   a sliver it overflows to the right. */
+/* The stack holds the clearance: the h1's max-width would resolve against the
+   shrink-wrapped stack and squeeze the date into a sliver. */
 body.in-session .title-stack h1 {
   max-width: none;
   margin: 0;
 }
 body.in-session .club-name {
-  display: block;
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--accent);
-}
-body.in-session .subtitle {
-  display: none;
+  font-size: var(--text-2xs);
 }
 
-.settings-toggle {
-  position: absolute;
-  top: 0.9rem;
-  right: 0.9rem;
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  line-height: 1;
-  cursor: pointer;
-  color: #444;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
-}
-.settings-toggle:active {
-  opacity: 0.85;
-}
-/* The visible card is ~38px; extend the tappable area to the 44px minimum with
-   a transparent pseudo-element (same trick as .share-toggle below). */
-.settings-toggle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 44px;
-  height: 44px;
-}
-
-/* Share button: mirrors the settings gear as a 2.4rem round card, but pinned
-   top-LEFT and honouring the left safe-area inset (notch in landscape). */
+.settings-toggle,
 .share-toggle {
   position: absolute;
   top: max(0.9rem, env(safe-area-inset-top));
+}
+.settings-toggle {
+  right: max(0.9rem, env(safe-area-inset-right));
+}
+.share-toggle {
   left: max(0.9rem, env(safe-area-inset-left));
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  color: #444;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
 }
-/* The visible card is only ~38px to match the gear, but a phone touch target
-   must be ≥44px — extend the tappable area with a transparent pseudo-element
-   rather than enlarging the card (the gear is under-spec; don't copy that). */
-.share-toggle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 44px;
-  height: 44px;
-}
-.share-toggle:active {
-  opacity: 0.85;
-}
-.share-toggle:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-/* Active = the lists are shared. Accent ring + a small live dot so it reads at
-   a glance without relying on colour alone. */
+/* The dot means "shared" doesn't rely on colour alone. */
 .share-toggle.active {
   border-color: var(--confirmed);
   box-shadow:
     0 0 0 2px rgba(46, 125, 50, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.07);
+    var(--shadow-xs);
 }
 .share-toggle.active::after {
   content: "";
@@ -228,54 +558,36 @@ body.in-session .subtitle {
 }
 
 .share-panel {
-  position: absolute;
-  top: 3.4rem;
   left: max(0.9rem, env(safe-area-inset-left));
-  z-index: 10;
-  width: min(17rem, calc(100vw - 1.8rem));
-  text-align: left;
-  padding: 0.9rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  width: min(18rem, calc(100vw - 1.8rem));
 }
-/* The night's name leads the popover; the id underneath is just the link slug,
-   in the note register. Long typed names wrap instead of widening the panel. */
 .share-panel .share-session-name {
-  margin: 0 0 0.1rem;
-  font-size: 1.05rem;
-  font-weight: 700;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   overflow-wrap: anywhere;
 }
 .share-panel .share-session-label {
-  margin: 0 0 0.2rem;
+  margin: 0 0 var(--space-1);
 }
 .share-panel .share-session-label strong {
   color: var(--confirmed);
 }
 .share-panel .note {
-  margin: 0 0 0.7rem;
+  margin: 0 0 var(--space-4);
 }
-/* Stack the share/leave buttons full-width so each is an easy thumb target. */
 .share-panel .actions {
   flex-direction: column;
   margin: 0;
 }
 
-/* "Who's here" roster inside the share popover. */
 .share-presence {
-  margin: 0 0 0.7rem;
-  padding: 0.55rem 0 0.15rem;
-  border-top: 1px solid #eee;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) 0 var(--space-1);
+  border-top: 1px solid var(--divider);
 }
 .share-presence-head {
-  margin: 0 0 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #666;
+  margin: 0 0 var(--space-2);
 }
 .share-presence ul {
   list-style: none;
@@ -285,9 +597,9 @@ body.in-session .subtitle {
 .share-presence-item {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.15rem 0;
-  font-size: 0.95rem;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--text-md);
   line-height: 1.3;
 }
 .presence-dot {
@@ -302,8 +614,6 @@ body.in-session .subtitle {
   overflow-wrap: anywhere;
 }
 
-/* Count badge pinned to the share button's top-right corner (the button is
-   itself absolutely placed top-left of the header). */
 .share-count-badge {
   position: absolute;
   top: max(0.5rem, calc(env(safe-area-inset-top) - 0.4rem));
@@ -311,81 +621,33 @@ body.in-session .subtitle {
   z-index: 11;
   min-width: 1.05rem;
   height: 1.05rem;
-  padding: 0 0.22rem;
+  padding: 0 var(--space-1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   line-height: 1;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--confirmed);
   border: 1.5px solid var(--bg);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   pointer-events: none;
 }
 
 .settings-panel {
-  position: absolute;
-  top: 3.4rem;
-  right: 0.9rem;
-  z-index: 10;
+  right: max(0.9rem, env(safe-area-inset-right));
   width: min(18rem, calc(100vw - 1.8rem));
-  /* Short phones can't fit the full panel — scroll inside it rather than
-     pushing fields off-screen with no way to reach them. */
-  max-height: calc(100vh - 4.5rem);
-  max-height: calc(100dvh - 4.5rem);
-  overflow-y: auto;
-  text-align: left;
-  padding: 0.9rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
-.settings-panel .field {
-  margin-bottom: 0.8rem;
-}
-.settings-panel .field:last-child {
-  margin-bottom: 0;
-}
-.settings-panel .field.toggle span {
-  margin-bottom: 0;
-}
-.settings-panel .field.toggle input {
-  width: auto;
-  flex: 0 0 auto;
-}
-/* Parser knobs, folded away so the panel opens on the settings a club member
-   has a use for (#47). The summary is the only always-visible part, so it
-   carries the 44px touch target rather than the fields inside. */
-.settings-panel .advanced {
-  margin-top: 0.9rem;
-  border-top: 1px solid #eee;
-}
-.settings-panel .advanced > summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  cursor: pointer;
-  color: #666;
-  font-size: 0.9rem;
-}
-.settings-panel .advanced[open] > summary {
-  margin-bottom: 0.4rem;
-}
-
 main {
   max-width: 560px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--space-5);
 }
 
-/* Edition provenance footer: centred and quiet at the bottom of the page,
-   clear of the safe-area inset on phones. Hidden until it has text. */
 footer#edition-note {
   max-width: 560px;
-  margin: 0.5rem auto 0;
+  margin: var(--space-3) auto 0;
   padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
   text-align: center;
 }
@@ -395,27 +657,27 @@ footer#edition-note:empty {
 
 .field {
   display: block;
-  margin-bottom: 0.8rem;
-  font-size: 0.9rem;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-md);
 }
 .field span {
   display: block;
-  margin-bottom: 0.25rem;
-  color: #555;
+  margin-bottom: var(--space-1);
+  color: var(--text-secondary);
 }
 .field select,
 .field input[type="number"],
 .field input[type="text"],
 .field input[type="date"] {
   width: 100%;
-  padding: 0.6rem;
-  font-size: 1rem;
+  min-height: 44px;
+  padding: var(--space-3);
+  font-size: var(--text-base);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--card);
 }
-/* iOS renders date inputs as centred, intrinsic-height buttons; pin the same
-   box and left alignment as every other field so the sheet doesn't wobble. */
+/* iOS renders date inputs as centred, intrinsic-height buttons. */
 .field input[type="date"] {
   -webkit-appearance: none;
   appearance: none;
@@ -423,55 +685,23 @@ footer#edition-note:empty {
   text-align: left;
 }
 
-/* The full-width hero button ("New session"). The session's add row has its
-   own pair below (.manual-add). */
-.primary-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  text-align: center;
-  padding: 0.95rem;
-  background: linear-gradient(160deg, #5e1ca9, var(--accent) 70%);
-  color: white;
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 2px 8px rgba(74, 20, 140, 0.25);
-  font-family: inherit;
-  font-size: 1.05rem;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-}
-.primary-action:active {
-  opacity: 0.85;
-}
-.primary-action:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
 .preview-wrap {
   position: relative;
-  margin-top: 0.8rem;
+  margin-top: var(--space-4);
 }
 #preview {
   display: block;
   width: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
 }
 
-/* Scanning overlay: a sci-fi document-scanner sweep on top of the photo
-   while the board is being read, replacing the old spinner. */
 .scan-overlay {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   overflow: hidden;
   pointer-events: none;
 }
-/* Cool tint over the yet-to-be-scanned image + faint scanline texture. */
 .scan-overlay::before {
   content: "";
   position: absolute;
@@ -481,7 +711,6 @@ footer#edition-note:empty {
     rgba(26, 8, 48, 0.3);
 }
 
-/* The travelling beam: a soft trailing glow with a crisp bright leading line. */
 .scan-beam {
   position: absolute;
   left: 0;
@@ -526,7 +755,6 @@ footer#edition-note:empty {
   }
 }
 
-/* Reticle brackets framing the capture. */
 .scan-corner {
   position: absolute;
   width: 22px;
@@ -563,9 +791,7 @@ footer#edition-note:empty {
   border-radius: 0 0 7px 0;
 }
 
-/* Status pill + the escape hatch below it, stacked at the foot of the photo. */
-/* Spans the photo's width (rather than centring an auto-width box) so the pill
-   gets the full line to itself instead of wrapping inside half the frame. */
+/* Full width, so the pill doesn't wrap inside an auto-width box. */
 .scan-hud {
   position: absolute;
   left: 12px;
@@ -582,26 +808,24 @@ footer#edition-note:empty {
   gap: 0.45rem;
   text-align: center;
   padding: 0.35rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(28, 10, 52, 0.72);
   color: #ece3ff;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   border: 1px solid rgba(179, 136, 255, 0.35);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
-/* The one tappable thing on an otherwise inert overlay: full 44px target, and
-   it re-enables pointer events the overlay switches off. */
 .scan-cancel {
   pointer-events: auto;
   min-height: 44px;
   padding: 0 1.1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: rgba(28, 10, 52, 0.85);
   color: #ece3ff;
   font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
   user-select: none;
   border: 1px solid rgba(226, 212, 255, 0.55);
@@ -645,248 +869,236 @@ footer#edition-note:empty {
 }
 
 .error {
-  margin-top: 1rem;
-  padding: 0.8rem;
-  border-radius: 8px;
-  background: #ffebee;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--conflict-soft);
   color: var(--conflict);
-  font-size: 0.92rem;
+  font-size: var(--text-md);
 }
 
-/* Section headings step back to small tracked labels so the song titles (and
-   the Next card) own the page's visual weight — on this screen the content IS
-   the hierarchy. The count answers "how deep is the set / the pool" without
-   counting cards. */
 #upnext h2,
 #requests h2,
 #review h2 {
-  margin: 1.4rem 0 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  margin: var(--space-7) 0 var(--space-3);
 }
-h2 .count {
-  color: #999;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.eyebrow .count {
+  font-weight: var(--weight-medium);
 }
 .note {
-  color: #666;
-  font-size: 0.85rem;
-  margin: 0.2rem 0 0.8rem;
-}
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: var(--space-1) 0 var(--space-4);
 }
 
-/* Setlist heading row. */
 .setlist-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
-/* Export, on the page instead of buried in the settings popover (#47). The head
-   aligns on the text baseline, which buttons don't share — centre this cluster
-   against the heading instead. The 44px hit areas overlap the gap, so the
-   visible gap is wider than it looks. */
+/* The head aligns on baselines, which buttons don't share. */
 .setlist-actions {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
   align-self: center;
 }
-.link-button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  /* App idiom, not web-page idiom: colour + icon + placement carry the
-     affordance, so no underline. */
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
-  /* Pad the hit area out to ~44px tall; the negative margin keeps the visual
-     layout unchanged. */
-  padding: 0.9rem 0.4rem;
-  margin: -0.9rem -0.4rem;
-}
-
 /* --- Home: the club's session history ------------------------------------ */
 #home h2 {
-  margin: 0.4rem 0 0.8rem;
-  font-size: 1.1rem;
+  margin: var(--space-2) 0 var(--space-4);
+  font-size: var(--text-lg);
 }
-.session-list {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+#upcoming-list {
+  margin-top: var(--space-3);
 }
-/* A whole-row target rather than a link inside a card: at the club you tap
-   with a thumb, in the dark, one-handed. */
+.month-group + .month-group {
+  margin-top: var(--space-5);
+}
+.month-label {
+  margin: 0 0 var(--space-2) var(--space-1);
+}
 .session-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   width: 100%;
-  min-height: 56px;
-  padding: 0.7rem 0.8rem;
   text-align: left;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
   font: inherit;
   color: inherit;
   cursor: pointer;
 }
-.session-item:active {
-  opacity: 0.85;
+.session-item {
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+}
+.session-item-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 .session-item-name {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 .session-item-meta {
-  display: block;
-  margin-top: 0.15rem;
-  color: #6b6b6b;
-  font-size: 0.82rem;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
-/* The next night wears the same "next" dress as the highlighted card inside a
-   session (accent edge + the deeper shadow), one size up from a history row:
-   on a club night this card is the whole reason the screen exists. */
-.next-session-card {
-  display: block;
-  width: 100%;
-  min-height: 56px;
-  margin: 0.4rem 0 0.8rem;
-  padding: 1rem 0.9rem;
-  text-align: left;
-  background: var(--card);
-  border: 2px solid var(--accent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-next);
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
+.session-item-chevron {
+  color: var(--muted);
 }
-.next-session-card:active {
-  opacity: 0.85;
-}
-.next-session-kicker {
-  display: block;
+
+.session-item.upcoming .date-tile {
+  background: var(--accent-soft);
   color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+}
+.session-item.upcoming .date-tile-day {
+  color: var(--accent);
+}
+/* The next night, as a ticket: the one loud thing on home. */
+.next-session-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-6) var(--space-6) 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-cta);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.next-session-card .date-tile-lg {
+  background: var(--card);
+  color: var(--accent);
+}
+.next-session-card .date-tile-lg .date-tile-day {
+  color: var(--accent);
 }
 .next-session-name {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: 1.05;
+  letter-spacing: var(--tracking-tight);
   overflow-wrap: anywhere;
 }
 .next-session-meta {
-  display: block;
-  margin-top: 0.2rem;
-  color: #6b6b6b;
-  font-size: 0.85rem;
+  margin-top: var(--space-2);
+  color: var(--on-accent-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
-/* Further prepped nights read as joinable — accented like the hero, a notch
-   quieter — where a past night keeps the plain card. */
-.session-item.upcoming {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-next);
+.next-session-pitch {
+  grid-column: 1 / -1;
+  font-size: var(--text-base);
+  line-height: 1.45;
 }
-/* With a next session on show, starting ANOTHER one is a secondary act. */
-.primary-action.secondary-new {
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: none;
-  font-size: 0.95rem;
-  padding: 0.75rem;
-}
-/* Headings separate the jobs (join vs look back); the first heading after the
-   action block needs its own breathing room. */
-h2#upcoming-heading,
-h2#past-heading {
-  margin-top: 1.4rem;
-}
-/* The collapsed remainder of the history, below the visible rows. */
-#past-older {
-  margin-top: 0.5rem;
-}
-#past-older .group-rows {
-  margin-top: 0.5rem;
-}
-
-/* "What's new": announcement and archive are separate surfaces, and neither
-   sits inside the pick-a-session flow. The banner (unseen entries only) is an
-   accent-tinted strip above the heading — an announcement, not a list row —
-   and one tap opens the sheet on that entry alone, which retires it. The
-   footer link is the quiet, always-there door, and opens the full history in
-   the same sheet. */
-.whats-new-banner {
+.next-session-open {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  /* ≥44px tap target — house hard constraint. */
-  width: 100%;
-  min-height: 44px;
-  margin: 0 0 1rem;
-  padding: 0.6rem 0.8rem;
-  border: none;
-  border-radius: var(--radius);
+  justify-content: space-between;
+  min-height: 52px;
+  margin: 0 calc(-1 * var(--space-6));
+  padding: 0 var(--space-6);
+  border-top: 1px solid var(--on-accent-divider);
+  font-weight: var(--weight-semibold);
+}
+.no-night {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-5);
+}
+.no-night p {
+  margin: 0;
+}
+.no-night .no-night-title {
+  margin-bottom: var(--space-1);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+#new-session {
+  margin-top: var(--space-5);
+}
+h2#upcoming-heading,
+h2#past-heading {
+  margin-top: var(--space-7);
+}
+
+/* Sits beside the settings button, at its height and in its quiet style,
+   until there's news: then it fills and wears a dot. */
+.whats-new-banner {
+  position: absolute;
+  top: max(0.9rem, env(safe-area-inset-top));
+  right: calc(max(0.9rem, env(safe-area-inset-right)) + 2.4rem + var(--space-2));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 2.4rem;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
-  background: #f1eafc;
+}
+.whats-new-banner.unseen {
+  border-color: transparent;
+  background: var(--accent-soft);
+  box-shadow: none;
   color: var(--accent);
-  font: inherit;
-  font-size: 0.9rem;
 }
-.whats-new-banner .icon {
-  width: 1.1rem;
-  height: 1.1rem;
+.whats-new-banner.unseen::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
 }
-.whats-new-footer {
-  margin: 1.6rem 0 0;
-  text-align: center;
+/* In flow, so its hit area clears the last entry and the divider. */
+.whats-new-earlier {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 .whats-new-items {
   margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-  color: #444;
+  padding-left: var(--space-6);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
 }
 .whats-new-items li {
-  margin: 0.35rem 0;
+  margin: var(--space-2) 0;
 }
-/* Dated blocks in the sheet. The gap between entries has to beat the gap
-   between an entry's date and its own items, or a long history reads as one
-   run-on list. Its own date class rather than .note: .sheet .note pulls the
-   line up under a heading, which is wrong for every entry but the first. */
+/* Not .note: .sheet .note pulls the line up under a heading. The gap between
+   entries must beat the date-to-items gap, or the history reads as one list. */
 .whats-new-date {
-  margin: 0 0 0.4rem;
-  color: #666;
-  font-size: 0.85rem;
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 .whats-new-entry + .whats-new-entry {
-  margin-top: 1.2rem;
+  margin-top: var(--space-6);
 }
-/* The full history is taller than any phone, so this sheet — alone among the
-   sheets — pins its chrome and scrolls the entries between it: the title says
-   what you're looking at, and Close stays under the thumb however long the
-   archive gets, instead of being buried at the end of the scroll.
-   Two thirds of the viewport, not the generic .sheet's near-full height: a
-   card that stops well short of both edges reads as a card with the app
-   behind it, and leaves a backdrop you can dismiss it on without aiming. */
+/* Pinned chrome, scrolling entries. Short of both edges so there's backdrop
+   to dismiss on without aiming. */
 #whats-new-sheet .sheet {
   display: flex;
   flex-direction: column;
@@ -901,187 +1113,139 @@ h2#past-heading {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 0.2rem;
+  padding-bottom: var(--space-1);
 }
-/* A hairline so the pinned footer reads as the sheet's floor rather than as
-   one more row of a list that happens to be mid-scroll. */
 #whats-new-sheet .sheet > .actions {
   margin: 0;
-  padding-top: 0.7rem;
-  border-top: 1px solid #eee;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--divider);
 }
 
-/* --- Session bar: back / new ----------------------------------------------
-   A slim secondary nav row — the night's date lives in the header h1 above,
-   so this only carries the way out and the way to a fresh night. */
+/* --- Session bar ---------------------------------------------------------- */
 .session-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 0 0.2rem;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-1);
   min-height: 44px;
 }
 
-/* --- Modal sheet (new session) -------------------------------------------- */
+/* --- Modal sheet (Sheet.svelte) ------------------------------------------- */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-sheet);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: var(--space-5);
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
 }
 .sheet {
   width: min(22rem, 100%);
-  /* Short phones (and the software keyboard eating half the screen) must be
-     able to reach Start — scroll inside the sheet, never off it. */
+  /* The software keyboard can eat half the screen: scroll inside, never off. */
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
-  padding: 1rem;
+  padding: var(--space-5);
   text-align: left;
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-modal);
 }
 .sheet h2 {
-  margin: 0 0 0.8rem;
-  font-size: 1.1rem;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-lg);
 }
 .sheet .field {
-  margin-bottom: 0.8rem;
+  margin-bottom: var(--space-4);
 }
 .sheet .note {
-  margin: -0.4rem 0 0.8rem;
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
 }
 .sheet .actions {
   flex-direction: column;
-  margin: 0.4rem 0 0;
+  margin: var(--space-2) 0 0;
 }
 .sheet .error {
-  margin-top: 0.6rem;
+  margin-top: var(--space-3);
 }
 .sheet-hint {
-  margin: 0.7rem 0 0;
+  margin: var(--space-4) 0 0;
   text-align: center;
-  color: #999;
-  font-size: 0.8rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 #upnext-empty,
 #requests-empty {
-  padding: 1.1rem 0.8rem;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
   background: var(--card);
   border: 1px dashed var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
 }
 
-/* The scan ritual: "or" + camera button (quick add lives up in Requests). */
 #add {
-  margin-top: 1.4rem;
+  margin-top: var(--space-7);
 }
-/* Transient inline feedback — "Added 7 from the board" after a clean scan
-   (#80), "Already in Up next" under the quick-add (#52). Accent-tinted like
-   the What's new banner: news, not chrome. Shown/retired by flashNote(). */
 .flash-note {
-  margin: 0.8rem 0 0;
-  padding: 0.6rem 0.8rem;
+  margin: var(--space-4) 0 0;
   text-align: center;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius);
-  font-size: 0.9rem;
 }
-/* Under the quick-add field the note reads as part of that control, so it
-   hugs the input and keeps the pool's spacing. */
 #add-feedback {
-  margin: 0 0 0.7rem;
+  margin: 0 0 var(--space-4);
 }
-/* Full app: both ways in, side by side between the Requests heading and the
-   pool. The songbook button leads; the camera sits beside it in the soft
-   accent so the row has one primary action. Room devices use .room-top's
-   button instead. */
 .manual-add {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin: 0 0 0.7rem;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+/* Two side by side at 320px: a size down, or "Snap the board" wraps. */
+.manual-add .btn-lg {
+  padding-inline: var(--space-3);
+  font-size: var(--text-base);
+}
+#session-view.fresh .manual-add .btn-lg {
+  font-size: var(--text-lg);
 }
 #session-view.room .manual-add {
   display: none;
 }
-.songbook-trigger,
-.camera-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 54px;
-  padding: 0.75rem 0.6rem;
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 650;
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  cursor: pointer;
-  user-select: none;
-}
-.songbook-trigger {
-  color: #fff;
-  background: var(--accent);
-}
-.camera-button {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.songbook-trigger:active,
-.camera-button:active {
-  opacity: 0.85;
-}
-
-/* What a list is, or what to do with it, under its heading. Same register as
-   the copy around it, not the small-caps heading. */
 .list-hint {
-  margin: -0.3rem 0 0.6rem;
-  color: #4f4f4f;
-  font-size: 0.9rem;
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
 }
 
-/* The request link's state as a pill: a dot plus words, so it never relies on
-   the colour alone. Green while the link takes tunes, quiet grey otherwise.
-   The full app's is a button into the share panel; the room's is just text. */
 .window-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
   min-height: 36px;
-  padding: 0 0.75rem;
+  padding: 0 var(--space-4);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
-  color: #1f5a23;
-  background: #e7f2e7;
+  color: var(--confirmed-strong);
+  background: var(--confirmed-soft);
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 .window-pill::before {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2e7d32;
+  background: var(--confirmed);
 }
 .window-pill[data-state="later"],
 .window-pill[data-state="closed"] {
-  color: #4f4f4f;
-  background: #efebe4;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
 }
 .window-pill[data-state="later"]::before,
 .window-pill[data-state="closed"]::before {
@@ -1104,33 +1268,27 @@ button.window-pill::after {
   height: 44px;
 }
 
-/* --- Fresh session: one job on screen -------------------------------------
-   While both lists are empty (and no scan is in review) the session view
-   collapses to its two add affordances: intro line, add-by-name, "or", the
-   camera hero. Everything else — headings, export, empty-state boxes — waits
-   until there is at least one song to organise. The `fresh` class is kept
-   current by updateSessionMode() in app.js; visibility is class-driven only
-   (the [hidden] attribute would fight these rules). */
+/* --- Fresh session: both lists empty, no scan in review --------------------
+   Visibility here is class-driven only: [hidden] would fight these rules. */
 .fresh-intro {
   display: none;
 }
 #session-view.fresh .fresh-intro {
   display: block;
-  margin: 1.2rem 0 1rem;
+  margin: var(--space-6) 0 var(--space-5);
 }
-/* Same title style as the request view's .room-purpose. */
 .fresh-intro h2,
 .room-purpose {
-  margin: 0 0 0.35rem;
-  font-size: 1.6rem;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-3xl);
   line-height: 1.15;
-  font-weight: 750;
+  font-weight: var(--weight-bold);
 }
 .fresh-intro p,
 .room-purpose-sub {
-  margin: 0 0 1rem;
-  color: #4f4f4f;
-  font-size: 0.95rem;
+  margin: 0 0 var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
   line-height: 1.4;
 }
 #session-view.fresh #upnext,
@@ -1140,32 +1298,21 @@ button.window-pill::after {
 #session-view.fresh #requests-empty {
   display: none;
 }
-/* The two ways in stack full width: they are the whole screen's content. */
 #session-view.fresh .manual-add {
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.6rem;
-}
-#session-view.fresh .songbook-trigger,
-#session-view.fresh .camera-button {
-  font-size: 1.05rem;
+  gap: var(--space-3);
 }
 
-/* --- Room mode: the requests view (#86) ------------------------------------
-   A device that arrived through a `?mode=request` link gets the add-by-name
-   combobox, the (read-only) Requests pool, and a read-only look at the set:
-   Up next plus the collapsed played group, so the room can follow the night —
-   no camera, no reorder, no export, no header chrome. Like `fresh`, the
-   classes (`#session-view.room`, `body.room-mode`) are kept current by
-   applyViewMode() in app.js and visibility is class-driven only — the
-   [hidden] attribute would fight these rules. This hides a VIEW, not a
-   permission: anyone with the plain link has the full app (see #86). */
+/* --- Room mode (#86) -------------------------------------------------------
+   Class-driven like `fresh`. Hides organiser controls; the rules enforce the
+   permission. */
 body.room-mode .share-toggle,
 body.room-mode .share-count-badge,
 body.room-mode .settings-toggle,
 body.room-mode #edition-note {
   display: none;
 }
-#session-view.room .session-bar,
+#session-view.room #window-chip,
 #session-view.room .fresh-intro,
 #session-view.room .setlist-actions,
 #session-view.room #add,
@@ -1173,46 +1320,40 @@ body.room-mode #edition-note {
 #session-view.room #bin-group {
   display: none;
 }
-/* The request view's top: what the page is for, the one action, then the
-   link's rules and the name requests go under. Room only. */
 .room-top {
   display: none;
 }
 #session-view.room .room-top {
   display: block;
-  margin: 0.4rem 0 0.4rem;
+  margin: var(--space-2) 0 var(--space-2);
 }
 .room-add {
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--space-3);
 }
 .room-rules {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.8rem;
+  gap: var(--space-2) var(--space-4);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
-/* The name line is the only trace of the name: entered in
-   #room-request-sheet, shown via the hidden attribute by renderRoomIdentity().
-   The change button keeps its .link-button 44px hit area. */
 .room-identity {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
-/* Nothing queued and nothing played: one line, not a box, so the top of the
-   page stays the add button's. */
+/* One line, not a box, so the top of the page belongs to the add button. */
 #session-view.room #upnext.empty {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
   min-height: 44px;
-  margin-top: 1.2rem;
-  padding: 0 0.8rem;
+  margin-top: var(--space-6);
+  padding: 0 var(--space-4);
   background: var(--card);
-  border: 1px solid #ece6dc;
-  border-radius: var(--radius);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
 }
 #session-view.room #upnext.empty h2 {
   margin: 0;
@@ -1223,12 +1364,9 @@ body.room-mode #edition-note {
   border: none;
   background: none;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
-/* Closed to requests (#86): the room loses the way in, not the view. The add
-   field and its feedback line go, the note takes their place, and the pool
-   below stays so the room can still see what's coming. Full-app devices are
-   untouched by all of this — an organiser adds whatever the switch says. */
+/* Closed: the room loses the way in, not the view. */
 .requests-closed-note {
   display: none;
 }
@@ -1238,12 +1376,9 @@ body.room-mode #edition-note {
 }
 #session-view.room.requests-closed .requests-closed-note {
   display: block;
-  margin: 0 0 0.8rem;
+  margin: 0 0 var(--space-4);
 }
 
-/* The "opening soon" state (#NEW): 30 minutes out from an auto window's open
-   time, room devices get this note in place of the closed one above — same
-   swap, one more state. */
 .requests-opening-soon-note {
   display: none;
 }
@@ -1253,69 +1388,89 @@ body.room-mode #edition-note {
 }
 #session-view.room.requests-opening-soon .requests-opening-soon-note {
   display: block;
-  margin: 0 0 0.8rem;
+  margin: 0 0 var(--space-4);
 }
 
-/* The song named in the request sheet is what's being confirmed, so it reads
-   as the sheet's subject rather than as a caption. Long titles wrap instead of
-   widening the sheet. */
+/* --- Past nights: the recap, and its edit mode --------------------------- */
+.recap-note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+#recap .setlist-head h2 {
+  margin: var(--space-7) 0 var(--space-3);
+}
+#recap-empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+#unplayed-group {
+  margin-top: var(--space-6);
+}
+/* Looking back, the played tunes are the story, not the faded done pile. */
+#recap-rows .row-card.played,
+.group-rows .row-card.reorderable {
+  opacity: 1;
+}
+.past-edit-note {
+  margin: var(--space-2) 0 0;
+}
 .room-request-song {
-  margin: 0 0 0.9rem;
-  font-size: 1.05rem;
-  font-weight: 600;
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
 #upnext-rows,
 #requests-rows,
 #review-rows,
+#recap-rows,
 .group-rows {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-/* Collapsed groups: played songs above Up next, binned songs below Requests.
-   A single tappable summary line ("3 played") replaces a whole stacked section,
-   so the page never grows as the night's history does. Solid, not dashed —
-   dashed is reserved for empty-state placeholders, and this is a control. */
+/* Solid, not dashed: dashed is for empty-state placeholders. */
 .row-group {
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--space-3);
 }
-/* The discard pile is the session view's floor, below the add controls. */
 #bin-group {
-  margin: 1.2rem 0 0;
+  margin: var(--space-6) 0 0;
 }
 .group-toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-3);
   width: 100%;
-  /* ≥44px tap target — house hard constraint. */
   min-height: 44px;
-  padding: 0.5rem 0.8rem;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
   text-align: left;
   cursor: pointer;
 }
 .group-chevron {
   margin-left: auto;
-  transition: transform 0.15s ease;
+  transition: transform var(--duration-fast) var(--ease);
 }
 .group-toggle[aria-expanded="true"] .group-chevron {
   transform: rotate(180deg);
 }
 .group-rows {
-  margin-top: 0.6rem;
+  margin-top: var(--space-3);
 }
-/* Every row in a group is already in its named state, so drop the aggressive
-   line-through (that strike is the signal *inside* the working lists) and just
-   soften the card, leaving the restore control readable. */
+/* The strike is a signal inside the working lists; in a group every row is
+   already in that state. */
 .group-rows .row-card {
   opacity: 0.6;
 }
@@ -1329,13 +1484,10 @@ body.room-mode #edition-note {
 }
 
 .row-card {
-  border-radius: var(--radius);
-  margin-bottom: 0.6rem;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
   box-shadow: var(--shadow-card);
 }
-/* The two lists carry different weight: Up next is the artifact (elevated
-   cards), Requests is raw material (flat, bordered). The played/bin groups
-   follow the flat treatment — they're history, not the set. */
 #requests-rows .row-card,
 .group-rows .row-card {
   box-shadow: none;
@@ -1344,55 +1496,45 @@ body.room-mode #edition-note {
 .group-rows .row-body {
   border: 1px solid var(--border);
 }
-/* The first card in Up next IS the next tune — the one thing the screen must
-   answer at a glance. One accented card, so the edge is a signal (unlike the
-   old all-green stripes). The tag is real text, prepended by renderUpNext. */
 .row-card.next-up {
-  box-shadow: var(--shadow-next);
+  box-shadow: var(--shadow-raised);
 }
 .row-card.next-up .row-body {
   border-left: 3px solid var(--accent);
 }
 .next-tag {
-  /* Its own micro-line above the title (prepended to .row-main): inline with
-     the title it forced mid-name wraps on anything longer than a word. */
+  /* Inline with the title it would force mid-name wraps. */
   display: inline-block;
-  margin-bottom: 0.25rem;
-  padding: 0.12rem 0.5rem;
+  margin-bottom: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   background: var(--accent);
-  color: #fff;
-  border-radius: 999px;
-  font-size: 0.62rem;
-  font-weight: 700;
+  color: var(--on-accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   line-height: 1.3;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-caps);
 }
-/* Raised while this row's song-picker dropdown is open (toggled in
-   makeCombobox). .row-body's z-index makes each card a stacking context, so
-   without this the following card paints over the open menu and swallows the
-   taps meant for it. */
+/* .row-body's z-index makes each card a stacking context: without this the
+   next card paints over the open picker menu and swallows its taps. */
 .row-card.picker-open {
   position: relative;
-  z-index: 5;
+  z-index: var(--z-lifted);
 }
-/* The visible surface. Split out from .row-card so it can slide horizontally on
-   a swipe, revealing the .swipe-hint behind it. */
+/* Slides on a swipe to reveal .swipe-hint behind it. */
 .row-body {
   position: relative;
   z-index: 1;
   background: var(--card);
-  border-radius: var(--radius);
-  padding: 0.7rem 0.8rem;
-  transition: transform 0.2s ease;
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-4);
+  transition: transform var(--duration-base) var(--ease);
 }
-/* Working-list rows put the text and the action icons side by side (icons
-   vertically centred at the right edge) instead of stacking a tools row under
-   the text — that band of near-empty card was most of each row's height. */
 .row-body.compact {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
 }
 .row-body.compact .row-main {
   flex: 1;
@@ -1402,8 +1544,7 @@ body.room-mode #edition-note {
   margin-top: 0;
   flex-shrink: 0;
 }
-/* Swipeable rows (Up next / Requests) clip the sliding body; the review sheet
-   is never swipeable, so its song-picker dropdown isn't clipped. */
+/* Review rows aren't swipeable, so their picker dropdown isn't clipped. */
 .row-card.swipeable {
   position: relative;
   overflow: hidden;
@@ -1411,12 +1552,7 @@ body.room-mode #edition-note {
   -webkit-user-select: none;
   user-select: none;
 }
-/* Status stripes are review-sheet furniture: that's where rows genuinely
-   differ (matched vs not, while being validated). On the working lists every
-   surviving row was green, so the stripe said nothing — those cards are
-   plain, and an unmatched row says "not in the songbook" in words instead.
-   Any matched review row is "green"; a page/title mismatch is flagged with a
-   ⚠️ icon (see .warn-icon) rather than a warning colour. */
+/* Any matched review row is green; a page/title mismatch gets .warn-icon. */
 #review-rows .row-body {
   border-left: 5px solid var(--unmatched);
 }
@@ -1428,10 +1564,7 @@ body.room-mode #edition-note {
 .row-card.removed {
   opacity: 0.45;
 }
-/* Played rows normally live in the collapsed played group, but the fade keeps
-   any straggler (e.g. synced from an older client into Requests) legible as
-   "done". Binned: cross out the title, same treatment as a whiteboard
-   "crossed out". */
+/* For stragglers outside the played group, e.g. synced from an older client. */
 .row-card.played {
   opacity: 0.5;
 }
@@ -1440,9 +1573,6 @@ body.room-mode #edition-note {
   text-decoration: line-through;
 }
 
-/* Swipe reveal: the left icon shows on swipe right (promote in Requests, else
-   played), the right icon on swipe left (demote in Up next, else bin). Icons are
-   picked per-list in renderRow. Opacity ramps with --swipe-progress. */
 .swipe-hint {
   position: absolute;
   inset: 0;
@@ -1450,9 +1580,9 @@ body.room-mode #edition-note {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.15rem;
-  font-size: 1.4rem;
-  border-radius: var(--radius);
+  padding: 0 var(--space-6);
+  font-size: var(--text-2xl);
+  border-radius: var(--radius-md);
 }
 .swipe-hint span {
   opacity: 0;
@@ -1483,7 +1613,6 @@ body.room-mode #edition-note {
     transition: none;
   }
 }
-/* The ⚠️ is a button: tap it to pop the scanned photo and check the match. */
 .warn-icon {
   border: none;
   background: none;
@@ -1495,19 +1624,7 @@ body.room-mode #edition-note {
   cursor: zoom-in;
   vertical-align: baseline;
   position: relative;
-  /* Amber replaces the emoji's built-in colour now the glyph is an SVG. */
   color: var(--review);
-}
-/* The icon glyph is tiny but it's the key "check this match" affordance —
-   give it the full 44px hit area. */
-.warn-icon::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 44px;
-  height: 44px;
 }
 .warn-icon:hover {
   filter: brightness(1.15);
@@ -1518,28 +1635,23 @@ body.room-mode #edition-note {
   border-radius: 4px;
 }
 
-/* Full-screen photo viewer opened from a flagged row. Mobile-first: tapping
-   anywhere closes it, with a thumb-sized ✕ and a hint for discoverability. */
 .photo-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--z-lightbox);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.8rem;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.88);
-}
-.photo-lightbox[hidden] {
-  display: none;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--scrim-strong);
 }
 .photo-lightbox img {
   max-width: 100%;
   max-height: 80vh;
-  border-radius: 8px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-modal);
 }
 .photo-lightbox-close {
   position: absolute;
@@ -1550,22 +1662,18 @@ body.room-mode #edition-note {
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
-  color: #222;
-  font-size: 1.25rem;
+  color: var(--text);
+  font-size: var(--text-xl);
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-.photo-lightbox-close:active {
-  opacity: 0.85;
 }
 .photo-lightbox-hint {
   margin: 0;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   pointer-events: none;
 }
 
@@ -1573,102 +1681,89 @@ body.room-mode #edition-note {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 .match-title {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .page-badge {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 6px;
-  padding: 0.1rem 0.45rem;
-  font-size: 0.9rem;
+  border-radius: var(--radius-xs);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-md);
 }
-/* #6b6b6b (not the old #777) keeps this small text above the 4.5:1 AA
-   contrast minimum on the white card. */
-.raw {
-  color: #6b6b6b;
-  font-size: 0.82rem;
-  margin-top: 0.15rem;
-}
-.added-by {
-  color: #6b6b6b;
-  font-size: 0.82rem;
-  margin-top: 0.15rem;
-}
-/* The working lists' single provenance line ("Added by Sam · from the
-   whiteboard"), same quiet register as the review sheet's detail lines. */
+.raw,
+.added-by,
 .row-meta {
-  color: #6b6b6b;
-  font-size: 0.82rem;
-  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
 }
 .row-meta .page-badge {
-  margin-right: 0.4rem;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.8rem;
+  margin-right: var(--space-2);
+  padding: 0.05rem var(--space-2);
+  font-size: var(--text-xs);
 }
 .explanation {
-  font-size: 0.84rem;
-  margin-top: 0.3rem;
-  color: #666;
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+  color: var(--muted);
 }
-/* "Already in Up next" on a review row (#52): amber — a caution about the
-   match's destination, same register as the ⚠️ flag, not an error. */
 .dup-note {
-  font-size: 0.84rem;
-  margin-top: 0.3rem;
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
   color: var(--review);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.chips-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 .chips button {
+  min-height: var(--tap-min);
+  padding: 0 var(--space-4);
   border: 1px solid var(--border);
-  background: #f5f5f5;
-  border-radius: 999px;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.8rem;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
-/* The wider gap keeps the 44px hit areas (below) from overlapping so much
-   that neighbouring tools steal each other's taps. */
+/* With the buttons' --space-2 padding, any narrower and the 44px hit areas
+   steal each other's taps. */
 .row-tools {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  margin-top: 0.5rem;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
 }
-/* On the two working lists, right-align the action buttons so promote/demote
-   and played/bin fall into the same columns across both lists. (The drag handle
-   is no longer part of this row — it's a full-height strip down the left edge,
-   see below.) Group rows (played/bin) follow suit so their restore control
-   lands in the same column; review rows have their own tool set. */
+/* Same columns across both lists and the groups. */
 .row-card.swipeable .row-tools,
 .group-rows .row-tools {
   justify-content: flex-end;
 }
-/* Shared with the export pair in the "Up next" heading (.setlist-actions):
-   same bare icon-button treatment, so the two icon clusters in the session
-   view read as one family. */
 .row-tools button,
 .setlist-actions button {
   border: none;
   background: none;
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   cursor: pointer;
-  padding: 0.3rem;
+  padding: var(--space-2);
   position: relative;
-  color: #555;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1679,18 +1774,6 @@ body.room-mode #edition-note {
   width: 1.25rem;
   height: 1.25rem;
 }
-/* Phone touch targets must be ≥44px (AGENTS.md): extend every row tool's
-   tappable area with a transparent pseudo-element, keeping the icons compact. */
-.row-tools button::before,
-.setlist-actions button::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 44px;
-  height: 44px;
-}
 .row-tools button:disabled,
 .setlist-actions button:disabled {
   opacity: 0.3;
@@ -1700,20 +1783,18 @@ body.room-mode #edition-note {
 .setlist-actions button:disabled::before {
   display: none;
 }
-/* Toggled states for the live-tracking controls: a filled green check once a
-   tune is played, a highlighted bin once it's binned. */
 .row-tools .check-button.active {
   background: var(--confirmed);
-  color: #fff;
-  border-radius: 999px;
+  color: var(--on-accent);
+  border-radius: var(--radius-full);
   width: 1.7rem;
   height: 1.7rem;
   line-height: 1;
 }
 .row-tools .bin-button.active {
-  background: #fbe4e4;
+  background: var(--conflict-soft);
   color: var(--conflict);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   width: 1.7rem;
   height: 1.7rem;
   line-height: 1;
@@ -1723,61 +1804,46 @@ body.room-mode #edition-note {
   width: 1rem;
   height: 1rem;
 }
-/* "I want this one" (#83): a pill saying whose vote it is ("You" / "+1") plus
-   the count when it adds something. Inherits the 44px pseudo-element target
-   above. */
 .row-tools .vote-button {
-  gap: 0.3rem;
+  gap: var(--space-1);
   min-height: 40px;
-  padding: 0 0.7rem;
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 650;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   color: var(--accent);
   background: var(--card);
   border: 1.5px solid var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 .row-tools .vote-button .icon {
   width: 1.05rem;
   height: 1.05rem;
 }
 .vote-count {
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
 }
-/* Voted ("You"): filled, in the accent rather than the played-green or
-   binned-red, so the three toggled states on a row stay tellable apart at a
-   glance. Not voted ("+1"): outlined, so it reads as something to press. */
+/* Accent, not green or red, so it stays distinct from played and binned. */
 .row-tools .vote-button:not(.voted) .vote-count {
   color: var(--muted);
 }
 .row-tools .vote-button.voted {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
 }
 .row-tools .vote-button.voted .icon {
   fill: currentColor;
 }
 
-/* Collapsed correct-song picker on a confirmed review row. The expanded picker
-   is the flex:1 child that normally takes up the slack in a review row's tools;
-   with it collapsed to a button, auto margin does that job instead so the
-   actions still sit at the right edge like every other row's. */
+/* Takes the slack the expanded picker (flex: 1) would. */
 .row-tools .picker-toggle {
   margin-left: auto;
 }
 
-/* Drag handle for reordering the setlist. It's a full-height grab strip down
-   the card's left edge (not a button in the tools row) so it's a big, easy
-   thumb target on mobile. `has-handle` opens a matching left gutter in the body
-   for the strip to sit in. touch-action:none keeps a touch-drag from scrolling
-   the page instead of grabbing the row. */
 .row-body.has-handle {
   padding-left: 3rem;
 }
 .drag-handle {
-  /* Not inside .row-tools, so it doesn't inherit that block's button reset. */
   appearance: none;
   -webkit-appearance: none;
   border: none;
@@ -1791,16 +1857,12 @@ body.room-mode #edition-note {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* ≥3:1 non-text contrast for an interactive control (was #999). */
-  color: #767676;
+  color: var(--muted);
   cursor: grab;
   touch-action: none;
   line-height: 1;
-  /* No fill: the grip dots are the standard idiom and carry the affordance on
-     their own — a tinted strip on every card made the whole list heavier. The
-     tint returns on :active as grab feedback. */
   background: none;
-  border-radius: var(--radius) 0 0 var(--radius);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 .drag-handle .icon {
   width: 1.4rem;
@@ -1810,60 +1872,52 @@ body.room-mode #edition-note {
   cursor: grabbing;
   background: rgba(0, 0, 0, 0.06);
 }
-/* The handle also doubles as the keyboard reorder control (↑/↓ nudge the row),
-   so it needs a visible focus ring for keyboard users. */
+/* The handle is also the keyboard reorder control (arrow keys). */
 .drag-handle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-  border-radius: var(--radius) 0 0 var(--radius);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
-/* While dragging the row lifts off the list and tracks the finger 1:1 (the
-   translateY is set inline from JS). We raise it above its neighbours, drop a
-   pronounced shadow and nudge the scale so it reads as "picked up" the instant
-   it's grabbed — before it has moved far enough to swap places. transition:none
-   keeps it glued to the pointer instead of lagging behind. The gap it leaves in
-   the list is the drop target. */
+/* UpNextSection.svelte sets the translateY inline; no transition keeps the
+   row glued to the finger. */
 .row-card.dragging {
   position: relative;
-  z-index: 5;
+  z-index: var(--z-lifted);
   opacity: 0.95;
   transform-origin: center;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-modal);
   transition: none;
   cursor: grabbing;
   will-change: transform;
 }
 
-/* Custom song-picker combobox (replaces the native <datalist>, which is
-   unreliable on the mobile browsers this app targets). */
 .song-picker {
   position: relative;
   flex: 1;
 }
 .song-picker-input {
-  /* 1rem (16px) is a floor, not a taste choice: iOS zooms the whole page on
-     focusing any input below 16px. min-height keeps the 44px touch spec. */
+  /* 16px is a floor: iOS zooms the page on focusing a smaller input. */
   width: 100%;
   min-height: 44px;
-  padding: 0.5rem 0.7rem;
-  font-size: 1rem;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--card);
 }
 .song-picker-menu {
   list-style: none;
-  margin: 0.25rem 0 0;
-  padding: 0.25rem;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1);
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  z-index: 20;
+  z-index: var(--z-menu);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -1871,22 +1925,20 @@ body.room-mode #edition-note {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.5rem;
-  border-radius: 6px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-md);
 }
 .song-picker-option.active,
 .song-picker-option:hover {
   background: var(--accent-soft);
 }
-/* Non-interactive state row ("Loading the songbook…", "No matches…") shown in
-   place of options, so silence never reads as "song isn't in the book". */
 .song-picker-status {
-  padding: 0.5rem;
-  color: #6b6b6b;
-  font-size: 0.85rem;
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
   cursor: default;
 }
 .song-picker-name {
@@ -1897,16 +1949,13 @@ body.room-mode #edition-note {
   white-space: nowrap;
 }
 
-/* "played" / "up next" / "requested" next to a song in the dropdown and the
-   songbook sheet: tonight's state, seen before the tap. Quiet ink, not the
-   accent, so the page badge stays the row's anchor. */
 .tonight-tag {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: var(--space-1);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1916,15 +1965,12 @@ body.room-mode #edition-note {
 }
 .tonight-tag.voted {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 /* --- The songbook (#songbook-sheet) --------------------------------------- */
-/* Taller than the other sheets (the list is the content) but still short of
-   both edges: the backdrop strip left above and below is the easy way out,
-   alongside Close. Chrome pinned, list scrolled, like What's new. A fixed
-   height, not a max: a centred sheet that shrank as results narrowed would
-   slide the search field out from under the typing thumb. */
+/* A fixed height, not a max: a centred sheet that shrank as results narrowed
+   would slide the search field out from under the typing thumb. */
 #songbook-sheet .sheet {
   display: flex;
   flex-direction: column;
@@ -1937,60 +1983,48 @@ body.room-mode #edition-note {
   flex: none;
 }
 #songbook-sheet .song-picker-input {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-3);
   -webkit-appearance: none;
   appearance: none;
 }
 #songbook-sheet .songbook-wait {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-3);
 }
 .songbook-status {
-  margin: 0 0 0.5rem;
-  padding: 0.5rem 0.7rem;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius);
-  font-size: 0.9rem;
+  margin: 0 0 var(--space-3);
 }
 .songbook-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  /* Scrolling the book must not drag the page behind the sheet. */
   overscroll-behavior: contain;
   list-style: none;
-  margin: 0 -0.4rem;
+  margin: 0 calc(-1 * var(--space-2));
   padding: 0;
 }
 #songbook-sheet .songbook-empty {
-  margin: 0.6rem 0;
+  margin: var(--space-3) 0;
   text-align: center;
 }
-/* Whole-row target: title over artist on the left, tags on the right. */
 .songbook-song {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: var(--space-3);
   width: 100%;
   min-height: 52px;
-  padding: 0.45rem 0.4rem;
+  padding: var(--space-2) var(--space-2);
   border: none;
-  border-bottom: 1px solid #f0ebe3;
+  border-bottom: 1px solid var(--divider);
   background: none;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
-/* Our own pressed state replaces the browser's blue tap flash. */
-.songbook-song {
-  -webkit-tap-highlight-color: transparent;
-}
 .songbook-song:active {
   background: var(--accent-soft);
 }
-/* One width for every badge so the column lines up from p.4 to p.126. */
 .songbook-side .page-badge {
   min-width: 3.3em;
   text-align: center;
@@ -2001,58 +2035,35 @@ body.room-mode #edition-note {
   min-width: 0;
 }
 .songbook-title {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 .songbook-artist {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 .songbook-side {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-3);
   flex-shrink: 0;
 }
-/* Played tonight: still listed (it's in the book), faded so the eye skips it. */
 .songbook-song.played .songbook-text,
 .songbook-song.played .page-badge {
   opacity: 0.5;
 }
 #songbook-sheet .sheet > .actions {
   margin: 0;
-  padding-top: 0.7rem;
-  border-top: 1px solid #eee;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--divider);
 }
 
 .actions {
   display: flex;
-  gap: 0.6rem;
-  margin: 1rem 0 2rem;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-10);
 }
-.actions button {
+.actions > .btn {
   flex: 1;
-  padding: 0.8rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-}
-.actions button:active {
-  opacity: 0.85;
-}
-.actions button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.actions button.secondary {
-  background: var(--accent-soft);
-  color: var(--accent);
 }

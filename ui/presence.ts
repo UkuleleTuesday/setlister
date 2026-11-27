@@ -1,32 +1,10 @@
-// Lightweight "who's here" presence for shared sessions (#32).
-//
-// The durable session doc (`sessions/{id}`) has a CLOSED v1 schema that
-// firestore.rules locks down field-by-field, so presence deliberately lives
-// OUTSIDE it, in a sibling subcollection: `sessions/{id}/presence/{clientId}`.
-// Each connected browser owns exactly one presence doc (keyed by a stable
-// per-device clientId), so a reload reuses the same doc instead of spawning a
-// ghost. The doc is tiny and ephemeral:
-//   { name: string, updatedAt: timestamp, expiresAt: timestamp }
-//
-// Liveness is a heartbeat: every HEARTBEAT_MS the client rewrites its own doc
-// with a fresh server timestamp. Readers treat a peer as "here now" only while
-// its updatedAt is within ONLINE_WINDOW_MS, so a client that closes the tab
-// without cleanly leaving fades from every other roster after that window. The
-// window is deliberately generous (minutes, not seconds): this is a
-// glance-at-it-occasionally club setlist, so a peer who steps away shouldn't
-// blink out just because they haven't touched their phone recently — the
-// best-effort delete on leave / pagehide still removes them promptly when they
-// actually go. The expiresAt lets Firestore's TTL sweep the abandoned doc from
-// storage later (belt-and-braces on top of the client-side staleness filter).
-//
-// Firebase loads lazily through firebase.ts — importing this module does NOT
-// pull the Firestore SDK; only startPresence() does, and only inside an already
-// active session. Kept UI-free: app.js renders the roster from onRoster().
+// Presence lives in `sessions/{id}/presence/{clientId}`, outside the session
+// doc's closed schema. Liveness is a heartbeat; leaving deletes the doc, and
+// expiresAt lets Firestore's TTL sweep abandoned ones.
 
 import type { Firestore, QuerySnapshot, Unsubscribe } from "firebase/firestore";
 import { type Fx, getFirestore } from "./firebase.js";
 
-/** One person in the "Here now" list. */
 export interface RosterEntry {
   clientId: string;
   name: string;
@@ -34,30 +12,23 @@ export interface RosterEntry {
   online: true;
 }
 
-// Rewrite our own heartbeat this often. Comfortably below ONLINE_WINDOW_MS so
-// even a couple of dropped writes don't flap us offline in other people's
-// rosters. Low frequency keeps Firestore writes cheap for a page left open.
+// Under ONLINE_WINDOW_MS so a dropped beat doesn't flap us offline; rare enough
+// to keep writes cheap for a page left open.
 const HEARTBEAT_MS = 2 * 60 * 1000;
 
-// A peer is "here now" while its last heartbeat is this recent. Generous by
-// design (see the module header): well above HEARTBEAT_MS so a missed beat or
-// two — a locked phone, a flaky connection — doesn't drop someone who's still
-// around.
+// Generous: people glance at the setlist occasionally, and a locked phone
+// shouldn't drop someone who's still in the room.
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
-// Cap the stored doc's lifetime so Firestore TTL can reap it if a client
-// vanishes without deleting. Kept above ONLINE_WINDOW_MS so storage cleanup
-// never retires a doc a peer would still count as online, and well under the
-// 1h cap in firestore.rules.
+// Above ONLINE_WINDOW_MS, so TTL never reaps a doc peers still count online,
+// and under firestore.rules' 1h cap.
 const PRESENCE_TTL_MS = 10 * 60 * 1000;
 
 const CLIENT_ID_KEY = "setlister.clientId.v1";
 const ANON_NAME_KEY = "setlister.anonName.v1";
 
-// Default identities for peers who haven't set a name:
-// "Anonymous <Adjective> <Animal>". The "Anonymous" prefix reads clearly as a
-// placeholder (not a chosen name), while the adjective + animal keep each one
-// distinct and easy to say across a pub table.
+// "Anonymous" reads as a placeholder; adjective + animal stay distinct and easy
+// to say across a pub table.
 const ANON_ADJECTIVES = [
   "Merry",
   "Sunny",
@@ -171,8 +142,7 @@ function pick<T>(list: readonly T[]): T {
   return list[randomIndex(list.length)];
 }
 
-// Stable per-device id so a reload keeps the same presence doc (no ghosts) and
-// so app.js can tell "you" apart from everyone else in the roster.
+// Stable per device, so a reload reuses its presence doc instead of leaving a ghost.
 export function getClientId(): string {
   try {
     let id = localStorage.getItem(CLIENT_ID_KEY);
@@ -184,9 +154,7 @@ export function getClientId(): string {
     }
     return id;
   } catch {
-    // Private mode / storage blocked: fall back to a volatile id. It won't
-    // survive a reload (a stale ghost lingers for ONLINE_WINDOW_MS) but
-    // presence still works this session.
+    // Storage blocked: a reload leaves a ghost for ONLINE_WINDOW_MS.
     if (!volatileClientId) {
       volatileClientId = globalThis.crypto?.randomUUID?.() ?? `c-${randomIndex(0xffffffff)}`;
     }
@@ -195,14 +163,11 @@ export function getClientId(): string {
 }
 let volatileClientId: string | null = null;
 
-// The default display name for this device when "Your name" is left blank.
-// Generated once and remembered, so you stay the same "Anonymous Bouncy Otter"
-// across reloads until you type a real name to override it.
 function makeAnonName(): string {
   return `Anonymous ${pick(ANON_ADJECTIVES)} ${pick(ANON_ANIMALS)}`;
 }
 
-export function getAnonName(): string {
+function getAnonName(): string {
   try {
     let name = localStorage.getItem(ANON_NAME_KEY);
     if (!name) {
@@ -219,8 +184,6 @@ export function getAnonName(): string {
 }
 let volatileAnonName: string | null = null;
 
-// The name this device broadcasts: the user's typed name if they set one, else
-// the stable anonymous default.
 export function displayName(typedName: string | null | undefined): string {
   const trimmed = (typedName || "").trim();
   return trimmed || getAnonName();
@@ -228,7 +191,7 @@ export function displayName(typedName: string | null | undefined): string {
 
 // --- Module state ----------------------------------------------------------
 let sessionId: string | null = null;
-let getName: (() => string) | null = null; // () => current typed name
+let getName: (() => string) | null = null;
 let unsubscribe: Unsubscribe | null = null;
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let rosterCallback: ((roster: RosterEntry[]) => void) | null = null;
@@ -256,14 +219,10 @@ async function writeHeartbeat(): Promise<void> {
       expiresAt: fx.Timestamp.fromMillis(Date.now() + PRESENCE_TTL_MS),
     });
   } catch {
-    // A dropped heartbeat is self-healing: the next beat retries, and other
-    // clients only drop us after ONLINE_WINDOW_MS of silence.
+    // Self-healing: the next beat retries.
   }
 }
 
-// Turn the presence subcollection snapshot into a roster the UI can render:
-// { clientId, name, isSelf, online }, self first, then alphabetical. Peers
-// whose last heartbeat is older than ONLINE_WINDOW_MS are dropped as ghosts.
 function toRoster(snap: QuerySnapshot): RosterEntry[] {
   const me = getClientId();
   const now = Date.now();
@@ -271,9 +230,8 @@ function toRoster(snap: QuerySnapshot): RosterEntry[] {
   snap.forEach((docSnap) => {
     const data = docSnap.data();
     const isSelf = docSnap.id === me;
-    // A just-written doc echoes back with updatedAt still null (server hasn't
-    // stamped it yet). Trust our own heartbeat; for peers, no stamp means we
-    // can't vouch for liveness, so skip until it lands.
+    // A fresh write echoes back with updatedAt still null: trust our own, skip
+    // a peer's until the server stamps it.
     const ts = data?.updatedAt;
     const millis = ts && typeof ts.toMillis === "function" ? ts.toMillis() : null;
     const online = isSelf || (millis !== null && now - millis < ONLINE_WINDOW_MS);
@@ -292,9 +250,6 @@ function toRoster(snap: QuerySnapshot): RosterEntry[] {
   return out;
 }
 
-// Join the session's presence: write our first heartbeat, listen to the roster,
-// and start the heartbeat loop. Idempotent-ish — call stopPresence() first if a
-// session is already active.
 export async function startPresence(id: string, nameFn: () => string): Promise<void> {
   await stopPresence();
   sessionId = id;
@@ -304,32 +259,25 @@ export async function startPresence(id: string, nameFn: () => string): Promise<v
   if (sessionId !== id) return; // left/switched while awaiting the SDK
 
   await writeHeartbeat();
-  // Re-check: leaving is one tap away (back out to the session list), and
-  // stopPresence() nulls sessionId mid-await, which would build a doc path with
-  // a null segment below.
-  if (sessionId !== id) return;
+  if (sessionId !== id) return; // stopPresence() ran mid-await
 
   const colRef = fx.collection(db, "sessions", id, "presence");
   unsubscribe = fx.onSnapshot(
     colRef,
     (snap) => emitRoster(toRoster(snap)),
     () => {
-      /* transient listen error — heartbeats keep flowing, listener retries */
+      /* transient listen error: heartbeats keep flowing, listener retries */
     },
   );
 
   heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_MS);
 }
 
-// Push a fresh heartbeat immediately so a name change (or override) shows up on
-// other rosters without waiting for the next interval tick.
+// So a name change reaches other rosters without waiting for the next beat.
 export function refreshPresence(): void {
   if (sessionId) writeHeartbeat();
 }
 
-// Leave presence: stop the heartbeat, detach the listener, and best-effort
-// delete our own doc so peers see us go immediately (rather than after the
-// staleness window). Safe to call when no session is active.
 export async function stopPresence(): Promise<void> {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
@@ -349,14 +297,11 @@ export async function stopPresence(): Promise<void> {
     const { db, fx } = await getFirestore();
     await fx.deleteDoc(fx.doc(db, "sessions", leavingId, "presence", getClientId()));
   } catch {
-    // Couldn't delete (offline, etc.) — the ONLINE_WINDOW_MS staleness filter
-    // and the TTL both still retire the doc.
+    // Staleness and TTL retire the doc anyway.
   }
 }
 
-// Best-effort removal when the tab is closing. pagehide/beforeunload can't await
-// an async delete, so this fires a delete and lets it race the unload; if it
-// loses, staleness + TTL clean up. app.js wires the event.
+// pagehide can't await: fire the delete and let it race the unload.
 export function removeOnUnload(): void {
   const id = sessionId;
   if (!id) return;

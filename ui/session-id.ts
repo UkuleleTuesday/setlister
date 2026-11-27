@@ -1,20 +1,9 @@
-// Human-friendly session ids for shared multiplayer sessions (epic #25).
-//
-// Sessions live at `sessions/{id}` in Firestore and travel in share URLs
-// (`?session=`), so the id has to survive being read aloud across a pub table:
-// two lowercase words, dash-separated, e.g. `misty-banjo`. Cardinality is only
-// ~10,000 combos, which is plenty for a small ukulele club — collision
-// handling at create time is the caller's job (#29 retries with a fresh id
-// inside a Firestore transaction).
-//
-// The shape regex below MUST stay in sync with `firestore.rules`
-// (`isValidSession` → `id.matches('^[a-z]+-[a-z]+$')`): the rules are the
-// entire access-control layer, so an id this module can mint but the rules
-// reject would be unwritable.
+// Ids get read aloud across a pub table. ~10,000 combos is plenty for one club;
+// createSession retries collisions (#29).
+// SESSION_ID_RE MUST match firestore.rules `isValidSession`, or minted ids
+// would be unwritable.
 
-// Curated for saying out loud, not just typing: friendly words, easy to spell,
-// no ambiguous homophones, and nothing embarrassing when two are paired at
-// random. Nouns lean into music/ukulele flavour (banjo, kazoo, strum, ...).
+// Easy to spell, no homophones, nothing embarrassing when paired at random.
 const ADJECTIVES = [
   "mellow",
   "sunny",
@@ -221,15 +210,11 @@ const NOUNS = [
   "seashell",
 ];
 
-// Same feature-detection posture as `newUid()` in app.js: prefer the crypto
-// API, fall back to Math.random only where it's genuinely missing. Ids are
-// low-stakes (guessable by design — see firestore.rules), but crypto gives an
-// unbiased, uniform spread across the wordlists.
+// Ids are guessable by design (firestore.rules); crypto only evens the spread.
 function randomIndex(length: number): number {
   const crypto = globalThis.crypto;
   if (crypto && crypto.getRandomValues) {
-    // Rejection-sample so the modulo doesn't bias the tail of the list toward
-    // the first `2^32 % length` words.
+    // Rejection-sample so the modulo doesn't favour the first `2^32 % length` words.
     const limit = Math.floor(0xffffffff / length) * length;
     const buf = new Uint32Array(1);
     let n: number;
@@ -246,9 +231,6 @@ function pick<T>(list: readonly T[]): T {
   return list[randomIndex(list.length)];
 }
 
-// Matches `firestore.rules` exactly: shape only, no wordlist membership check.
-// Remote sessions can outlive edits to the wordlists above, so an id minted by
-// an older/newer build must still validate as long as it's `word-word`.
 const SESSION_ID_RE = /^[a-z]+-[a-z]+$/;
 
 export function generateSessionId(): string {

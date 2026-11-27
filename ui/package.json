@@ -8,11 +8,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:emulator": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"vitest run\"",
-    "test:e2e": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore --config ../firebase.json --project demo-setlister \"playwright test\"",
+    "test:e2e": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore,auth --config ../firebase.json --project demo-setlister \"playwright test\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tests && tsc --noEmit -p e2e && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "typecheck": "tsc --noEmit -p tests && tsc --noEmit -p e2e && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
     "firebase": "^12.16.0",

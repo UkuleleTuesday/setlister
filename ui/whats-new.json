@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-11-27",
+    "items": [
+      "Home gets a fresh look: the next night sits up top, ready to open, past nights are grouped by month, and opening one shows a recap of what got played (organisers can tap Edit to fix it). The request view has its All sessions button back.",
+      "Settings is down to your name and the organiser link: the songbook now lives in the share panel, and copy and download include every tune you can see.",
+      "When a scan isn't sure of a tune, review offers its runner-up songs to pick in one tap, and buttons and panels look and feel the same across the app."
+    ]
+  },
+  {
+    "date": "2026-11-26",
+    "items": [
+      "One link for everyone: the share link now opens the request view, and running the night (starting a session, the running order, the request link) needs the organiser link from the organisers' chat.",
+      "When the request link opens or closes on its own schedule, phones on it catch up within a minute: thumbs up switch on and off without a reload.",
+      "Ticking \"Include crossed-out rows\" now wakes the copy and download buttons straight away."
+    ]
+  },
+  {
     "date": "2026-11-17",
     "items": [
       "Page numbers stay right when the songbook gets its weekly refresh: a phone that left the app open since last week now picks up the new book instead of adding tunes with old pages."

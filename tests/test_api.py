@@ -17,9 +17,8 @@ PAGES_ORIGIN = "https://ukuleletuesday.github.io"
 
 @pytest.fixture
 def client():
-    """Drive handle_request through a plain Flask app (no functions-framework:
-    create_app re-imports the source under a different module name, which would
-    break monkeypatching of the already-imported modules)."""
+    """Plain Flask, not functions-framework: its create_app re-imports the source
+    under another module name, which breaks monkeypatching."""
     app = flask.Flask(__name__)
     methods = ["GET", "POST", "OPTIONS"]
 
@@ -128,7 +127,7 @@ def test_parse_clamps_thinking_budget(client, mock_bucket, fake_vision):
 def test_parse_ignores_disallowed_model(client, mock_bucket, fake_vision):
     photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
     form = _image_form(photo, "current")
-    form["model"] = "gemini-2.5-pro"  # not flash-tier — dropped, default used
+    form["model"] = "gemini-2.5-pro"
     response = client.post("/api/parse", data=form)
     assert response.status_code == 200
     assert fake_vision.calls[0]["model"] == get_settings().gemini_model
@@ -202,9 +201,7 @@ def test_parse_oversized_content_length_413(client):
 
 
 def test_parse_rate_limited_429(client, mock_bucket, fake_vision, monkeypatch):
-    # Pin time so every request lands in the same fixed-window bucket.
-    # Without this, a real-clock boundary crossing mid-loop would reset the
-    # counter and let the 9th request through, making the test flaky.
+    # Pinned, or a window boundary mid-loop resets the count and the test flakes.
     monkeypatch.setattr(ratelimit.time, "time", lambda: 12345.0)
     photo = (WHITEBOARDS / "whiteboard_sample.jpg").read_bytes()
     limit = get_settings().parse_rate_limit

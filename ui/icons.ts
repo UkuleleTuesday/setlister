@@ -1,20 +1,20 @@
-// Control icons for the app (issue #53), backed by lucide (Feather's
-// maintained successor). One consistent stroke style replaces the previous
-// mix of emoji (⬆️🗑📷) and text glyphs (↑ ✓ ⠿): emoji render differently on
-// every platform, are visually louder than their importance, and read
-// ambiguously (⬆️ looks like "upload"). Per-icon ESM imports keep the bundle
-// small — Vite tree-shakes everything unused.
+// Lucide, not emoji (#53): emoji render differently per platform, shout, and
+// read ambiguously (⬆️ looks like "upload").
 
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   Camera,
   Check,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Download,
   GripVertical,
   Link,
   ListMinus,
+  ListMusic,
   ListPlus,
   LoaderCircle,
   Pencil,
@@ -27,16 +27,11 @@ import {
   TriangleAlert,
   Trash2,
   X,
-  createElement,
 } from "lucide";
 
-// Semantic names decouple call sites from the icon set: "promote" reads as
-// intent, the specific lucide glyph is an implementation detail we can swap.
-const ICONS = {
-  // Promote/demote move a row across the two lists (not a one-slot nudge), so
-  // they borrow the "add to / remove from queue" idiom rather than a bare
-  // arrow: +list = put it in the running order, −list = drop it back to the
-  // pool. The bin icon owns deletion, so −list can't be misread as "remove".
+export const ICONS = {
+  // They cross lists, not nudge a slot, so the queue idiom, not an arrow. The
+  // bin owns deletion, so −list can't be misread as "remove".
   promote: ListPlus,
   demote: ListMinus,
   played: Check,
@@ -53,36 +48,17 @@ const ICONS = {
   add: Plus,
   close: X,
   chevron: ChevronDown,
+  forward: ChevronRight,
   loader: LoaderCircle,
-  // "Something shipped" — the What's new banner and sheet.
   news: Sparkles,
-  // Session navigation: out to the history list.
   back: ArrowLeft,
-  // Correcting a confidently-matched review row.
+  // Played order is a nudge by one slot, so arrows here are right.
+  earlier: ArrowUp,
+  later: ArrowDown,
+  unplayed: ListMusic,
   edit: Pencil,
-  // "I want this one" on a request (#83).
   want: ThumbsUp,
-  // The room's "find a tune in the songbook" trigger.
   search: Search,
 };
 
-// Build a fresh <svg> element for `name`. Icons inherit the button's text
-// colour (stroke: currentColor) and are aria-hidden — the accessible name
-// always lives on the button, never on the glyph.
 export type IconName = keyof typeof ICONS;
-
-export function icon(name: IconName, extraClass = ""): SVGElement {
-  const svg = createElement(ICONS[name]);
-  svg.classList.add("icon");
-  if (extraClass) svg.classList.add(extraClass);
-  svg.setAttribute("aria-hidden", "true");
-  return svg;
-}
-
-// Convenience for buttons that pair an icon with a text label.
-export function iconLabel(name: IconName, label: string): [SVGElement, HTMLSpanElement] {
-  const span = document.createElement("span");
-  span.className = "btn-label";
-  span.textContent = label;
-  return [icon(name), span];
-}

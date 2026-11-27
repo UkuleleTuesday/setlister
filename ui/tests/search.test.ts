@@ -1,7 +1,3 @@
-// Songbook search: what the type-ahead and the room's songbook sheet find. The
-// decisions under test: any-order accent-free words, a bare number finds the
-// page, and a shallow stable ranking (page, title prefix, rest; book order
-// within each).
 import { describe, expect, it } from "vitest";
 
 import { searchSongs } from "../search.js";
@@ -43,7 +39,6 @@ describe("searchSongs", () => {
   });
 
   it("puts titles starting with the query first, book order otherwise", () => {
-    // "le" is also inside Hallelujah, Jolene and "The Beatles".
     expect(titles(searchSongs(book, "le"))).toEqual([
       "Let It Be",
       "Lean on Me",

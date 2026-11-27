@@ -1,50 +1,51 @@
-// The header popovers: the share panel (SharePanel.svelte, with Presence) and
-// settings (SettingsPanel.svelte). What they write, what survives a reload,
-// and that both get out of the way on a stray tap.
 import type { Page } from "@playwright/test";
+import { features } from "../features.js";
 import { expect, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
 
-// Empty page background below both popovers (they end around y=705 at this
-// viewport), where a thumb would land to dismiss one.
+// Empty page below both popovers, which end around y=705 at this viewport.
 const tapOutside = (page: Page) => page.touchscreen.tap(195, 800);
 
-test("the share panel names the night and unlists it", async ({ phone }) => {
+test("the share panel names the night", async ({ phone }) => {
   const page = await phone();
   const id = await startSession(page);
 
   await page.locator("#share-toggle").tap();
-  const panel = page.locator("#share-panel");
-  await expect(panel).toBeVisible();
+  await expect(page.locator("#share-panel")).toBeVisible();
   await expect(page.locator("#share-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#share-session-name")).toHaveText(/Tonight|Today/);
   await expect(page.locator("#share-session-id")).toHaveText(id);
-  await expect(page.locator("#share-visibility")).toHaveValue("shared");
+  if (!features.unlistedSessions) await expect(page.locator("#share-visibility")).toHaveCount(0);
+});
 
-  // Unlisted takes the night off the club's list; the link still opens it.
+test("Visibility unlists a night, leaving the link working", async ({ phone }) => {
+  test.skip(!features.unlistedSessions, "features.unlistedSessions is off");
+  const page = await phone();
+  const id = await startSession(page);
+
+  await page.locator("#share-toggle").tap();
+  await expect(page.locator("#share-visibility")).toHaveValue("shared");
   await page.locator("#share-visibility").selectOption("unlisted");
   await expect(page.locator("#share-visibility")).toBeEnabled();
   await page.locator("#share-toggle").tap();
   await page.locator("#back-home").tap();
-  await expect(page.locator("#session-list-status")).toHaveText(/no sessions/i);
+  await expect(page.locator("#no-night")).toContainText("No night planned yet");
   await page.goto(`/?session=${id}`);
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#share-visibility")).toHaveValue("unlisted");
 });
 
-test("the request link's window, overrides and modes", async ({ phone }) => {
+test("the request link's window, overrides, modes and chip", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
   await page.locator("#share-toggle").tap();
 
-  // Auto: the window fields show the resolved default, with nothing to reset.
   const opens = page.locator("#share-requests-open-time");
   const closes = page.locator("#share-requests-close-time");
   await expect(opens).toHaveValue(/T\d\d:\d\d$/);
   await expect(closes).toHaveValue(/T\d\d:\d\d$/);
   await expect(page.locator("#share-requests-close-reset")).toBeHidden();
 
-  // Overriding the close time offers "Use default", which clears it again.
   const day = (await closes.inputValue()).slice(0, 10);
   await closes.fill(`${day}T23:45`);
   await closes.dispatchEvent("change");
@@ -54,14 +55,12 @@ test("the request link's window, overrides and modes", async ({ phone }) => {
   await reset.tap();
   await expect(reset).toBeHidden();
 
-  // A forced mode makes the schedule inert, so its fields go.
   await page.locator("#share-requests").selectOption("closed");
   await expect(page.locator("#share-requests-open-time-field")).toBeHidden();
   await expect(page.locator("#share-request-note")).toHaveText(/^View only/);
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#window-chip")).toHaveText("Request link is view only");
 
-  // The chip opens the panel on that row, and isn't an "outside" tap.
   await page.locator("#window-chip").tap();
   await expect(page.locator("#share-panel")).toBeVisible();
   await expect(page.locator("#share-requests")).toHaveValue("closed");
@@ -83,7 +82,7 @@ test("Here now lists who's connected", async ({ phone }) => {
 test("a copied link says so, then settles back", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
-  // No native share sheet here, so the link goes to the clipboard.
+  // Force the clipboard path: no native share sheet.
   await page.evaluate(() => {
     Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
   });
@@ -94,49 +93,44 @@ test("a copied link says so, then settles back", async ({ phone }) => {
   await expect(button).toHaveText("Share link", { timeout: 3000 });
 });
 
-test("settings remember the name and the toggles", async ({ phone }) => {
+test("settings keep this phone's name; the songbook is set per session in the share panel", async ({
+  phone,
+}) => {
   const page = await phone();
   await startSession(page);
 
   await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#settings-panel")).toBeVisible();
-  // A session control, so it shows in a session.
-  await expect(page.locator("#edition-setting")).toBeVisible();
+  const settings = page.locator("#settings-panel");
+  await expect(settings).toBeVisible();
+  await expect(settings.locator("#edition-setting, #advanced-setting, .switch")).toHaveCount(0);
   await page.locator("#player-name").fill("Robin");
-  await page.locator("#show-suggestions").check();
   await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#settings-panel")).toBeHidden();
+  await expect(settings).toBeHidden();
 
-  // The name reaches "Here now".
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#share-presence-list")).toContainText("Robin (you)");
+  await expect(page.locator("#share-panel #edition-setting")).toBeVisible();
+  await page.locator("#share-toggle").tap();
 
   await page.reload();
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#player-name")).toHaveValue("Robin");
-  await expect(page.locator("#show-suggestions")).toBeChecked();
-
-  // On home the songbook choice belongs to the new-session sheet.
-  await page.locator("#settings-toggle").tap();
-  await page.locator("#back-home").tap();
-  await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#edition-setting")).toBeHidden();
 });
 
-test("one popover at a time, and a stray tap closes either", async ({ phone }) => {
+test("one popover at a time; a stray tap closes either, a tap inside doesn't", async ({
+  phone,
+}) => {
   const page = await phone();
   await startSession(page);
 
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#share-panel")).toBeVisible();
-  // Opening settings closes share.
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#settings-panel")).toBeVisible();
   await expect(page.locator("#share-panel")).toBeHidden();
   await expect(page.locator("#share-toggle")).toHaveAttribute("aria-expanded", "false");
 
-  // A tap inside stays; a tap on the page outside closes.
-  await page.locator("#settings-panel .note").first().tap();
+  await page.locator("#settings-panel .setting-help").first().tap();
   await expect(page.locator("#settings-panel")).toBeVisible();
   await tapOutside(page);
   await expect(page.locator("#settings-panel")).toBeHidden();

@@ -1,27 +1,15 @@
-// On-device downscaling before upload (#44). The decisions under test: what
-// size a photo is shrunk to, when shrinking is skipped, and — the important
-// one — that every failure hands the ORIGINAL file back instead of breaking
-// the scan.
 import { describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_MAX_EDGE,
-  downscaleImage,
-  jpegName,
-  resolveMaxEdge,
-  targetSize,
-} from "../downscale.js";
+import { DEFAULT_MAX_EDGE, downscaleImage, jpegName, targetSize } from "../downscale.js";
 
 const photo = (over: { size?: number; name?: string; type?: string } = {}) => {
   const { size = 4_000_000, name = "IMG_0042.HEIC", type = "image/jpeg" } = over;
   const file = new File([new Uint8Array(1)], name, { type });
-  // File.size follows the bytes; fake the megabytes rather than allocate them.
+  // Fake the megabytes rather than allocate them.
   Object.defineProperty(file, "size", { value: size });
   return file;
 };
 
-// A stand-in for what createImageBitmap returns, plus the encoder that would
-// draw it — the two browser bits downscaleImage takes as deps.
 const bitmap = (width: number, height: number): ImageBitmap => ({ width, height, close() {} });
 const deps = (width: number, height: number, blobSize: number) => ({
   createBitmap: async () => bitmap(width, height),
@@ -32,28 +20,13 @@ const deps = (width: number, height: number, blobSize: number) => ({
   },
 });
 
-describe("resolveMaxEdge", () => {
-  it("falls back to the server's own default when the field is blank", () => {
-    expect(resolveMaxEdge("")).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge(undefined)).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge("not a number")).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge("0")).toBe(DEFAULT_MAX_EDGE);
-  });
-
-  it("clamps to the range the API accepts, so client and server agree", () => {
-    expect(resolveMaxEdge("64")).toBe(256);
-    expect(resolveMaxEdge("99999")).toBe(4096);
-    expect(resolveMaxEdge("2048")).toBe(2048);
-  });
-});
-
 describe("targetSize", () => {
   it("fits the long edge and keeps the aspect ratio", () => {
     expect(targetSize(4032, 3024, 1600)).toEqual({ width: 1600, height: 1200 });
     expect(targetSize(3024, 4032, 1600)).toEqual({ width: 1200, height: 1600 });
   });
 
-  it("is null when the photo already fits — a re-encode would only cost quality", () => {
+  it("is null when the photo already fits", () => {
     expect(targetSize(1600, 1200, 1600)).toBeNull();
     expect(targetSize(800, 600, 1600)).toBeNull();
   });
@@ -89,7 +62,22 @@ describe("downscaleImage", () => {
     expect(out.size).toBe(300_000);
   });
 
-  it("honours a custom max edge from settings", async () => {
+  it("defaults to the API's max edge, since scans no longer send their own", async () => {
+    let asked: unknown = null;
+    await downscaleImage(photo(), {
+      deps: {
+        createBitmap: async () => bitmap(4032, 3024),
+        encodeJpeg: async (_bitmap, dims) => {
+          asked = dims;
+          return new Blob([]);
+        },
+      },
+    });
+    expect(DEFAULT_MAX_EDGE).toBe(1600);
+    expect(asked).toEqual({ width: 1600, height: 1200 });
+  });
+
+  it("honours a custom max edge", async () => {
     let asked: unknown = null;
     await downscaleImage(photo(), {
       maxEdge: 1024,
@@ -110,8 +98,6 @@ describe("downscaleImage", () => {
   });
 
   it("keeps the original when the re-encode isn't actually smaller", async () => {
-    // Screenshots and already-compressed shots do this: re-encoding would lose
-    // detail and buy no upload time.
     const file = photo({ size: 200_000 });
     expect(await downscaleImage(file, { maxEdge: 1600, deps: deps(4032, 3024, 400_000) })).toBe(
       file,
@@ -119,8 +105,6 @@ describe("downscaleImage", () => {
   });
 
   it("keeps the original when the browser can't decode the photo", async () => {
-    // The real failure this guards: no createImageBitmap, a tainted canvas, a
-    // HEIC the decoder refuses. A scan must never fail because the shrink did.
     const file = photo();
     const out = await downscaleImage(file, {
       maxEdge: 1600,
@@ -129,6 +113,15 @@ describe("downscaleImage", () => {
           throw new Error("decode failed");
         },
       },
+    });
+    expect(out).toBe(file);
+  });
+
+  it("keeps the original when the canvas won't read back", async () => {
+    const file = photo();
+    const out = await downscaleImage(file, {
+      maxEdge: 1600,
+      deps: { createBitmap: async () => bitmap(4032, 3024), encodeJpeg: async () => null },
     });
     expect(out).toBe(file);
   });

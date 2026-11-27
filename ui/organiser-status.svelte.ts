@@ -1,0 +1,29 @@
+// Read at boot so the first paint shows the right view.
+
+const REGISTERED_KEY = "setlister.organiser.v1";
+
+class OrganiserStatus {
+  isOrganiser = $state(readRegistered());
+  name = $state("");
+}
+
+export const organiserStatus = new OrganiserStatus();
+
+export function setOrganiser(on: boolean, name?: string): void {
+  organiserStatus.isOrganiser = on;
+  if (name !== undefined) organiserStatus.name = name;
+  try {
+    if (on) localStorage.setItem(REGISTERED_KEY, "1");
+    else localStorage.removeItem(REGISTERED_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
+
+function readRegistered(): boolean {
+  try {
+    return localStorage.getItem(REGISTERED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}

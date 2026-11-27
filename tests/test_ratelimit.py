@@ -31,7 +31,6 @@ def test_check_counts_per_key():
     assert ratelimit.check("a", 2, 60, now=10.0).allowed
     assert ratelimit.check("a", 2, 60, now=11.0).allowed
     assert not ratelimit.check("a", 2, 60, now=12.0).allowed
-    # Other keys are unaffected.
     assert ratelimit.check("b", 2, 60, now=12.0).allowed
 
 
@@ -45,7 +44,6 @@ def test_check_denied_requests_do_not_consume_budget():
     assert ratelimit.check("a", 1, 60, now=10.0).allowed
     for _ in range(5):
         assert not ratelimit.check("a", 1, 60, now=11.0).allowed
-    # Next window still opens normally.
     assert ratelimit.check("a", 1, 60, now=61.0).allowed
 
 
@@ -58,8 +56,6 @@ def test_parse_client_ip():
 
 
 def test_flooding_new_keys_does_not_reset_an_existing_counter():
-    # The table used to clear() wholesale when it filled, so flooding fresh keys
-    # handed any caller a way to zero everyone else's budget.
     assert ratelimit.check("victim", 1, 60, now=10.0).allowed
     assert not ratelimit.check("victim", 1, 60, now=10.0).allowed
     for i in range(ratelimit._MAX_KEYS + 100):
@@ -70,6 +66,5 @@ def test_flooding_new_keys_does_not_reset_an_existing_counter():
 def test_stale_windows_are_pruned_so_the_table_stays_bounded():
     for i in range(ratelimit._MAX_KEYS):
         ratelimit.check(f"old-{i}", 1, 60, now=10.0)
-    # A later window: the stale entries make room rather than accumulating.
     ratelimit.check("fresh", 1, 60, now=1000.0)
     assert len(ratelimit._counters) == 1

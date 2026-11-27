@@ -1,17 +1,18 @@
-// The two pure halves of the sync engine.
-//
-// `deserialize` is the safety net that stops a concurrent move+edit merge
-// losing songs, and `diff` decides what actually gets written — a bug in either
-// costs a club its setlist, quietly. Neither needs Firestore.
-
 import { describe, expect, it } from "vitest";
-import { deserialize, diff, readMeta, serialize } from "../sync.js";
-import type { SyncFields, Votes } from "../types.js";
+import {
+  deserialize,
+  diff,
+  isPermissionDenied,
+  readMeta,
+  roomRequestUpdates,
+  roomVoteUpdates,
+  serialize,
+} from "../sync.js";
+import type { Row, SyncFields, Votes } from "../types.js";
 import { row as baseRow } from "./fixtures.js";
 
 const row = (uid: string, title: string) => baseRow({ uid, raw_title: title });
 
-// diff() only calls fx.deleteField(); a sentinel is enough to assert on.
 const DELETED = Symbol("deleteField");
 const fx = { deleteField: () => DELETED };
 
@@ -61,13 +62,44 @@ describe("serialize / deserialize", () => {
     expect(deserialize(null)).toEqual(empty);
     expect(deserialize({ rows: "nope", upNextOrder: 3, votes: "nope" })).toEqual(empty);
   });
+
+  it("skips rows that aren't objects filed under their own uid", () => {
+    const back = deserialize({
+      rows: {
+        a: row("a", "Wagon Wheel"),
+        gone: null,
+        text: "Hey Ya",
+        list: [row("list", "Creep")],
+        noUid: { raw_title: "Hallelujah" },
+        moved: row("elsewhere", "Jolene"),
+      },
+      upNextOrder: ["gone", "a", "text"],
+      requestsOrder: ["list", "noUid", "moved"],
+    });
+    expect(back.upNext.map((r) => r.uid)).toEqual(["a"]);
+    expect(back.requests).toEqual([]);
+  });
+
+  it("reads an edition without a string id as no edition", () => {
+    expect(deserialize({ edition: { id: 7 } }).edition).toBeNull();
+    expect(deserialize({ edition: "current" }).edition).toBeNull();
+    expect(deserialize({ edition: { id: "current" } }).edition).toEqual({ id: "current" });
+  });
+
+  it("deletes skipped rows and a bad edition on the next push", () => {
+    const doc = {
+      rows: { a: row("a", "Wagon Wheel"), gone: null as unknown as Row },
+      upNextOrder: ["a"],
+      requestsOrder: [],
+      edition: { id: 7 } as unknown as SyncFields["edition"],
+      votes: {},
+    };
+    const updates = diff(doc, serialize(deserialize(doc)), fx);
+    expect(updates).toEqual({ "rows.gone": DELETED, edition: null });
+  });
 });
 
 describe("readMeta", () => {
-  // A session with no `listed` field predates visibility and should be adopted
-  // into the club's history. A session with `listed: false` was deliberately
-  // unlisted and must be left alone. Collapsing the two meant opening an
-  // unlisted session's own share link re-advertised it to everyone.
   it("treats a missing listed field as legacy, not as unlisted-on-purpose", () => {
     const meta = readMeta({ createdBy: "" });
     expect(meta.legacy).toBe(true);
@@ -109,11 +141,6 @@ describe("readMeta", () => {
     });
   });
 
-  // requestsOpen is tri-state: true/false are a deliberate override, absent is
-  // AUTO — follow the request window (see request-window.ts), not "always
-  // open". Every session that predates this field reads as auto now rather
-  // than permanently open; the window's own default covers a whole ordinary
-  // night, so that's invisible for anything actually happening tonight.
   it("treats a missing requestsOpen as auto, not forced either way", () => {
     expect(readMeta({ createdBy: "" }).requestsOpen).toBeNull();
     expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBeNull();
@@ -122,9 +149,9 @@ describe("readMeta", () => {
   it("reads an explicit true or false as a forced override", () => {
     expect(readMeta({ requestsOpen: false }).requestsOpen).toBe(false);
     expect(readMeta({ requestsOpen: true }).requestsOpen).toBe(true);
-    // A wrong-typed value is not a forced close: falling back to auto beats a
-    // session nobody can request from because a stray write put a string in
-    // the field.
+  });
+
+  it("reads a wrong-typed requestsOpen as auto, not forced closed", () => {
     expect(readMeta({ requestsOpen: "no" }).requestsOpen).toBeNull();
   });
 
@@ -183,10 +210,6 @@ describe("diff", () => {
     expect(updates).toHaveProperty("upNextOrder");
   });
 
-  // Votes (#83) must go out leaf by leaf. A wholesale `votes` write would be
-  // last-writer-wins, which is precisely what the separate field exists to
-  // avoid: the room votes for the same song at the same moment, and all of
-  // those taps have to survive.
   describe("votes", () => {
     const voted = (votes: Votes): SyncFields => ({ ...structuredClone(base), votes });
 
@@ -225,8 +248,6 @@ describe("diff", () => {
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
 
-    // Votes are keyed on the row uid, which promote()/demote() carry across:
-    // a promote must push as two order arrays and touch no vote leaf.
     it("carries a voted row between the lists without disturbing its votes", () => {
       const pooled: SyncFields = {
         ...structuredClone(base),
@@ -238,5 +259,41 @@ describe("diff", () => {
       const updates = diff(pooled, promoted, fx);
       expect(updates).toEqual({ upNextOrder: ["a"], requestsOrder: [] });
     });
+  });
+});
+
+// Must match firestore.rules' isRoomWrite; tests/rules.test.ts replays them.
+describe("room writes", () => {
+  const roomFx = {
+    arrayUnion: (...values: unknown[]) => ({ union: values }),
+    serverTimestamp: () => "NOW",
+    deleteField: () => DELETED,
+  } as unknown as Parameters<typeof roomRequestUpdates>[2] & Parameters<typeof roomVoteUpdates>[3];
+
+  it("adds one row, appends its uid and seeds the asker's vote", () => {
+    const row = { ...baseRow({ uid: "n1" }), source: "room" as const };
+    expect(roomRequestUpdates(row, "c1", roomFx)).toEqual({
+      "rows.n1": row,
+      requestsOrder: { union: ["n1"] },
+      "votes.n1.c1": true,
+      updatedAt: "NOW",
+    });
+  });
+
+  it("sets or deletes one vote leaf", () => {
+    expect(roomVoteUpdates("r1", "c1", true, roomFx)).toEqual({
+      "votes.r1.c1": true,
+      updatedAt: "NOW",
+    });
+    expect(roomVoteUpdates("r1", "c1", false, roomFx)).toEqual({
+      "votes.r1.c1": DELETED,
+      updatedAt: "NOW",
+    });
+  });
+
+  it("knows a rules refusal", () => {
+    expect(isPermissionDenied({ code: "permission-denied" })).toBe(true);
+    expect(isPermissionDenied({ code: "unavailable" })).toBe(false);
+    expect(isPermissionDenied(null)).toBe(false);
   });
 });

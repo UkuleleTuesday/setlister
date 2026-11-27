@@ -1,45 +1,27 @@
-// Per-edition catalogue cache. Sessions each carry their own songbook now, so
-// a device can bounce between a "current" Tuesday and a themed night without
-// re-downloading (or worse, searching) the wrong book. The old cache was one
-// slot — fine when the edition was a device setting, thrashing the moment two
-// sessions disagree.
-//
-// These helpers are pure (store in, store out); app.js owns the localStorage
-// I/O, same split as room-limits.ts and request-window.ts.
-
 import type { CatalogueEntry, Edition } from "./types.js";
 
-/** One edition's cached songbook. */
 export interface CachedCatalogue {
   edition: Edition;
   catalogue: CatalogueEntry[];
   generatedAt: string;
-  /** When this entry was saved (ms); the eviction order. */
+  /** Epoch ms; the eviction order. */
   savedAt?: number;
 }
 
-/** The localStorage map, keyed by edition id. */
 export type CatalogueStore = Record<string, CachedCatalogue>;
 
-export const CATALOGUES_CACHE_KEY = "setlister.catalogues.v2";
-export const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
+const CATALOGUES_CACHE_KEY = "setlister.catalogues.v2";
+const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
 
-// Enough for the club's realistic rotation (current + a themed night or two)
-// without hoarding: each entry is ~20KB and localStorage is a shared 5MB.
+// Current plus a themed night or two: each entry is ~20KB of a shared 5MB.
 export const CATALOGUE_CACHE_LIMIT = 4;
 
-// The cached {edition, catalogue, generatedAt} for an edition, or null.
-// Anything malformed reads as a miss — the network load repopulates it. The
-// store is whatever localStorage held, hence `unknown`.
 export function getCachedCatalogue(store: unknown, editionId: string): CachedCatalogue | null {
   const entry = (store as Record<string, Partial<CachedCatalogue> | null> | null)?.[editionId];
   if (!entry || !Array.isArray(entry.catalogue) || !entry.catalogue.length) return null;
   return entry as CachedCatalogue;
 }
 
-// A new store with this edition's entry replaced and the least recently saved
-// entries evicted beyond the cap. Refreshing an edition re-stamps it, so the
-// books actually in rotation stay cached.
 export function putCachedCatalogue(
   store: CatalogueStore,
   editionId: string,
@@ -55,9 +37,7 @@ export function putCachedCatalogue(
   return next;
 }
 
-// Fold the pre-split single-slot cache (setlister.catalogue.v1) into the map,
-// once, so the first launch after the update still searches instantly. An
-// edition already in the map wins — it can only be fresher.
+// A map entry beats the legacy slot: it can only be fresher.
 export function migrateLegacyCatalogue(
   store: CatalogueStore,
   legacyData: unknown,
@@ -79,18 +59,42 @@ export function migrateLegacyCatalogue(
   );
 }
 
-// How long a fetched catalogue is trusted before it's re-checked. A phone keeps
-// the app's tab alive for days, and the book is regenerated weekly with songs
-// rotated in and out, so every page after a change shifts. Without a re-check
-// a tab opened before the regen keeps adding tonight's songs with last week's
-// pages. Matches the API's own 15-minute catalogue cache.
+// A tab lives for days and the weekly regen shifts pages: without a re-check,
+// tonight's adds get last week's pages. Matches the API's own catalogue cache.
 export const CATALOGUE_MAX_AGE_MS = 15 * 60 * 1000;
 
-// Whether the catalogue should be re-fetched: never tried, or last tried long
-// enough ago that the published book may have moved on.
 export function catalogueNeedsRefresh(
   lastAttemptAt: number | null | undefined,
   now: number,
 ): boolean {
   return !lastAttemptAt || now - lastAttemptAt >= CATALOGUE_MAX_AGE_MS;
+}
+
+export function readCatalogueStore(now = Date.now()): CatalogueStore {
+  let store: CatalogueStore = {};
+  try {
+    store = JSON.parse(localStorage.getItem(CATALOGUES_CACHE_KEY) || "null") || {};
+  } catch {
+    /* corrupt cache: the network load will repopulate it */
+  }
+  try {
+    const legacy: unknown = JSON.parse(localStorage.getItem(LEGACY_CATALOGUE_CACHE_KEY) || "null");
+    if (legacy) {
+      store = migrateLegacyCatalogue(store, legacy, now);
+      localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
+      localStorage.removeItem(LEGACY_CATALOGUE_CACHE_KEY);
+    }
+  } catch {
+    /* unreadable legacy slot: nothing worth keeping */
+  }
+  return store;
+}
+
+export function saveCachedCatalogue(editionId: string, entry: CachedCatalogue): void {
+  try {
+    const store = putCachedCatalogue(readCatalogueStore(), editionId, entry, Date.now());
+    localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
+  } catch {
+    /* storage full or blocked: the cache is best-effort */
+  }
 }

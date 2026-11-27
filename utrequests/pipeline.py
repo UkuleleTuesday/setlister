@@ -41,7 +41,6 @@ def parse_photo(
         with tracer.start_as_current_span("setlister.match"):
             rows = match_rows(extraction, catalogue)
 
-        # Record the knob settings that produced this trace.
         span.set_attribute("catalogue.entries", len(catalogue.entries))
         span.set_attribute("rows", len(rows))
         if model is not None:

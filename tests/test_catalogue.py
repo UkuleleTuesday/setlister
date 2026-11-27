@@ -42,7 +42,6 @@ def test_build_catalogue_page_arithmetic():
     assert len(cat.entries) == len(manifest["content_info"]["file_names"])
     assert cat.entries[0].page == first_page
     assert cat.entries[-1].page == first_page + len(cat.entries) - 1
-    # pages are unique and consecutive
     pages = [e.page for e in cat.entries]
     assert pages == list(range(first_page, first_page + len(pages)))
 
@@ -124,8 +123,8 @@ def test_list_editions_falls_back_on_error(monkeypatch):
     ],
 )
 def test_fetch_catalogue_rejects_editions_that_leave_the_bucket(mock_bucket, edition):
-    # httpx normalises dot segments, so an unchecked edition reaches another
-    # bucket entirely — and a trailing "?" picks the object name too.
+    # httpx normalises dot segments, so these reach another bucket; a trailing
+    # "?" also swallows the object name.
     with pytest.raises(CatalogueError):
         fetch_catalogue(edition)
 
