@@ -170,6 +170,9 @@ button:not(:disabled):active {
 }
 
 .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   border: none;
   background: none;
   cursor: pointer;
