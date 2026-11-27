@@ -9,10 +9,12 @@
 What you must and mustn't do in this repo. `README.md` has what the project is,
 how to run it, and every command; this file doesn't repeat them.
 
-## UI and UX
+## UX and UI
 
 The UI is mobile-first.
 
+- **Design system.** Style with the tokens and primitives in `ui/DESIGN.md`. No
+  raw colours, sizes or shadows outside `:root`.
 - **Touch.** Tap targets ≥ 44px, no hover-only affordances. Escape is a desktop
   bonus, never the only way out.
 - **Forgiving dismissal.** Overlays close on tapping anywhere obvious, not just a
