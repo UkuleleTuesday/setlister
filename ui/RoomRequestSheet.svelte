@@ -91,10 +91,15 @@
   </div>
   <div id="room-request-error" class="error" hidden={!error}>{error}</div>
   <div class="actions">
-    <button id="room-request-confirm" bind:this={confirmButton} onclick={confirm}>
+    <button
+      id="room-request-confirm"
+      class="btn btn-primary"
+      bind:this={confirmButton}
+      onclick={confirm}
+    >
       {entry ? "Add request" : "Save"}
     </button>
-    <button id="room-request-cancel" class="secondary" onclick={onclose}>Cancel</button>
+    <button id="room-request-cancel" class="btn btn-soft" onclick={onclose}>Cancel</button>
   </div>
   <p class="sheet-hint">Tap outside to close</p>
 </Sheet>

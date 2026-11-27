@@ -140,10 +140,15 @@
   <div id="new-session-error" class="error" hidden={!error}>{error}</div>
   <div class="actions">
     <!-- The first create lazy-loads Firestore, hence the spinner. -->
-    <button id="new-session-start" disabled={blocked || busy} onclick={start}>
+    <button
+      id="new-session-start"
+      class="btn btn-primary"
+      disabled={blocked || busy}
+      onclick={start}
+    >
       {#if busy}<Icon name="loader" extraClass="spin" />{:else}Start{/if}
     </button>
-    <button id="new-session-cancel" class="secondary" onclick={onclose}>Cancel</button>
+    <button id="new-session-cancel" class="btn btn-soft" onclick={onclose}>Cancel</button>
   </div>
   <p class="sheet-hint">Tap outside to close</p>
 </Sheet>

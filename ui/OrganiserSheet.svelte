@@ -47,12 +47,17 @@
       />
     </label>
     <div class="actions">
-      <button id="organiser-register" onclick={submit} disabled={!name.trim()}>
+      <button
+        id="organiser-register"
+        class="btn btn-primary"
+        onclick={submit}
+        disabled={!name.trim()}
+      >
         Register this phone
       </button>
       <button
         id="organiser-cancel"
-        class="secondary"
+        class="btn btn-soft"
         onclick={() => closeOrganiserSheet({ forget: true })}
       >
         Cancel
@@ -67,7 +72,9 @@
       Registered as {organiserStatus.name}. This phone can now run nights.
     </p>
     <div class="actions">
-      <button id="organiser-ok" onclick={() => closeOrganiserSheet()}>OK</button>
+      <button id="organiser-ok" class="btn btn-primary" onclick={() => closeOrganiserSheet()}>
+        OK
+      </button>
     </div>
   {:else if organiser.sheet === "stale"}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>This link has been retired</h2>
@@ -75,18 +82,22 @@
       The organiser link has changed. Open the newest one pinned in the organisers’ chat.
     </p>
     <div class="actions">
-      <button id="organiser-ok" onclick={() => closeOrganiserSheet()}>OK</button>
+      <button id="organiser-ok" class="btn btn-primary" onclick={() => closeOrganiserSheet()}>
+        OK
+      </button>
     </div>
   {:else}
     <h2 id="organiser-title" tabindex="-1" bind:this={heading}>Couldn’t register this phone</h2>
     <p id="organiser-message" class="note" role="alert">{organiser.failure?.message}</p>
     <div class="actions">
       {#if organiser.failure?.action === "reload"}
-        <button id="organiser-reload" onclick={reloadToRegister}>Reload</button>
+        <button id="organiser-reload" class="btn btn-primary" onclick={reloadToRegister}>
+          Reload
+        </button>
       {:else}
-        <button id="organiser-retry" onclick={register}>Try again</button>
+        <button id="organiser-retry" class="btn btn-primary" onclick={register}>Try again</button>
       {/if}
-      <button class="secondary" onclick={() => closeOrganiserSheet()}>Close</button>
+      <button class="btn btn-soft" onclick={() => closeOrganiserSheet()}>Close</button>
     </div>
   {/if}
   {#if organiser.sheet !== "working"}

@@ -32,6 +32,6 @@
     {/each}
   </div>
   <div class="actions">
-    <button id="whats-new-close" class="secondary" type="button" onclick={onclose}>Close</button>
+    <button id="whats-new-close" class="btn btn-soft" type="button" onclick={onclose}>Close</button>
   </div>
 </Sheet>

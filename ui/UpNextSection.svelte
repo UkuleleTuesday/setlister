@@ -132,7 +132,7 @@
   class:empty={visible.length === 0 && !night.upNext.some((e) => e.played && !e.binned)}
 >
   <div class="setlist-head">
-    <h2>
+    <h2 class="eyebrow">
       Up next <span id="upnext-count" class="count" hidden={visible.length === 0}>
         · {visible.length}
       </span>

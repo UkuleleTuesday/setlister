@@ -242,7 +242,7 @@
   <div id="error" class="error" hidden={!notices.session.text}>{notices.session.text}</div>
 </section>
 <section id="review" hidden={phase.kind !== "reviewing"} bind:this={reviewSection}>
-  <h2>Review scan</h2>
+  <h2 class="eyebrow">Review scan</h2>
   <p id="review-note" class="note">
     {phase.kind === "reviewing" ? reviewNote(phase.autoAdded, phase.autoSkipped) : reviewNote(0, 0)}
   </p>
@@ -263,9 +263,14 @@
     {/each}
   </ul>
   <div class="actions">
-    <button id="review-confirm" disabled={kept === 0} onclick={confirmReview}>
+    <button
+      id="review-confirm"
+      class="btn btn-primary"
+      disabled={kept === 0}
+      onclick={confirmReview}
+    >
       <Icon name="add" /><span class="btn-label">Add {kept} to Requests</span>
     </button>
-    <button id="review-cancel" class="secondary" onclick={cancelReview}>Cancel</button>
+    <button id="review-cancel" class="btn btn-soft" onclick={cancelReview}>Cancel</button>
   </div>
 </section>

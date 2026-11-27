@@ -110,6 +110,8 @@ npm run preview       # serve that build
   `npx playwright install chromium`.
 - Check new flows by hand on a phone-sized touch viewport
   (`ui/playwright.config.ts`), with no console errors.
+- Styling goes through the tokens and primitives in
+  [`ui/DESIGN.md`](./ui/DESIGN.md).
 - User-visible changes need a `ui/whats-new.json` entry; see
   [AGENTS.md](./AGENTS.md).
 

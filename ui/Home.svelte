@@ -69,8 +69,7 @@
 {#if organiserStatus.isOrganiser}
   <button
     id="new-session"
-    class="primary-action"
-    class:secondary-new={Boolean(next)}
+    class={["btn", next ? "btn-soft" : "btn-primary btn-lg"]}
     type="button"
     onclick={onNewSession}
   >
@@ -89,7 +88,7 @@
       data-id={next.id}
       onclick={() => onPick(next.id)}
     >
-      <span class="next-session-kicker">Next session</span><span class="next-session-name">
+      <span class="next-session-kicker eyebrow">Next session</span><span class="next-session-name">
         {next.label || "Date pending"}
       </span><span class="next-session-meta">{startedBy(next)}</span>
     </button>

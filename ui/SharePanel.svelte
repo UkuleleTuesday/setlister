@@ -128,7 +128,7 @@
 
 <div
   id="share-panel"
-  class="share-panel"
+  class="share-panel popover"
   role="dialog"
   aria-label="Session sharing"
   bind:this={panel}
@@ -218,7 +218,7 @@
     {requestNote(session.meta.requestsOpen, session.link)}
   </p>
   <div class="actions">
-    <button id="share-link" onclick={share}>
+    <button id="share-link" class="btn btn-primary" onclick={share}>
       {#if flashing}<Icon name="check" /><span class="btn-label">Link copied</span>{:else}<Icon
           name="share"
         /><span class="btn-label">Share link</span>{/if}
