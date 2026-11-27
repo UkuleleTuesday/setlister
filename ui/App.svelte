@@ -109,8 +109,8 @@
   const latest = latestEntry<WhatsNewEntry>();
   let bannerSeen = $state(readWhatsNewSeen() === latest?.date);
 
-  function openWhatsNew(entries: WhatsNewEntry[]) {
-    overlays.whatsNew = entries;
+  function openWhatsNew() {
+    overlays.whatsNew = sortedEntries<WhatsNewEntry>();
     bannerSeen = true;
     writeWhatsNewSeen(latest?.date || "");
   }
@@ -168,9 +168,10 @@
     <button
       id="whats-new-banner"
       class="whats-new-banner tap-target"
+      class:unseen={!bannerSeen}
       type="button"
-      hidden={!latest || bannerSeen}
-      onclick={() => latest && openWhatsNew([latest])}
+      hidden={!latest}
+      onclick={openWhatsNew}
     >
       <Icon name="news" /><span class="btn-label">What’s new</span>
     </button>
@@ -326,17 +327,6 @@
           overlays.newSession = true;
         }}
       />
-
-      <p id="whats-new-footer" class="whats-new-footer" hidden={!latest}>
-        <button
-          id="whats-new-open"
-          class="link-button"
-          type="button"
-          onclick={() => openWhatsNew(sortedEntries<WhatsNewEntry>())}
-        >
-          What’s new
-        </button>
-      </p>
     </section>
   {/if}
 </main>

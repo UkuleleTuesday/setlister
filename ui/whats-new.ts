@@ -64,11 +64,11 @@ export function whatsNewDateLabel(
   return (sameYear ? DAY_MONTH_FORMAT : FULL_DATE_FORMAT).format(date);
 }
 
-// The last-seen entry's ISO date retires the home banner, so shipping a newer
-// entry revives it with nothing to migrate.
+// The last-seen entry's ISO date un-flags the home pill, so shipping a newer
+// entry flags it again with nothing to migrate.
 export const WHATS_NEW_SEEN_KEY = "setlister.whatsNew.v1";
 
-// With storage blocked (private mode) the banner shows every visit.
+// With storage blocked (private mode) the pill is flagged every visit.
 export function readWhatsNewSeen(): string | null {
   try {
     return localStorage.getItem(WHATS_NEW_SEEN_KEY);
@@ -81,6 +81,6 @@ export function writeWhatsNewSeen(date: string): void {
   try {
     localStorage.setItem(WHATS_NEW_SEEN_KEY, date);
   } catch {
-    /* best-effort: the banner just returns next visit */
+    /* best-effort: the pill is just flagged again next visit */
   }
 }
