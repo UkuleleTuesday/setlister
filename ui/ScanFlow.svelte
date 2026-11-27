@@ -205,7 +205,7 @@
     bind:this={photoInput}
     onchange={onPhoto}
   />
-  <p id="scan-result" class="flash-note" aria-live="polite" hidden={!result}>{result}</p>
+  <p id="scan-result" class="flash-note callout" aria-live="polite" hidden={!result}>{result}</p>
 
   <div
     id="preview-wrap"

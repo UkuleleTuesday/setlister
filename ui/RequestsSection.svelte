@@ -70,7 +70,12 @@
   <p id="requests-opening-soon-note" class="requests-opening-soon-note note">
     {lists.openingSoon}
   </p>
-  <p id="add-feedback" class="flash-note" aria-live="polite" hidden={!notices.requests.text}>
+  <p
+    id="add-feedback"
+    class="flash-note callout"
+    aria-live="polite"
+    hidden={!notices.requests.text}
+  >
     {notices.requests.text}
   </p>
   <ul id="requests-rows">

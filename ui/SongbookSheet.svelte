@@ -105,7 +105,7 @@
   <p id="songbook-wait" class="note songbook-wait" hidden={!waiting || Boolean(status)}>
     Your next request opens up shortly. Thumbs up work any time.
   </p>
-  <p id="songbook-status" class="songbook-status" aria-live="polite" hidden={!status}>
+  <p id="songbook-status" class="songbook-status callout" aria-live="polite" hidden={!status}>
     {status}
   </p>
   <ul id="songbook-list" class="songbook-list" bind:this={list} ontouchmove={onListTouchmove}>

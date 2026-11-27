@@ -18,7 +18,10 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 4. **Every tappable thing is at least 44px and gives feedback when pressed.**
    The global `button:active` dims it. The platform's tap flash is off, so
    don't bring it back. Keyboard focus shows `--focus-ring`.
-5. **Status colours carry meaning.** Green is played or matched, orange needs
+5. **Rows you open lead somewhere visibly.** A row that navigates ends in a
+   `forward` chevron. Lists you open things from are `.inset-list`; lists you
+   act on (swipe, vote, reorder) are row cards.
+6. **Status colours carry meaning.** Green is played or matched, orange needs
    a look, red is binned or an error, and purple is the brand and votes. Don't
    rely on colour alone: pair it with an icon, a dot or text.
 
@@ -26,7 +29,7 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 
 | Group       | Tokens                                                                                     | Notes                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Brand       | `--accent`, `--accent-bright`, `--accent-soft`, `--on-accent`                              | `-bright` is only for the primary gradient.                                           |
+| Brand       | `--accent`, `--accent-fill`, `--accent-soft`, `--on-accent`                                | `--accent-fill` is the primary gradient. `--accent-bright` only feeds it.             |
 | Surfaces    | `--bg`, `--card`, `--surface-sunken`, `--border`, `--divider`, `--scrim`, `--scrim-strong` | `--border` outlines controls and cards. `--divider` is for hairlines inside them.     |
 | Text        | `--text`, `--text-secondary`, `--muted`                                                    | `--muted` is the lightest text that passes AA.                                        |
 | Status      | `--confirmed(-strong, -soft)`, `--review`, `--conflict(-soft)`, `--unmatched`              | `-soft` for backgrounds, `-strong` for text on `-soft`.                               |
@@ -52,7 +55,11 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.popover`                                 | A panel anchored under a header button. Set `left`/`right` and `width` per instance.              |
 | `Sheet.svelte`                             | Modal dialogs. Stack actions in `.actions`: primary first, then soft.                             |
 | `.field`                                   | Label, then control, then an optional `.note`.                                                    |
-| `.note`, `.error`, `.flash-note`           | Help text, failures, and short-lived confirmations.                                               |
+| `.note`, `.error`                          | Help text and failures.                                                                           |
+| `.callout`                                 | A tinted note: a confirmation, a status, the edit-mode notice. Set its margin per use.            |
+| `.inset-list`                              | Rows in one card, split by hairlines, for lists you open things from.                             |
+| `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large, on the accent fill, for the hero.    |
+| `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
 | `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills.                                                                          |
 
 ## Exceptions
