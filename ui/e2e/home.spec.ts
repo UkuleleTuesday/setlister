@@ -50,21 +50,22 @@ test("tonight leads, and blocks a second shared night but not an unlisted one", 
   await expect(page.locator("#session-view")).toBeVisible();
 });
 
-test("the history collapses its older nights", async ({ phone }) => {
-  test.slow(); // seven sessions, each created through the UI
+test("past nights list in full, newest first, one heading per month", async ({ phone }) => {
+  test.slow(); // twelve sessions, each created through the UI
   const page = await phone();
   await page.goto("/");
-  // PAST_VISIBLE (5) + 2: the first count that collapses, as one extra row is never hidden.
-  for (let week = 1; week <= 7; week++) await startPastNight(page, dayOffset(-7 * week));
+  for (let week = 1; week <= 12; week++) await startPastNight(page, dayOffset(-7 * week));
 
   await expect(page.locator("#past-heading")).toBeVisible();
-  await expect(page.locator("#session-list").getByRole("listitem")).toHaveCount(5);
-  const toggle = page.locator("#past-older .group-toggle");
-  await expect(toggle).toHaveText("2 older sessions");
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await toggle.tap();
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator("#past-older-rows").getByRole("listitem")).toHaveCount(2);
+  await expect(page.locator("#session-list").getByRole("listitem")).toHaveCount(12);
+  // 6 days at 01:00, when last week's night hasn't quite turned a week old.
+  await expect(page.locator("#session-list .session-item-name").first()).toHaveText(
+    /^(Last week|6 days ago)$/,
+  );
+  // Twelve weeks span three or four months, each headed once.
+  const months = await page.locator("#session-list .month-label").allTextContents();
+  expect(months.length).toBeGreaterThanOrEqual(3);
+  expect(new Set(months).size).toBe(months.length);
   await expect(page.locator("#next-session")).toBeHidden();
   await expect(page.locator("#new-session")).not.toHaveClass(/btn-soft/);
 });

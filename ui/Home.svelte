@@ -3,7 +3,20 @@
   import { history, loadHistory } from "./history.svelte.js";
   import { notices } from "./notices.svelte.js";
   import { organiserStatus } from "./organiser-status.svelte.js";
-  import { type SessionEntry, disambiguate, partitionSessions } from "./session-index.js";
+  import {
+    type LabelledEntry,
+    type MonthGroup,
+    type SessionEntry,
+    dateTile,
+    disambiguate,
+    groupByMonth,
+    partitionSessions,
+    pastSessionTitle,
+    sessionDateLabel,
+    sessionTimeLabel,
+  } from "./session-index.js";
+
+  type Entry = LabelledEntry<SessionEntry>;
 
   let {
     onPick,
@@ -13,23 +26,17 @@
     onNewSession: () => void;
   } = $props();
 
-  // About a month of Tuesdays.
-  const PAST_VISIBLE = 5;
-
-  // Survives a history reload, so a background refresh doesn't slam it shut.
-  let pastOlderOpen = $state(false);
-
   // Label the WHOLE list before splitting, so two sessions the same night get
   // their disambiguating time suffixes even when one of them is the hero.
-  const layout = $derived.by(() => {
+  const listing = $derived.by(() => {
     const now = new Date();
-    return partitionSessions(disambiguate(history.entries, now), now);
+    const layout = partitionSessions(disambiguate(history.entries, now), now);
+    return { now, layout, months: groupByMonth(layout.past, now) };
   });
+  const now = $derived(listing.now);
+  const layout = $derived(listing.layout);
+  const months = $derived(listing.months);
   const next = $derived(layout.upcoming[0]);
-  // Never hide a single row behind a one-row disclosure.
-  const collapse = $derived(layout.past.length > PAST_VISIBLE + 1);
-  const pastVisible = $derived(collapse ? layout.past.slice(0, PAST_VISIBLE) : layout.past);
-  const pastOlder = $derived(collapse ? layout.past.slice(PAST_VISIBLE) : []);
 
   const statusText = $derived(
     history.status === "loading"
@@ -43,13 +50,29 @@
             : "No sessions yet.",
   );
 
-  function startedBy(entry: SessionEntry) {
-    return entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+  function meta(entry: Entry) {
+    const who = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
+    // disambiguate() only suffixes a night shared by two sessions.
+    const twin = entry.createdAt && entry.label !== sessionDateLabel(entry.createdAt, now);
+    return twin ? `${sessionTimeLabel(entry.createdAt)} · ${who}` : who;
   }
 </script>
 
-<!-- A just-created doc awaiting its server timestamp labels as "". -->
-{#snippet item(entry: SessionEntry & { label: string }, extraClass = "")}
+<!-- A just-created doc awaiting its server timestamp has no date yet. -->
+{#snippet tile(entry: Entry, large = false)}
+  <span class={["date-tile", { "date-tile-lg": large }]}>
+    {#if entry.createdAt}
+      {@const parts = dateTile(entry.createdAt)}
+      <span class="date-tile-weekday">{parts.weekday}</span><span class="date-tile-day">
+        {parts.day}
+      </span>
+    {:else}
+      <span class="date-tile-day">?</span>
+    {/if}
+  </span>
+{/snippet}
+
+{#snippet item(entry: Entry, title: string, extraClass = "")}
   <li>
     <button
       type="button"
@@ -57,13 +80,30 @@
       data-id={entry.id}
       onclick={() => onPick(entry.id)}
     >
-      <span class="session-item-name">{entry.label || "Date pending"}</span><span
-        class="session-item-meta"
-      >
-        {startedBy(entry)}
+      {@render tile(entry)}
+      <span class="session-item-text">
+        <span class="session-item-name">{title}</span>
+        <span class="session-item-meta">{meta(entry)}</span>
       </span>
+      <Icon name="forward" extraClass="session-item-chevron" />
     </button>
   </li>
+{/snippet}
+
+{#snippet monthGroups(groups: MonthGroup<Entry>[])}
+  {#each groups as group, i (i)}
+    <section class="month-group">
+      {#if group.label}<h3 class="month-label eyebrow">{group.label}</h3>{/if}
+      <ul class="session-list">
+        {#each group.entries as entry (entry.id)}
+          {@render item(
+            entry,
+            entry.createdAt ? pastSessionTitle(entry.createdAt, now) : "Date pending",
+          )}
+        {/each}
+      </ul>
+    </section>
+  {/each}
 {/snippet}
 
 {#if organiserStatus.isOrganiser}
@@ -88,45 +128,25 @@
       data-id={next.id}
       onclick={() => onPick(next.id)}
     >
-      <span class="next-session-kicker eyebrow">Next session</span><span class="next-session-name">
-        {next.label || "Date pending"}
-      </span><span class="next-session-meta">{startedBy(next)}</span>
+      {@render tile(next, true)}
+      <span class="session-item-text">
+        <span class="next-session-kicker eyebrow">Next session</span>
+        <span class="next-session-name">{next.label || "Date pending"}</span>
+        <span class="next-session-meta">{meta(next)}</span>
+      </span>
+      <Icon name="forward" extraClass="session-item-chevron" />
     </button>
   {/if}
 </div>
-<ul id="upcoming-list" class="session-list">
+<ul id="upcoming-list" class="session-list" hidden={layout.upcoming.length < 2}>
   {#each layout.upcoming.slice(1) as entry (entry.id)}
-    {@render item(entry, "upcoming")}
+    {@render item(entry, entry.label || "Date pending", "upcoming")}
   {/each}
 </ul>
 
 <h2 id="past-heading" hidden={layout.past.length === 0}>Past sessions</h2>
-<ul id="session-list" class="session-list">
-  {#each pastVisible as entry (entry.id)}
-    {@render item(entry)}
-  {/each}
-</ul>
-<div id="past-older" class="row-group" hidden={pastOlder.length === 0}>
-  {#if pastOlder.length}
-    <button
-      type="button"
-      class="group-toggle"
-      aria-expanded={pastOlderOpen}
-      aria-controls="past-older-rows"
-      onclick={() => (pastOlderOpen = !pastOlderOpen)}
-    >
-      <span class="group-label">
-        {pastOlder.length} older {pastOlder.length === 1 ? "session" : "sessions"}
-      </span><Icon name="chevron" extraClass="group-chevron" />
-    </button>
-    {#if pastOlderOpen}
-      <ul id="past-older-rows" class="session-list group-rows">
-        {#each pastOlder as entry (entry.id)}
-          {@render item(entry)}
-        {/each}
-      </ul>
-    {/if}
-  {/if}
+<div id="session-list">
+  {@render monthGroups(months)}
 </div>
 <p id="session-list-status" class="note" aria-live="polite" hidden={statusText === ""}>
   {statusText}
