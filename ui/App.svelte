@@ -112,6 +112,13 @@
     overlays.sessionDetails = true;
   }
 
+  // Stops propagation for the same reason as the header taps.
+  function openNameSetting(event: MouseEvent) {
+    event.stopPropagation();
+    overlays.share = false;
+    overlays.settings = "name";
+  }
+
   function onSettingsTap(event: MouseEvent) {
     event.stopPropagation();
     overlays.share = false;
@@ -166,7 +173,7 @@
     class="settings-toggle icon-button"
     type="button"
     aria-label="Settings"
-    aria-expanded={overlays.settings}
+    aria-expanded={Boolean(overlays.settings)}
     aria-controls="settings-panel"
     onclick={onSettingsTap}
   >
@@ -208,11 +215,16 @@
       onclose={() => (overlays.share = false)}
       onShareLink={shareSessionLink}
       onRequestLink={openRequestLink}
+      onAddName={openNameSetting}
       openers={() => [shareToggle]}
     />
   {/if}
   {#if overlays.settings}
-    <SettingsPanel onclose={() => (overlays.settings = false)} onName={setPlayerName} />
+    <SettingsPanel
+      onclose={() => (overlays.settings = false)}
+      onName={setPlayerName}
+      focusName={overlays.settings === "name"}
+    />
   {/if}
 </header>
 

@@ -1,11 +1,5 @@
-import type { Page } from "@playwright/test";
 import { ORGANISER_KEY as KEY, expect, organiserRows, setOrganiserKey, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
-
-async function openOrganiserSettings(page: Page) {
-  await page.locator("#settings-toggle").tap();
-  await page.locator("#organiser-setting > summary").tap();
-}
 
 test("a room phone gets the request view, and the link makes it an organiser's", async ({
   phone,
@@ -34,10 +28,12 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   // From home: in a session, the join landing would close settings.
   await page.goto("/");
   await expect(page.locator("#new-session")).toBeVisible();
-  await openOrganiserSettings(page);
-  await expect(page.locator("#organiser-status")).toHaveText(
-    "This device is on the organiser list, as Alex.",
-  );
+  await page.locator("#settings-toggle").tap();
+  // A status, not a second copy of the name that a rename would leave behind.
+  await expect(page.locator("#organiser-status")).toHaveText("Organiser on this device");
+  await expect(page.locator("#organiser-setting")).toHaveCount(0);
+  await page.locator("#player-name").fill("Al");
+  await expect(page.locator("#settings-panel")).not.toContainText("Alex");
 });
 
 test("a room phone can't start a night", async ({ phone }) => {

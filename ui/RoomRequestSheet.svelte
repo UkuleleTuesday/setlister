@@ -3,6 +3,7 @@
   tune for everyone. adds.ts commits the answer, guards included.
 -->
 <script lang="ts">
+  import { getAnonName } from "./presence.js";
   import { onMount } from "svelte";
   import Sheet from "./Sheet.svelte";
   import { night } from "./night.svelte.js";
@@ -67,7 +68,7 @@
         type="text"
         id="room-request-name"
         autocomplete="name"
-        placeholder="e.g. Alex"
+        placeholder={getAnonName()}
         bind:value={name}
         bind:this={nameInput}
         onkeydown={onEnter}

@@ -132,6 +132,33 @@ test("Here now lists who's connected", async ({ phone }) => {
   await expect(organiser.locator("#share-presence-list li").first()).toContainText("(you)");
 });
 
+test("an unnamed phone sees the name the room knows it by, and Here now points to Settings", async ({
+  phone,
+}) => {
+  const page = await phone();
+  await startSession(page);
+
+  await page.locator("#share-toggle").tap();
+  const self = page.locator("#share-presence-list li").first();
+  await expect(self).toContainText(/Anonymous .+ \(you\)/);
+  const anon = (await self.locator(".presence-name").textContent())!.replace("(you)", "").trim();
+  await page.locator("#share-add-name").tap();
+
+  await expect(page.locator("#share-panel")).toBeHidden();
+  const name = page.locator("#player-name");
+  await expect(name).toBeFocused();
+  await expect(name).toHaveAttribute("placeholder", anon);
+  await expect(page.locator("#player-name-help")).toHaveText(
+    `Until you add one, the room sees you as ${anon}.`,
+  );
+  await name.fill("Robin");
+  await expect(page.locator("#player-name-help")).toContainText("Shown on songs you add");
+
+  await page.locator("#share-toggle").tap();
+  await expect(self).toContainText("Robin (you)");
+  await expect(page.locator("#share-add-name")).toHaveCount(0);
+});
+
 test("a copied link says so, then settles back", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
