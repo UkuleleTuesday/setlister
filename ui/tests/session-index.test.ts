@@ -3,6 +3,7 @@ import {
   disambiguate,
   fromDateInputValue,
   indexEntryData,
+  isPastNight,
   pageTitle,
   partitionSessions,
   plannedSessionMessage,
@@ -176,6 +177,23 @@ describe("disambiguate", () => {
       (e) => e.label,
     );
     expect(labels).toEqual(["", ""]);
+  });
+});
+
+describe("isPastNight", () => {
+  it("keeps tonight live, even after midnight", () => {
+    expect(isPastNight(at(2026, 7, 4, 20, 0), NOW)).toBe(false);
+    expect(isPastNight(at(2026, 7, 4, 20, 0), new Date(2026, 7, 5, 3, 59))).toBe(false);
+  });
+
+  it("calls the night over from 04:00 the next morning", () => {
+    expect(isPastNight(at(2026, 7, 4, 20, 0), new Date(2026, 7, 5, 4, 0))).toBe(true);
+    expect(isPastNight(at(2026, 6, 28), NOW)).toBe(true);
+  });
+
+  it("never calls a planned night or a just-created session past", () => {
+    expect(isPastNight(at(2026, 7, 11), NOW)).toBe(false);
+    expect(isPastNight(null, NOW)).toBe(false);
   });
 });
 

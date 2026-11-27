@@ -2,7 +2,9 @@
 // read ambiguously (⬆️ looks like "upload").
 
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   Camera,
   Check,
   ChevronDown,
@@ -11,6 +13,7 @@ import {
   GripVertical,
   Link,
   ListMinus,
+  ListMusic,
   ListPlus,
   LoaderCircle,
   Pencil,
@@ -47,6 +50,10 @@ export const ICONS = {
   loader: LoaderCircle,
   news: Sparkles,
   back: ArrowLeft,
+  // Played order is a nudge by one slot, so arrows here are right.
+  earlier: ArrowUp,
+  later: ArrowDown,
+  unplayed: ListMusic,
   edit: Pencil,
   want: ThumbsUp,
   search: Search,

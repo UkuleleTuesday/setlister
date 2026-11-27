@@ -6,7 +6,7 @@
 
 import type { RosterEntry } from "./presence.js";
 import { type LinkState, linkState } from "./request-window.js";
-import { sessionDateLabel } from "./session-index.js";
+import { isPastNight, sessionDateLabel } from "./session-index.js";
 import * as sync from "./sync.js";
 import type { SessionMeta } from "./types.js";
 
@@ -19,6 +19,8 @@ class Session {
   now = $state.raw(new Date());
   label = $derived(sessionDateLabel(this.createdAt, this.now) || this.id || "");
   link: LinkState = $derived(linkState(this.meta, this.createdAt, this.now));
+  /** The night is over: the session opens as a recap. */
+  past = $derived(isPastNight(this.createdAt, this.now));
 }
 
 export const session = new Session();

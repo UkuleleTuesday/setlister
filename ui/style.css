@@ -170,6 +170,9 @@ button:not(:disabled):active {
 }
 
 .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   border: none;
   background: none;
   cursor: pointer;
@@ -1165,6 +1168,58 @@ body.room-mode #edition-note {
   margin: 0 0 var(--space-4);
 }
 
+/* --- Past nights: the recap, and its edit mode --------------------------- */
+.recap-note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+#recap .setlist-head h2 {
+  margin: var(--space-7) 0 var(--space-3);
+}
+#recap-empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+#unplayed-group {
+  margin-top: var(--space-6);
+}
+/* Looking back, the played tunes are the story, not the faded done pile. */
+#recap-rows .row-card.played,
+.group-rows .row-card.reorderable {
+  opacity: 1;
+}
+.past-edit-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+/* The number is decoration: the <ol> already tells assistive tech. */
+.numbered {
+  counter-reset: setlist;
+}
+.numbered > .row-card {
+  counter-increment: setlist;
+}
+.numbered > .row-card .row-body::before {
+  content: counter(setlist);
+  content: counter(setlist) / "";
+  flex: none;
+  min-width: 1.3rem;
+  text-align: right;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
 .room-request-song {
   margin: 0 0 var(--space-5);
   font-size: var(--text-lg);
@@ -1175,6 +1230,7 @@ body.room-mode #edition-note {
 #upnext-rows,
 #requests-rows,
 #review-rows,
+#recap-rows,
 .group-rows {
   list-style: none;
   margin: 0;

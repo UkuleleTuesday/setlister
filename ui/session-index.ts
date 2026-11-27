@@ -68,6 +68,13 @@ function isEvening(date: Date): boolean {
   return h >= EVENING_HOUR || h < NIGHT_BOUNDARY_HOUR;
 }
 
+// The same night arithmetic as the home list, so a night still running at 00:30
+// stays live exactly as long as it stays "Tonight". A pending serverTimestamp
+// (null) is a session just created, never a past one.
+export function isPastNight(date: Date | null, now = new Date()): boolean {
+  return date !== null && nightsBetween(date, now) > 0;
+}
+
 export function sessionDateLabel(date: Date | null, now = new Date()): string {
   if (!date) return "";
   const days = nightsBetween(date, now);
@@ -133,7 +140,7 @@ export function partitionSessions<T extends Pick<SessionEntry, "createdAt">>(
   const upcoming: T[] = [];
   const past: T[] = [];
   for (const entry of entries) {
-    if (entry.createdAt && nightsBetween(entry.createdAt, now) <= 0) upcoming.push(entry);
+    if (entry.createdAt && !isPastNight(entry.createdAt, now)) upcoming.push(entry);
     else past.push(entry);
   }
   upcoming.reverse();

@@ -22,7 +22,10 @@ export function currentRouteId(): string | null {
 
 export function setView(page: "home" | "session") {
   view.page = page;
-  if (page === "home") overlays.share = false;
+  if (page === "home") {
+    overlays.share = false;
+    view.editingPast = false;
+  }
   overlays.settings = false;
 }
 
@@ -69,6 +72,7 @@ async function applyRoute(id: string | null): Promise<void> {
 
   try {
     await sync.joinSession(id, applyRemoteState);
+    view.editingPast = false;
     readSync();
     persist();
     setView("session");

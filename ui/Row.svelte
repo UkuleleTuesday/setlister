@@ -4,7 +4,17 @@
   import type { CatalogueEntry } from "./types.js";
 
   export type RowContext =
-    "upnext" | "requests" | "played" | "bin" | "room" | "room-upnext" | "room-played";
+    | "upnext"
+    | "requests"
+    | "played"
+    /** A past night's played list, in edit mode: reorderable. */
+    | "played-edit"
+    | "bin"
+    | "room"
+    | "room-upnext"
+    | "room-played"
+    /** Read-only: a past night's recap. */
+    | "recap";
 
   export interface RowActions {
     togglePlayed: (uid: string) => void;
@@ -15,6 +25,8 @@
     setMatch: (uid: string, entry: CatalogueEntry) => void;
     /** Keyboard reorder: one visible slot up (-1) or down (1). */
     moveBy: (uid: string, delta: -1 | 1) => void;
+    /** Swaps a played tune with its neighbour in the order played. */
+    movePlayed: (uid: string, delta: -1 | 1) => void;
     /** Hold remote snapshots while a finger is on a row (sync.ts). */
     gesture: (active: boolean) => void;
   }
@@ -37,6 +49,8 @@
     vote = null,
     isNext = false,
     dragging = false,
+    first = false,
+    last = false,
     showSuggestions,
   }: {
     row: Row;
@@ -45,6 +59,9 @@
     vote?: RowVote | null;
     isNext?: boolean;
     dragging?: boolean;
+    /** Ends of a played-edit list, where one move button has nowhere to go. */
+    first?: boolean;
+    last?: boolean;
     showSuggestions: boolean;
   } = $props();
 
@@ -85,7 +102,9 @@
     if (row.crossed_out) parts.push("crossed out");
     // Rows marked before times were recorded show none.
     const playedAt =
-      context === "played" || context === "room-played" ? stateTime(row.playedAt) : null;
+      row.played && (context.includes("played") || context === "recap")
+        ? stateTime(row.playedAt)
+        : null;
     if (playedAt) parts.push(`played ${sessionTimeLabel(playedAt)}`);
     const binnedAt = context === "bin" ? stateTime(row.binnedAt) : null;
     if (binnedAt) parts.push(`binned ${sessionTimeLabel(binnedAt)}`);
@@ -214,6 +233,7 @@
   class:swipe-right={swipeDx !== null && swipeDx > 0}
   class:swipe-left={swipeDx !== null && swipeDx < 0}
   class:next-up={isNext}
+  class:reorderable={context === "played-edit"}
   class:dragging
   data-uid={row.uid}
   style:--swipe-progress={progress === null ? undefined : progress.toFixed(3)}
@@ -312,7 +332,27 @@
         >
           <Icon name="restore" />
         </button>
-      {:else if context === "played"}
+      {:else if context === "played-edit"}
+        <button
+          type="button"
+          title="Played earlier"
+          aria-label="Played earlier"
+          disabled={first}
+          onclick={() => actions.movePlayed(row.uid, -1)}
+        >
+          <Icon name="earlier" />
+        </button>
+        <button
+          type="button"
+          title="Played later"
+          aria-label="Played later"
+          disabled={last}
+          onclick={() => actions.movePlayed(row.uid, 1)}
+        >
+          <Icon name="later" />
+        </button>
+      {/if}
+      {#if context === "played" || context === "played-edit"}
         <button
           type="button"
           title="Mark not played"
