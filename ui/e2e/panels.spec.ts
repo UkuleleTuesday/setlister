@@ -103,7 +103,10 @@ test("settings remember the name and the toggles; the songbook choice is session
   await expect(page.locator("#settings-panel")).toBeVisible();
   await expect(page.locator("#edition-setting")).toBeVisible();
   await page.locator("#player-name").fill("Robin");
-  await page.locator("#show-suggestions").check();
+  // A switch, announced as one, and the whole row is its tap target.
+  await expect(page.getByRole("switch", { name: /Suggest other matches/ })).not.toBeChecked();
+  await page.getByText("Suggest other matches").tap();
+  await expect(page.locator("#show-suggestions")).toBeChecked();
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#settings-panel")).toBeHidden();
 
@@ -134,7 +137,7 @@ test("one popover at a time; a stray tap closes either, a tap inside doesn't", a
   await expect(page.locator("#share-panel")).toBeHidden();
   await expect(page.locator("#share-toggle")).toHaveAttribute("aria-expanded", "false");
 
-  await page.locator("#settings-panel .note").first().tap();
+  await page.locator("#settings-panel .setting-help").first().tap();
   await expect(page.locator("#settings-panel")).toBeVisible();
   await tapOutside(page);
   await expect(page.locator("#settings-panel")).toBeHidden();

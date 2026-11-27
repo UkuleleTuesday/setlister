@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "./Icon.svelte";
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { night } from "./night.svelte.js";
@@ -64,37 +65,51 @@
   aria-label="Settings"
   bind:this={panel}
 >
-  <label class="field">
-    <span>Your name</span>
-    <input
-      type="text"
-      id="player-name"
-      placeholder="e.g. Alex"
-      autocomplete="name"
-      bind:value={() => night.name, onName}
-    />
-  </label>
-  <p class="note">Shown on songs you add, in “Here now”, and on sessions you start.</p>
+  <section class="settings-group">
+    <h3 class="eyebrow">You</h3>
+    <label class="field">
+      <span>Your name</span>
+      <input
+        type="text"
+        id="player-name"
+        placeholder="e.g. Alex"
+        autocomplete="name"
+        bind:value={() => night.name, onName}
+      />
+    </label>
+    <p class="setting-help">Shown on songs you add, in “Here now”, and on sessions you start.</p>
+  </section>
   <!-- A session control, so hidden on home: the new-session sheet picks there. -->
-  <label class="field" id="edition-setting" hidden={view.page === "home"}>
-    <span>Songbook edition</span>
-    <select id="edition" bind:value={() => catalogue.editionId, onEdition}>
-      {#each editionOptions as option (option.id)}
-        <option value={option.id}>{option.label}</option>
-      {/each}
-    </select>
-    <span class="note">Changes this session's songbook for everyone in it.</span>
-  </label>
-  <label class="field toggle">
-    <input
-      type="checkbox"
-      id="show-suggestions"
-      bind:checked={() => settings.showSuggestions, (v) => set("showSuggestions", v)}
-    />
-    <span>Show alternative suggestions</span>
-  </label>
-  <details class="advanced" id="organiser-setting">
-    <summary>Organisers</summary>
+  <section class="settings-group" hidden={view.page === "home"}>
+    <h3 class="eyebrow">This session</h3>
+    <label class="field" id="edition-setting">
+      <span>Songbook edition</span>
+      <select id="edition" bind:value={() => catalogue.editionId, onEdition}>
+        {#each editionOptions as option (option.id)}
+          <option value={option.id}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
+    <p class="setting-help">Changes the songbook for everyone in this session.</p>
+  </section>
+  <section class="settings-group">
+    <h3 class="eyebrow">Display</h3>
+    <label class="setting-row">
+      <span class="setting-text">
+        Suggest other matches
+        <span class="setting-help">Under a scanned tune, offer close songbook matches.</span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        id="show-suggestions"
+        bind:checked={() => settings.showSuggestions, (v) => set("showSuggestions", v)}
+      />
+    </label>
+  </section>
+  <details class="disclosure" id="organiser-setting">
+    <summary>Organisers<Icon name="chevron" extraClass="disclosure-chevron" /></summary>
     {#if organiserStatus.isOrganiser}
       <p id="organiser-status" class="note">
         This phone is on the organiser list{organiserStatus.name
@@ -138,8 +153,8 @@
       </p>
     {/if}
   </details>
-  <details class="advanced">
-    <summary>Advanced</summary>
+  <details class="disclosure" id="advanced-setting">
+    <summary>Advanced<Icon name="chevron" extraClass="disclosure-chevron" /></summary>
     <label class="field">
       <span>Model</span>
       <select id="model" bind:value={() => settings.model, (v) => set("model", v)}>
@@ -148,21 +163,25 @@
         <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
       </select>
     </label>
-    <label class="field toggle">
+    <label class="setting-row">
+      <span class="setting-text">Disable model thinking (faster)</span>
       <input
         type="checkbox"
+        role="switch"
+        class="switch"
         id="disable-thinking"
         bind:checked={() => settings.disableThinking, (v) => set("disableThinking", v)}
       />
-      <span>Disable model thinking (faster)</span>
     </label>
-    <label class="field toggle">
+    <label class="setting-row">
+      <span class="setting-text">Send songbook to model (better handwriting reads)</span>
       <input
         type="checkbox"
+        role="switch"
+        class="switch"
         id="send-catalogue"
         bind:checked={() => settings.sendCatalogue, (v) => set("sendCatalogue", v)}
       />
-      <span>Send songbook to model (better handwriting reads)</span>
     </label>
     <!-- Not bind:value: a number input would hand back a number, on every
          keystroke; the setting is a string, saved on commit. -->
@@ -179,6 +198,6 @@
         onchange={(event) => set("maxImageEdge", event.currentTarget.value)}
       />
     </label>
-    <p class="note">Photos are shrunk to this on your phone before uploading.</p>
+    <p class="setting-help">Photos are shrunk to this on your phone before uploading.</p>
   </details>
 </div>

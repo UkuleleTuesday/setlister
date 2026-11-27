@@ -61,6 +61,23 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large, on the accent fill, for the hero.    |
 | `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
 | `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills.                                                                          |
+| `.settings-group`                          | An `.eyebrow` naming who the settings affect, over its rows and fields.                           |
+| `.setting-row`                             | A `<label>`: `.setting-text` (and `.setting-help`) on the left, its control on the right.         |
+| `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
+| `.disclosure`                              | A named, collapsed `<details>` with a `disclosure-chevron` in its summary.                        |
+
+## Settings
+
+1. **Group by who a setting affects.** "You" is this phone only. "This
+   session" changes it for everyone in it, and says so in its help text.
+2. **Changes apply at once.** No Save button. While a shared change saves, its
+   control is disabled; a failure shows as `.error` under it.
+3. **Pick the control by the choice:** on/off is a `.switch`, never a bare
+   checkbox; a long list is a `<select>`; free text is a `.field`.
+4. **Short label, effect underneath.** Add a `.setting-help` line when the
+   label doesn't say what happens. Offer "Use default" once a value is
+   overridden.
+5. **Rare settings go in a named `.disclosure`**, collapsed by default.
 
 ## Exceptions
 
