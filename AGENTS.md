@@ -58,6 +58,7 @@ where a field written at session creation breaks "New session". Run
 
 - **Descriptions are short:** what changed, why, and anything a reviewer must
   act on. No test counts, file lists or restating the diff.
+- **UX changes include before and after screenshots** in the description.
 
 ## Before you push
 
