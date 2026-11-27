@@ -5,8 +5,6 @@
 >
 > **Docs and comments: optimize for clarity, readability and token count.** No
 > preamble, no filler prose. All markdown (this file included) and code comments.
-> A comment stating behaviour a test could check should be that test. Comments
-> say why: reasons, hazards, non-obvious mechanisms.
 
 What you must and mustn't do in this repo. `README.md` has what the project is,
 how to run it, and every command; this file doesn't repeat them.
@@ -47,6 +45,11 @@ unknown key rejects the whole write. So a new field needs its rules entry in
 the same change, and PR previews run new code against production's rules,
 where a field written at session creation breaks "New session". Run
 `npm run test:emulator` after touching the rules.
+
+## Code
+
+- **Comments say why:** reasons, hazards, non-obvious mechanisms. A comment
+  stating behaviour a test could check should be that test.
 
 ## Before you push
 
