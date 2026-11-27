@@ -1,7 +1,7 @@
 # Design system
 
 Tokens and primitives live at the top of `style.css`. The rest of the file
-composes them. Mobile-first rules (touch, dismissal, notches) are in
+composes them; Patterns says how they make a page. Mobile-first rules (touch, dismissal, notches) are in
 `AGENTS.md`.
 
 ## Rules
@@ -27,9 +27,9 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
    rely on colour alone: pair it with an icon, a dot or text.
 7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
    somewhere or open something; arrows only move a row (`earlier`, `later`).
-8. **One header for every view.** `.app-header` says where you are (the club
-   name as `.eyebrow` over the h1) and what you can do here. The way out and the
-   night's status sit under it in `.session-bar`, never in the header.
+8. **One header for every view.** `.app-header` says where you are and what
+   you can do. The way out and the night's status sit under it, in
+   `.session-bar`. See Page structure.
 
 ## Tokens
 
@@ -46,6 +46,7 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | Layers      | `--z-lifted`, `-popover`, `-menu`, `-sheet`, `-lightbox`                                   |                                                                                       |
 | Motion      | `--duration-fast`, `--duration-base`, `--ease`                                             | Animations go inside a `prefers-reduced-motion` guard.                                |
 | Interaction | `--tap-min`, `--pressed-opacity`, `--disabled-opacity`, `--focus-ring`                     |                                                                                       |
+| Layout      | `--page-max`, `--control-size`                                                             | The column every view shares. Icon-buttons and the pills beside them.                 |
 
 ## Primitives
 
@@ -56,8 +57,8 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.btn-lg`                                  | Hero actions on the page, such as Add a tune or New session. Not inside sheets.                   |
 | `.link-button`                             | Text-only actions inline with content. The hit area is built in.                                  |
 | `.icon-button`                             | Round, bordered icon-only button, such as the header's share and settings. Needs an `aria-label`. |
-| `.app-header`                              | Every view's top: `.title-stack`, then `.header-actions`, settings last. Titles wrap.             |
-| `.session-bar`                             | Under a session's header: "All sessions", then one status item (the request pill, or Edit/Done).  |
+| `.app-header`                              | Every view's top: title stack, then actions. See Page structure.                                  |
+| `.session-bar`                             | A session's way out and status, under the header. See Page structure.                             |
 | `.badge` (`.badge-dot`)                    | A count, or a dot, on a button's corner. Status colour, and say it in the `aria-label` too.       |
 | `.tap-target`                              | Grows a small control's hit area to 44px without moving the layout.                               |
 | `.eyebrow`                                 | Uppercase label: section headings, kickers, the club name.                                        |
@@ -75,7 +76,29 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
 | `.disclosure`                              | A named, collapsed `<details>` with a `disclosure-chevron` in its summary.                        |
 
-## Settings
+## Patterns
+
+### Page structure
+
+Every view is `.app-header`, then `main`, in one `--page-max` column.
+
+1. **Header.** `.title-stack` (the club name as `.eyebrow` over the h1), then
+   `.header-actions`: icon-buttons and pills at `--control-size`, settings
+   last. Actions align to the top, so a title can wrap; it never truncates.
+   `.title-tail` keeps a title's chevron on its last word.
+2. **Header popovers** hang from the header's bottom edge, anchored right.
+3. **Session bar.** First in a session's `main`: "All sessions", always
+   labelled, then one status item. That's the request pill on a live night,
+   Edit/Done on a past one (organisers), nothing in room mode. It wraps rather
+   than squeeze.
+4. **Room mode** hides the header's actions and the title's chevron. Nothing
+   else moves.
+5. **Badges** sit inside their button: `.badge-dot` for news, a count for
+   people. A count of one is only you, so it hides.
+6. **Notches.** Edge padding is `max(<token>, env(safe-area-inset-*))`. The
+   insets read 0 until `index.html` sets `viewport-fit=cover`.
+
+### Settings
 
 1. **Put a setting where its effect lives.** The gear holds this phone's
    settings only. A control that changes the session for everyone sits where

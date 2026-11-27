@@ -99,6 +99,10 @@
   --disabled-opacity: 0.45;
   --focus-ring: 2px solid var(--accent);
 
+  /* Layout */
+  --page-max: 560px;
+  --control-size: 2.4rem;
+
   color-scheme: light;
 }
 
@@ -197,8 +201,8 @@ button:not(:disabled):active {
 /* Round, bordered icon-only button on a card surface. */
 .icon-button {
   position: relative;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: var(--control-size);
+  height: var(--control-size);
   padding: 0;
   display: flex;
   align-items: center;
@@ -516,7 +520,7 @@ svg.icon.spin {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  max-width: 560px;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: max(var(--space-4), env(safe-area-inset-top))
     max(var(--space-5), env(safe-area-inset-right)) 0 max(var(--space-5), env(safe-area-inset-left));
@@ -668,13 +672,13 @@ svg.title-chevron {
 }
 
 main {
-  max-width: 560px;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-5);
 }
 
 footer#edition-note {
-  max-width: 560px;
+  max-width: var(--page-max);
   margin: var(--space-3) auto 0;
   padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
   text-align: center;
@@ -1076,7 +1080,7 @@ h2#past-heading {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 2.4rem;
+  height: var(--control-size);
   padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
