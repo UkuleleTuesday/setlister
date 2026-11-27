@@ -84,6 +84,20 @@ test("home's night carries the organisers' note, the same for everyone", async (
   await expect(pitch).toContainText("Ask for the tunes");
 });
 
+test("the note can be written when starting the night", async ({ phone }) => {
+  const page = await phone();
+  await page.goto("/");
+  await expect(page.locator("#session-list-status")).toBeHidden();
+  await page.locator("#new-session").tap();
+  await page.locator("#new-session-blurb").fill("Open mic first, then the songbook.");
+  await page.locator("#new-session-start").tap();
+  await page.waitForURL(/[?&]session=/);
+  await page.locator("#back-home").tap();
+  await expect(page.locator(".next-session-pitch")).toHaveText(
+    "Open mic first, then the songbook.",
+  );
+});
+
 test("with no night planned, home says so to each role", async ({ phone }) => {
   const room = await phone({ room: true });
   await room.goto("/");

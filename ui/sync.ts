@@ -235,11 +235,11 @@ function deepCopy<T>(obj: T): T {
 export async function createSession(
   getState: () => LocalState,
   applyStateFn: ApplyState,
-  sessionMeta: { createdBy?: string; listed?: boolean; createdAt?: Date | null },
+  sessionMeta: { createdBy?: string; listed?: boolean; createdAt?: Date | null; blurb?: string },
 ): Promise<string> {
   const { db, fx } = await getFirestore();
   const serialized = serialize(getState());
-  const next = readMeta(sessionMeta);
+  const next = readMeta({ ...sessionMeta, blurb: cleanBlurb(sessionMeta?.blurb || "") });
   const pickedAt = sessionMeta?.createdAt instanceof Date ? sessionMeta.createdAt : null;
   let id: string | null = null;
 
@@ -259,14 +259,19 @@ export async function createSession(
           listed: next.listed,
           // No requests* fields: absent reads as auto. PR previews run against
           // production's rules, where one unknown key fails hasOnly and so
-          // breaks "New session"; keep new fields out of this write.
+          // breaks "New session"; keep new fields out of this write. An empty
+          // blurb is left out for the same reason.
+          ...(next.blurb && { blurb: next.blurb }),
           createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
         if (next.listed) {
           tx.set(
             fx.doc(db, INDEX_COLLECTION, candidate),
-            indexEntryData({ createdBy: next.createdBy, createdAt: pickedAt }, fx),
+            indexEntryData(
+              { createdBy: next.createdBy, createdAt: pickedAt, blurb: next.blurb },
+              fx,
+            ),
           );
         }
         id = candidate;

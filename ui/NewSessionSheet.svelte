@@ -8,6 +8,8 @@
   import { history } from "./history.svelte.js";
   import { defaultWindowLabel } from "./request-window.js";
   import {
+    BLURB_MAX,
+    DEFAULT_BLURB,
     type SessionEntry,
     fromDateInputValue,
     listSessions,
@@ -22,6 +24,7 @@
     createdAt: Date | null;
     listed: boolean;
     editionId: string;
+    blurb: string;
   }
 
   let {
@@ -42,6 +45,7 @@
   // night shouldn't quietly become next Tuesday's songbook too.
   let editionId = $state("current");
   let visibility: "shared" | "unlisted" = $state("shared");
+  let blurb = $state("");
   // Both selects ship a "current" option, so the default path never depends
   // on /api/editions answering.
   const editions = $derived(
@@ -55,7 +59,10 @@
     partitionSessions(history.entries).upcoming[0] ?? null,
   );
   const changed = $derived(
-    date !== dateDefault || editionId !== "current" || visibility !== "shared",
+    date !== dateDefault ||
+      editionId !== "current" ||
+      visibility !== "shared" ||
+      blurb.trim() !== "",
   );
   let busy = $state(false);
   let error = $state("");
@@ -92,7 +99,7 @@
           throw new Error(`a session is already planned for ${sessionDateLabel(found.createdAt)}`);
         }
       }
-      await onStart({ createdAt, listed, editionId: editionId || "current" });
+      await onStart({ createdAt, listed, editionId: editionId || "current", blurb });
     } catch (err) {
       // Stay open with the date intact. A found planned night keeps Start disabled.
       error = `Couldn’t start a session: ${(err as Error).message}`;
@@ -124,6 +131,17 @@
   </label>
   <!-- Read-only: the request link sheet edits the window once the session exists. -->
   <p class="note" id="new-session-window-note">{windowNote}</p>
+  <label class="field">
+    <span>Note for the room</span>
+    <textarea
+      id="new-session-blurb"
+      rows="2"
+      maxlength={BLURB_MAX}
+      placeholder={DEFAULT_BLURB}
+      bind:value={blurb}
+      onkeydown={(event) => event.key === "Enter" && event.preventDefault()}></textarea>
+  </label>
+  <p class="note">Shows under the night on everyone’s home screen. Optional.</p>
   <label class="field">
     <span>Songbook</span>
     <select id="new-session-edition" bind:value={editionId}>
