@@ -1,9 +1,7 @@
 import type { Edition, Row } from "./types.js";
 
-export function exportedRows(upNext: Row[], requests: Row[], includeCrossed: boolean): Row[] {
-  return [...upNext, ...requests].filter(
-    (row) => !row.removed && (includeCrossed || !row.crossed_out),
-  );
+export function exportedRows(upNext: Row[], requests: Row[]): Row[] {
+  return [...upNext, ...requests].filter((row) => !row.removed);
 }
 
 export function exportText(rows: Row[]): string {

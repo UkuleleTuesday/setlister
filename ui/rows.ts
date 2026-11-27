@@ -6,7 +6,6 @@ import { night, nightSnapshot } from "./night.svelte.js";
 import { movePlayed } from "./recap.js";
 import * as presence from "./presence.js";
 import { persist } from "./save.js";
-import { settings } from "./settings.svelte.js";
 import { copyToClipboard } from "./share-link.js";
 import * as sync from "./sync.js";
 import type { Row } from "./types.js";
@@ -85,13 +84,13 @@ export function commitOrder(uids: string[]) {
 }
 
 export async function copySetlist() {
-  const rows = exportedRows(night.upNext, night.requests, settings.includeCrossed);
+  const rows = exportedRows(night.upNext, night.requests);
   await copyToClipboard(exportText(rows));
 }
 
 export function downloadSetlist() {
   const lists = nightSnapshot();
-  const rows = exportedRows(lists.upNext, lists.requests, settings.includeCrossed);
+  const rows = exportedRows(lists.upNext, lists.requests);
   const payload = exportPayload(lists.edition, catalogue.generatedAt, rows);
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const a = document.createElement("a");

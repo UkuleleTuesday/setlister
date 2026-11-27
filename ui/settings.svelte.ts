@@ -5,7 +5,6 @@ export interface Settings {
   disableThinking: boolean;
   sendCatalogue: boolean;
   showSuggestions: boolean;
-  includeCrossed: boolean;
   maxImageEdge: string;
 }
 
@@ -14,7 +13,6 @@ export const settings = $state<Settings>({
   disableThinking: true,
   sendCatalogue: true,
   showSuggestions: false,
-  includeCrossed: false,
   maxImageEdge: "",
 });
 
@@ -25,7 +23,6 @@ export function applySettings(saved: unknown) {
   if (typeof s.disableThinking === "boolean") settings.disableThinking = s.disableThinking;
   if (typeof s.sendCatalogue === "boolean") settings.sendCatalogue = s.sendCatalogue;
   if (typeof s.showSuggestions === "boolean") settings.showSuggestions = s.showSuggestions;
-  if (typeof s.includeCrossed === "boolean") settings.includeCrossed = s.includeCrossed;
   if (typeof s.maxImageEdge === "string") settings.maxImageEdge = s.maxImageEdge;
 }
 

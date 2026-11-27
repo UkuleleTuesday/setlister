@@ -3,7 +3,6 @@ import { night } from "./night.svelte.js";
 import * as presence from "./presence.js";
 import { openingSoonNote } from "./request-window.js";
 import { session } from "./session.svelte.js";
-import { settings } from "./settings.svelte.js";
 import type { Row } from "./types.js";
 import { view } from "./view.svelte.js";
 import { hasVoted, voteCount } from "./votes.js";
@@ -21,9 +20,7 @@ class Lists {
   // doesn't stop the organiser voting.
   votingEnabled = $derived(!this.room || session.link.open);
   // Copying "" or downloading `{rows: []}` would be traps, so export disables.
-  exportEmpty = $derived(
-    exportedRows(night.upNext, night.requests, settings.includeCrossed).length === 0,
-  );
+  exportEmpty = $derived(exportedRows(night.upNext, night.requests).length === 0);
   openingSoon = $derived(
     session.link.soonMinutes === null ? "" : openingSoonNote(session.link.soonMinutes),
   );
