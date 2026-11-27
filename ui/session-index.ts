@@ -45,6 +45,11 @@ const FULL_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
 });
 
+const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+const MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { month: "long" });
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
+const RELATIVE_FORMAT = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
 const CLUB_WEEKDAY = 2; // Date#getDay(): Sunday = 0
 const EVENING_HOUR = 17;
 export const NIGHT_BOUNDARY_HOUR = 4;
@@ -88,6 +93,72 @@ export function sessionDateLabel(date: Date | null, now = new Date()): string {
   const sameYear = date.getFullYear() === now.getFullYear();
   const stamp = sameYear ? DAY_MONTH_FORMAT.format(date) : FULL_DATE_FORMAT.format(date);
   return date.getDay() === CLUB_WEEKDAY ? stamp : `${WEEKDAY_FORMAT.format(date)} ${stamp}`;
+}
+
+const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * A past night's title: how long ago, while that's what you'd say ("Yesterday",
+ * "3 weeks ago"), then the date, since "2 months ago" four times running tells
+ * the nights apart no better than nothing.
+ */
+export function pastSessionTitle(date: Date, now = new Date()): string {
+  const days = nightsBetween(date, now);
+  if (days < 7) return capitalise(RELATIVE_FORMAT.format(-days, "day"));
+  if (days < 56) return capitalise(RELATIVE_FORMAT.format(-Math.floor(days / 7), "week"));
+  return sessionDateLabel(date, now);
+}
+
+/** A calendar tile's two lines. */
+export function dateTile(date: Date): { weekday: string; day: string } {
+  return { weekday: WEEKDAY_SHORT_FORMAT.format(date), day: String(date.getDate()) };
+}
+
+export interface MonthGroup<T> {
+  /** "" for sessions still awaiting their server timestamp. */
+  label: string;
+  entries: T[];
+}
+
+/** Consecutive runs of the same month, in the given order. */
+export function groupByMonth<T extends Pick<SessionEntry, "createdAt">>(
+  entries: T[],
+  now = new Date(),
+): MonthGroup<T>[] {
+  const groups: (MonthGroup<T> & { key: string })[] = [];
+  for (const entry of entries) {
+    const night = entry.createdAt && startOfNight(entry.createdAt);
+    const key = night ? `${night.getFullYear()}-${night.getMonth()}` : "";
+    const last = groups.at(-1);
+    if (last && last.key === key) {
+      last.entries.push(entry);
+      continue;
+    }
+    const label = !night
+      ? ""
+      : night.getFullYear() === now.getFullYear()
+        ? MONTH_FORMAT.format(night)
+        : MONTH_YEAR_FORMAT.format(night);
+    groups.push({ key, label, entries: [entry] });
+  }
+  return groups.map(({ label, entries }) => ({ label, entries }));
+}
+
+/**
+ * Splits month groups into the shown and the folded. Whole months show until
+ * at least `min` sessions do, so no month is cut in two, and a lone leftover
+ * session is never folded behind a disclosure.
+ */
+export function foldMonths<T>(
+  groups: MonthGroup<T>[],
+  min: number,
+): { shown: MonthGroup<T>[]; folded: MonthGroup<T>[] } {
+  let count = 0;
+  let cut = 0;
+  while (cut < groups.length && count < min) count += groups[cut++].entries.length;
+  const rest = groups.slice(cut).reduce((sum, g) => sum + g.entries.length, 0);
+  if (rest <= 1) return { shown: groups, folded: [] };
+  return { shown: groups.slice(0, cut), folded: groups.slice(cut) };
 }
 
 export function pageTitle(label: string | null | undefined): string {

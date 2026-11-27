@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  dateTile,
   disambiguate,
+  foldMonths,
   fromDateInputValue,
+  groupByMonth,
   indexEntryData,
   isPastNight,
   pageTitle,
   partitionSessions,
+  pastSessionTitle,
   plannedSessionMessage,
   sessionDateLabel,
   sessionTimeLabel,
@@ -327,5 +331,92 @@ describe("pageTitle", () => {
   it("falls back to the brand on the home view", () => {
     expect(pageTitle("")).toBe("Setlister · Ukulele Tuesday");
     expect(pageTitle(null)).toBe("Setlister · Ukulele Tuesday");
+  });
+});
+
+describe("pastSessionTitle", () => {
+  it("counts days for the first week, from the night not the clock", () => {
+    expect(pastSessionTitle(at(2026, 7, 3), NOW)).toBe("Yesterday");
+    expect(pastSessionTitle(at(2026, 7, 1), NOW)).toBe("3 days ago");
+    // 23:59 the day before is still last night at 04:30.
+    expect(pastSessionTitle(at(2026, 7, 3, 23, 59), new Date(2026, 7, 4, 4, 30))).toBe("Yesterday");
+  });
+
+  it("counts weeks up to eight", () => {
+    expect(pastSessionTitle(at(2026, 6, 28), NOW)).toBe("Last week");
+    expect(pastSessionTitle(at(2026, 6, 21), NOW)).toBe("2 weeks ago");
+    expect(pastSessionTitle(at(2026, 5, 16), NOW)).toBe("7 weeks ago");
+  });
+
+  it("then gives the date", () => {
+    expect(pastSessionTitle(at(2026, 5, 9), NOW)).toBe(sessionDateLabel(at(2026, 5, 9), NOW));
+    expect(pastSessionTitle(at(2025, 7, 4), NOW)).toBe(sessionDateLabel(at(2025, 7, 4), NOW));
+  });
+});
+
+describe("dateTile", () => {
+  it("gives the short weekday and the day of the month", () => {
+    expect(dateTile(at(2026, 7, 4))).toEqual({
+      weekday: new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(at(2026, 7, 4)),
+      day: "4",
+    });
+  });
+});
+
+describe("groupByMonth", () => {
+  const month = (d: Date) => new Intl.DateTimeFormat(undefined, { month: "long" }).format(d);
+
+  it("runs same-month sessions together, newest first as given", () => {
+    const groups = groupByMonth(
+      [
+        { createdAt: at(2026, 7, 4) },
+        { createdAt: at(2026, 6, 28) },
+        { createdAt: at(2026, 6, 21) },
+      ],
+      NOW,
+    );
+    expect(groups.map((g) => [g.label, g.entries.length])).toEqual([
+      [month(at(2026, 7, 4)), 1],
+      [month(at(2026, 6, 28)), 2],
+    ]);
+  });
+
+  it("files a session past midnight under its night's month", () => {
+    const groups = groupByMonth([{ createdAt: new Date(2026, 7, 1, 0, 30) }], NOW);
+    expect(groups[0].label).toBe(month(at(2026, 6, 31)));
+  });
+
+  it("names the year only when it isn't this one", () => {
+    const [group] = groupByMonth([{ createdAt: at(2025, 11, 30) }], NOW);
+    expect(group.label).toContain("2025");
+  });
+
+  it("gives a pending timestamp an unlabelled group", () => {
+    expect(groupByMonth([{ createdAt: null }], NOW)).toEqual([
+      { label: "", entries: [{ createdAt: null }] },
+    ]);
+  });
+});
+
+describe("foldMonths", () => {
+  const groups = (...sizes: number[]) =>
+    sizes.map((n, i) => ({ label: `m${i}`, entries: Array.from({ length: n }, (_, j) => j) }));
+  const sizes = (gs: { entries: unknown[] }[]) => gs.map((g) => g.entries.length);
+
+  it("shows whole months until enough sessions do", () => {
+    const { shown, folded } = foldMonths(groups(3, 4, 4, 2), 5);
+    expect(sizes(shown)).toEqual([3, 4]);
+    expect(sizes(folded)).toEqual([4, 2]);
+  });
+
+  it("never folds a single session", () => {
+    const { shown, folded } = foldMonths(groups(5, 1), 5);
+    expect(sizes(shown)).toEqual([5, 1]);
+    expect(folded).toEqual([]);
+  });
+
+  it("folds nothing when everything fits", () => {
+    expect(foldMonths(groups(2, 2), 5).folded).toEqual([]);
+    expect(foldMonths([], 5)).toEqual({ shown: [], folded: [] });
   });
 });
