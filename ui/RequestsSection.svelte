@@ -31,7 +31,7 @@
 </script>
 
 <section id="requests">
-  <h2>
+  <h2 class="eyebrow">
     Requests <span id="requests-count" class="count" hidden={visible.length === 0}>
       · {visible.length}
     </span>
@@ -48,12 +48,17 @@
   </p>
   <!-- At the top of the pool so a shouted request goes in without scrolling. -->
   <div id="manual-add" class="manual-add">
-    <button type="button" class="songbook-trigger" onclick={onAddTune}>
+    <button type="button" class="songbook-trigger btn btn-primary btn-lg" onclick={onAddTune}>
       <Icon name="add" /><span class="btn-label">Add a tune</span>
     </button>
     <!-- A button, not a <label> for the file input, so keyboards and switch
          access can use it. -->
-    <button id="camera-button" class="camera-button" type="button" onclick={onSnap}>
+    <button
+      id="camera-button"
+      class="camera-button btn btn-soft btn-lg"
+      type="button"
+      onclick={onSnap}
+    >
       <Icon name="camera" /><span class="btn-label">Snap the board</span>
     </button>
   </div>

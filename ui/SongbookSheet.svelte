@@ -139,7 +139,7 @@
   <div class="actions">
     <button
       id="songbook-close"
-      class="secondary"
+      class="btn btn-soft"
       type="button"
       bind:this={closeButton}
       onclick={onclose}

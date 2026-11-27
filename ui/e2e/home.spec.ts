@@ -29,7 +29,7 @@ test("tonight leads, and blocks a second shared night but not an unlisted one", 
   const card = page.locator("#next-session .next-session-card");
   await expect(card).toContainText("Next session");
   await expect(card).toContainText(/Tonight|Today/);
-  await expect(page.locator("#new-session")).toHaveClass(/secondary-new/);
+  await expect(page.locator("#new-session")).toHaveClass(/btn-soft/);
 
   await page.locator("#new-session").tap();
   const start = page.locator("#new-session-start");
@@ -66,7 +66,7 @@ test("the history collapses its older nights", async ({ phone }) => {
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#past-older-rows").getByRole("listitem")).toHaveCount(2);
   await expect(page.locator("#next-session")).toBeHidden();
-  await expect(page.locator("#new-session")).not.toHaveClass(/secondary-new/);
+  await expect(page.locator("#new-session")).not.toHaveClass(/btn-soft/);
 });
 
 test("a malformed share link lands on the history with an error that New session clears", async ({

@@ -124,7 +124,7 @@
 <header>
   <button
     id="share-toggle"
-    class="share-toggle"
+    class="share-toggle icon-button"
     class:active={!!session.id}
     type="button"
     aria-label={shareLabel}
@@ -146,7 +146,7 @@
   </span>
   <button
     id="settings-toggle"
-    class="settings-toggle"
+    class="settings-toggle icon-button"
     type="button"
     aria-label="Settings"
     aria-expanded={overlays.settings}
@@ -156,7 +156,7 @@
     <Icon name="settings" />
   </button>
   <div class="title-stack">
-    <p class="club-name">Ukulele Tuesday</p>
+    <p class="club-name eyebrow">Ukulele Tuesday</p>
     <h1>{inSession ? session.label : BRAND_TITLE}</h1>
   </div>
   <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
@@ -219,7 +219,11 @@
           Choose one from the Ukulele Tuesday songbook and add it to tonight's requests.
         </p>
         <div id="room-add" class="room-add">
-          <button type="button" class="songbook-trigger" onclick={() => (overlays.songbook = true)}>
+          <button
+            type="button"
+            class="songbook-trigger btn btn-primary btn-lg"
+            onclick={() => (overlays.songbook = true)}
+          >
             <Icon name="add" /><span class="btn-label">Request a tune</span>
           </button>
         </div>

@@ -59,7 +59,7 @@
 
 <div
   id="settings-panel"
-  class="settings-panel"
+  class="settings-panel popover"
   role="dialog"
   aria-label="Settings"
   bind:this={panel}
@@ -133,7 +133,7 @@
       <div class="actions">
         <button
           id="organiser-link-register"
-          class="secondary"
+          class="btn btn-soft"
           disabled={!organiserLink.trim()}
           onclick={submitOrganiserLink}
         >
