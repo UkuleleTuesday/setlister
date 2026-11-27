@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   dateTile,
   disambiguate,
-  foldMonths,
   fromDateInputValue,
   groupByMonth,
   indexEntryData,
@@ -395,28 +394,5 @@ describe("groupByMonth", () => {
     expect(groupByMonth([{ createdAt: null }], NOW)).toEqual([
       { label: "", entries: [{ createdAt: null }] },
     ]);
-  });
-});
-
-describe("foldMonths", () => {
-  const groups = (...sizes: number[]) =>
-    sizes.map((n, i) => ({ label: `m${i}`, entries: Array.from({ length: n }, (_, j) => j) }));
-  const sizes = (gs: { entries: unknown[] }[]) => gs.map((g) => g.entries.length);
-
-  it("shows whole months until enough sessions do", () => {
-    const { shown, folded } = foldMonths(groups(3, 4, 4, 2), 5);
-    expect(sizes(shown)).toEqual([3, 4]);
-    expect(sizes(folded)).toEqual([4, 2]);
-  });
-
-  it("never folds a single session", () => {
-    const { shown, folded } = foldMonths(groups(5, 1), 5);
-    expect(sizes(shown)).toEqual([5, 1]);
-    expect(folded).toEqual([]);
-  });
-
-  it("folds nothing when everything fits", () => {
-    expect(foldMonths(groups(2, 2), 5).folded).toEqual([]);
-    expect(foldMonths([], 5)).toEqual({ shown: [], folded: [] });
   });
 });

@@ -875,12 +875,6 @@ h2#upcoming-heading,
 h2#past-heading {
   margin-top: var(--space-7);
 }
-#past-older {
-  margin-top: var(--space-5);
-}
-#past-older-rows {
-  margin-top: var(--space-5);
-}
 
 .whats-new-banner {
   display: flex;

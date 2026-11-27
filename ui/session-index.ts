@@ -144,23 +144,6 @@ export function groupByMonth<T extends Pick<SessionEntry, "createdAt">>(
   return groups.map(({ label, entries }) => ({ label, entries }));
 }
 
-/**
- * Splits month groups into the shown and the folded. Whole months show until
- * at least `min` sessions do, so no month is cut in two, and a lone leftover
- * session is never folded behind a disclosure.
- */
-export function foldMonths<T>(
-  groups: MonthGroup<T>[],
-  min: number,
-): { shown: MonthGroup<T>[]; folded: MonthGroup<T>[] } {
-  let count = 0;
-  let cut = 0;
-  while (cut < groups.length && count < min) count += groups[cut++].entries.length;
-  const rest = groups.slice(cut).reduce((sum, g) => sum + g.entries.length, 0);
-  if (rest <= 1) return { shown: groups, folded: [] };
-  return { shown: groups.slice(0, cut), folded: groups.slice(cut) };
-}
-
 export function pageTitle(label: string | null | undefined): string {
   return label ? `${label} · Setlister` : "Setlister · Ukulele Tuesday";
 }

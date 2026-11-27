@@ -9,7 +9,6 @@
     type SessionEntry,
     dateTile,
     disambiguate,
-    foldMonths,
     groupByMonth,
     partitionSessions,
     pastSessionTitle,
@@ -27,24 +26,17 @@
     onNewSession: () => void;
   } = $props();
 
-  // About a month of Tuesdays.
-  const PAST_VISIBLE = 5;
-
-  // Survives a history reload, so a background refresh doesn't slam it shut.
-  let pastOlderOpen = $state(false);
-
   // Label the WHOLE list before splitting, so two sessions the same night get
   // their disambiguating time suffixes even when one of them is the hero.
   const listing = $derived.by(() => {
     const now = new Date();
     const layout = partitionSessions(disambiguate(history.entries, now), now);
-    return { now, layout, past: foldMonths(groupByMonth(layout.past, now), PAST_VISIBLE) };
+    return { now, layout, months: groupByMonth(layout.past, now) };
   });
   const now = $derived(listing.now);
   const layout = $derived(listing.layout);
-  const past = $derived(listing.past);
+  const months = $derived(listing.months);
   const next = $derived(layout.upcoming[0]);
-  const olderCount = $derived(past.folded.reduce((sum, g) => sum + g.entries.length, 0));
 
   const statusText = $derived(
     history.status === "loading"
@@ -98,7 +90,7 @@
   </li>
 {/snippet}
 
-{#snippet months(groups: MonthGroup<Entry>[])}
+{#snippet monthGroups(groups: MonthGroup<Entry>[])}
   {#each groups as group, i (i)}
     <section class="month-group">
       {#if group.label}<h3 class="month-label eyebrow">{group.label}</h3>{/if}
@@ -154,27 +146,7 @@
 
 <h2 id="past-heading" hidden={layout.past.length === 0}>Past sessions</h2>
 <div id="session-list">
-  {@render months(past.shown)}
-</div>
-<div id="past-older" class="row-group" hidden={olderCount === 0}>
-  {#if olderCount}
-    <button
-      type="button"
-      class="group-toggle"
-      aria-expanded={pastOlderOpen}
-      aria-controls="past-older-rows"
-      onclick={() => (pastOlderOpen = !pastOlderOpen)}
-    >
-      <span class="group-label">
-        {olderCount} older {olderCount === 1 ? "session" : "sessions"}
-      </span><Icon name="chevron" extraClass="group-chevron" />
-    </button>
-    {#if pastOlderOpen}
-      <div id="past-older-rows">
-        {@render months(past.folded)}
-      </div>
-    {/if}
-  {/if}
+  {@render monthGroups(months)}
 </div>
 <p id="session-list-status" class="note" aria-live="polite" hidden={statusText === ""}>
   {statusText}
