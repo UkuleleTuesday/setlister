@@ -107,7 +107,7 @@ export function openSession(id: string) {
   return navigateTo(id, { cameFromHome: true });
 }
 
-export async function startSession({ createdAt, listed, editionId }: NewSessionChoice) {
+export async function startSession({ createdAt, listed, editionId, blurb }: NewSessionChoice) {
   // Never null: every session names its book. If the listing never loaded,
   // the bare id will do (loadCatalogue enriches it).
   const chosenEdition = catalogue.editions.find((e) => e.id === editionId) || {
@@ -120,7 +120,7 @@ export async function startSession({ createdAt, listed, editionId }: NewSessionC
     id = await sync.createSession(
       () => ({ upNext: [], requests: [], edition: chosenEdition }),
       applyRemoteState,
-      { createdBy: presence.displayName(night.name), listed, createdAt },
+      { createdBy: presence.displayName(night.name), listed, createdAt, blurb },
     );
   } catch (err) {
     if (sync.isPermissionDenied(err)) {

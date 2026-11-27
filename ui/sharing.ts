@@ -22,6 +22,10 @@ export async function changeVisibility(listed: boolean) {
   await metadataWrite("the session’s visibility", () => sync.setSessionListed(listed));
 }
 
+export async function changeBlurb(text: string) {
+  await metadataWrite("the note for the room", () => sync.setSessionBlurb(text));
+}
+
 export async function changeRequestsMode(mode: RequestsSwitch) {
   await metadataWrite("the request link", () => sync.setRequestsMode(mode));
 }

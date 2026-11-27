@@ -1,5 +1,6 @@
 <!-- routing.ts creates the session behind `onStart`: this sheet never writes to Firestore. -->
 <script lang="ts">
+  import BlurbField from "./BlurbField.svelte";
   import Icon from "./Icon.svelte";
   import Sheet from "./Sheet.svelte";
   import { catalogue } from "./catalogue.svelte.js";
@@ -22,6 +23,7 @@
     createdAt: Date | null;
     listed: boolean;
     editionId: string;
+    blurb: string;
   }
 
   let {
@@ -42,6 +44,7 @@
   // night shouldn't quietly become next Tuesday's songbook too.
   let editionId = $state("current");
   let visibility: "shared" | "unlisted" = $state("shared");
+  let blurb = $state("");
   // Both selects ship a "current" option, so the default path never depends
   // on /api/editions answering.
   const editions = $derived(
@@ -55,7 +58,10 @@
     partitionSessions(history.entries).upcoming[0] ?? null,
   );
   const changed = $derived(
-    date !== dateDefault || editionId !== "current" || visibility !== "shared",
+    date !== dateDefault ||
+      editionId !== "current" ||
+      visibility !== "shared" ||
+      blurb.trim() !== "",
   );
   let busy = $state(false);
   let error = $state("");
@@ -92,7 +98,7 @@
           throw new Error(`a session is already planned for ${sessionDateLabel(found.createdAt)}`);
         }
       }
-      await onStart({ createdAt, listed, editionId: editionId || "current" });
+      await onStart({ createdAt, listed, editionId: editionId || "current", blurb });
     } catch (err) {
       // Stay open with the date intact. A found planned night keeps Start disabled.
       error = `Couldn’t start a session: ${(err as Error).message}`;
@@ -124,6 +130,11 @@
   </label>
   <!-- Read-only: the request link sheet edits the window once the session exists. -->
   <p class="note" id="new-session-window-note">{windowNote}</p>
+  <BlurbField
+    id="new-session-blurb"
+    help="Optional. Everyone sees it on home and at the top of the night. Public, and it stays with the night."
+    bind:value={blurb}
+  />
   <label class="field">
     <span>Songbook</span>
     <select id="new-session-edition" bind:value={editionId}>

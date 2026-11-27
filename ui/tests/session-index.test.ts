@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanBlurb,
   dateTile,
   disambiguate,
   fromDateInputValue,
@@ -320,6 +321,25 @@ describe("indexEntryData", () => {
   it("clamps createdBy to the rules' 60-char cap", () => {
     const entry = indexEntryData({ createdBy: "x".repeat(80) }, fx);
     expect(entry.createdBy).toHaveLength(60);
+  });
+
+  it("carries a blurb, and no blurb key at all when it's empty", () => {
+    expect(indexEntryData({ createdBy: "Alex", blurb: " Hats on " }, fx)).toMatchObject({
+      blurb: "Hats on",
+    });
+    expect(indexEntryData({ createdBy: "Alex", blurb: "  " }, fx)).not.toHaveProperty("blurb");
+  });
+});
+
+describe("cleanBlurb", () => {
+  it("folds whitespace and newlines into one trimmed line", () => {
+    expect(cleanBlurb("  Christmas night!\n\nBring   a hat. ")).toBe(
+      "Christmas night! Bring a hat.",
+    );
+  });
+
+  it("caps it at the rules' 160 chars", () => {
+    expect(cleanBlurb("x".repeat(200))).toHaveLength(160);
   });
 });
 

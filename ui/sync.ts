@@ -3,7 +3,7 @@
 // writes nothing but the two updates firestore.rules allows (see Room writes).
 //
 // firestore.rules checks the doc with hasOnly: a new field needs its rules
-// entry in the same change. Metadata (createdBy, listed, requests*) stays out
+// entry in the same change. Metadata (createdBy, listed, blurb, requests*) stays out
 // of serialize()/diff() so the debounced row push never touches it.
 //
 // Default in-memory cache: offline writes flush on reconnect, not after a reload.
@@ -13,7 +13,7 @@ import { parseEdition } from "./editions.js";
 import { type Fx, getFirestore } from "./firebase.js";
 import { isRow } from "./row-shape.js";
 import { generateSessionId } from "./session-id.js";
-import { INDEX_COLLECTION, indexEntryData, timestampToDate } from "./session-index.js";
+import { INDEX_COLLECTION, cleanBlurb, indexEntryData, timestampToDate } from "./session-index.js";
 import type {
   Edition,
   ListState,
@@ -64,6 +64,7 @@ let metaCallback: ((meta: SessionMeta) => void) | null = null;
 const EMPTY_META: SessionMeta = {
   createdBy: "",
   listed: false,
+  blurb: "",
   requestsOpen: null,
   requestsOpensAt: null,
   requestsClosesAt: null,
@@ -110,6 +111,7 @@ export function readMeta(data: unknown): SessionMeta {
   return {
     createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
     listed: doc.listed === true,
+    blurb: typeof doc.blurb === "string" ? doc.blurb : "",
     requestsOpen: doc.requestsOpen === true ? true : doc.requestsOpen === false ? false : null,
     requestsOpensAt: timestampToDate(doc.requestsOpensAt),
     requestsClosesAt: timestampToDate(doc.requestsClosesAt),
@@ -124,6 +126,7 @@ function emitMeta(data: unknown): void {
   const changed =
     next.createdBy !== meta.createdBy ||
     next.listed !== meta.listed ||
+    next.blurb !== meta.blurb ||
     next.requestsOpen !== meta.requestsOpen ||
     next.requestsOpensAt?.getTime() !== meta.requestsOpensAt?.getTime() ||
     next.requestsClosesAt?.getTime() !== meta.requestsClosesAt?.getTime();
@@ -232,11 +235,11 @@ function deepCopy<T>(obj: T): T {
 export async function createSession(
   getState: () => LocalState,
   applyStateFn: ApplyState,
-  sessionMeta: { createdBy?: string; listed?: boolean; createdAt?: Date | null },
+  sessionMeta: { createdBy?: string; listed?: boolean; createdAt?: Date | null; blurb?: string },
 ): Promise<string> {
   const { db, fx } = await getFirestore();
   const serialized = serialize(getState());
-  const next = readMeta(sessionMeta);
+  const next = readMeta({ ...sessionMeta, blurb: cleanBlurb(sessionMeta?.blurb || "") });
   const pickedAt = sessionMeta?.createdAt instanceof Date ? sessionMeta.createdAt : null;
   let id: string | null = null;
 
@@ -256,14 +259,19 @@ export async function createSession(
           listed: next.listed,
           // No requests* fields: absent reads as auto. PR previews run against
           // production's rules, where one unknown key fails hasOnly and so
-          // breaks "New session"; keep new fields out of this write.
+          // breaks "New session"; keep new fields out of this write. An empty
+          // blurb is left out for the same reason.
+          ...(next.blurb && { blurb: next.blurb }),
           createdAt: pickedAt ? fx.Timestamp.fromDate(pickedAt) : fx.serverTimestamp(),
           updatedAt: fx.serverTimestamp(),
         });
         if (next.listed) {
           tx.set(
             fx.doc(db, INDEX_COLLECTION, candidate),
-            indexEntryData({ createdBy: next.createdBy, createdAt: pickedAt }, fx),
+            indexEntryData(
+              { createdBy: next.createdBy, createdAt: pickedAt, blurb: next.blurb },
+              fx,
+            ),
           );
         }
         id = candidate;
@@ -328,13 +336,34 @@ export async function setSessionListed(listed: boolean): Promise<void> {
   if (listed) {
     batch.set(
       indexRef,
-      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx),
+      indexEntryData(
+        { createdBy: meta.createdBy, createdAt: sessionCreatedAt, blurb: meta.blurb },
+        fx,
+      ),
     );
   } else {
     batch.delete(indexRef);
   }
   await batch.commit();
   meta = { ...meta, listed };
+}
+
+// Mirrored onto the index row, which is all home reads. Empty deletes the field.
+// Throws rather than no-ops: the page shows before joinSession lands, and a
+// silent return would read as saved and the sheet would drop the note.
+export async function setSessionBlurb(text: string): Promise<void> {
+  if (!sessionId) throw new Error("still connecting to the session");
+  const id = sessionId;
+  const blurb = cleanBlurb(text);
+  const { db, fx } = await getFirestore();
+  const value = blurb || fx.deleteField();
+  const batch = fx.writeBatch(db);
+  batch.update(fx.doc(db, "sessions", id), { blurb: value, updatedAt: fx.serverTimestamp() });
+  // update(), not set(): a set's Date-precision createdAt can fail the rules'
+  // equality check against a server timestamp. A legacy night has no row yet.
+  if (meta.listed) batch.update(fx.doc(db, INDEX_COLLECTION, id), { blurb: value });
+  await batch.commit();
+  meta = { ...meta, blurb };
 }
 
 // Honour-system: firestore.rules can't tell a room device from an organiser's,
