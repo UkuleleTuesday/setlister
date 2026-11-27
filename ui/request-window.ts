@@ -194,6 +194,33 @@ export function roomWindowText({ state, at }: LinkState["status"]): string {
   return state === "open" && at ? `Requests open until ${sessionTimeLabel(at)}` : "Requests open";
 }
 
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+const DAY_MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
+
+function calendarDaysBetween(from: Date, to: Date): number {
+  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+// Days ahead, "closed here for tonight" read as if the night were over.
+/** The room's line while it can't request: when it can, or that it's over. */
+export function requestsClosedNote({ state, at }: LinkState["status"], now: Date): string {
+  if (state === "later" && at) {
+    const days = calendarDaysBetween(now, at);
+    const day =
+      days <= 0
+        ? ""
+        : days === 1
+          ? "tomorrow "
+          : days < 7
+            ? `${WEEKDAY_FORMAT.format(at)} `
+            : `on ${DAY_MONTH_FORMAT.format(at)} `;
+    return `Requests open ${day}at ${sessionTimeLabel(at)}.`;
+  }
+  return "Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.";
+}
+
 export function openingSoonNote(minutes: number): string {
   return `Requests open in ${openingSoonLabel(minutes)}. Pop your tune on the whiteboard of wishes for now.`;
 }

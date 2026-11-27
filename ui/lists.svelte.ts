@@ -1,7 +1,7 @@
 import { exportedRows } from "./export.js";
 import { night } from "./night.svelte.js";
 import * as presence from "./presence.js";
-import { openingSoonNote } from "./request-window.js";
+import { openingSoonNote, requestsClosedNote } from "./request-window.js";
 import { session } from "./session.svelte.js";
 import type { Row } from "./types.js";
 import { view } from "./view.svelte.js";
@@ -21,6 +21,7 @@ class Lists {
   votingEnabled = $derived(!this.room || session.link.open);
   // Copying "" or downloading `{rows: []}` would be traps, so export disables.
   exportEmpty = $derived(exportedRows(night.upNext, night.requests).length === 0);
+  closedNote = $derived(requestsClosedNote(session.link.status, session.now));
   openingSoon = $derived(
     session.link.soonMinutes === null ? "" : openingSoonNote(session.link.soonMinutes),
   );

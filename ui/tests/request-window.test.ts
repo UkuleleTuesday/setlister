@@ -11,6 +11,7 @@ import {
   minutesUntilOpen,
   openingSoonLabel,
   openingSoonNote,
+  requestsClosedNote,
   resolveWindow,
   roomNote,
   roomWindowText,
@@ -245,6 +246,34 @@ describe("datetime-local input helpers", () => {
     expect(fromDateTimeInputValue(null)).toBeNull();
     expect(fromDateTimeInputValue("2026-8-5T09:00")).toBeNull();
     expect(fromDateTimeInputValue("2026-08-05")).toBeNull();
+  });
+});
+
+describe("requestsClosedNote", () => {
+  const opens = at(2026, 11, 8, 19, 30);
+  const later = { state: "later" as const, at: opens };
+  const time = (d: Date) => d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+  it("says when requests open, not that the night is over", () => {
+    expect(requestsClosedNote(later, at(2026, 11, 8, 12))).toBe(`Requests open at ${time(opens)}.`);
+    expect(requestsClosedNote(later, at(2026, 11, 7, 12))).toBe(
+      `Requests open tomorrow at ${time(opens)}.`,
+    );
+    const weekday = opens.toLocaleDateString(undefined, { weekday: "long" });
+    expect(requestsClosedNote(later, at(2026, 11, 5, 12))).toBe(
+      `Requests open ${weekday} at ${time(opens)}.`,
+    );
+    const date = opens.toLocaleDateString(undefined, { day: "numeric", month: "long" });
+    expect(requestsClosedNote(later, at(2026, 10, 27, 12))).toBe(
+      `Requests open on ${date} at ${time(opens)}.`,
+    );
+  });
+
+  it("keeps the whiteboard line once requests are shut for the night", () => {
+    const closed = { state: "closed" as const, at: null };
+    expect(requestsClosedNote(closed, at(2026, 11, 8, 23))).toMatch(
+      /^Requests are closed here for tonight\./,
+    );
   });
 });
 

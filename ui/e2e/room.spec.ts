@@ -87,3 +87,27 @@ test("the room can leave for the session list and come back", async ({ phone }) 
   await expect(room).toHaveURL(new RegExp(`\\?session=${id}$`));
   await expect(room.locator("#room-window")).toBeVisible();
 });
+
+test("days before the night, the room hears when requests open, not that they're over", async ({
+  phone,
+}) => {
+  const organiser = await phone();
+  await organiser.goto("/");
+  await expect(organiser.locator("#session-list-status")).toBeHidden();
+  await organiser.locator("#new-session").tap();
+  const d = new Date();
+  d.setDate(d.getDate() + 3);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  await organiser
+    .locator("#new-session-date")
+    .fill(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+  await organiser.locator("#new-session-start").tap();
+  await organiser.waitForURL(/[?&]session=/);
+  const id = new URL(organiser.url()).searchParams.get("session")!;
+
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
+  const note = room.locator("#requests-closed-note");
+  await expect(note).toBeVisible();
+  await expect(note).toHaveText(/^Requests open \S+ at .+\.$/);
+});
