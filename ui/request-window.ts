@@ -150,17 +150,29 @@ export function linkState(meta: LinkMeta, sessionCreatedAt: Date | null, now: Da
   return { open, soonMinutes, window: win, status: windowStatus({ mode, window: win, now }) };
 }
 
-const OPEN_NOTE =
-  "The request link is a view for the room: people can add tunes and follow the set, not change it.";
+const OPEN_NOTE = "People on the link can add tunes and follow the set, not change it.";
 const CLOSED_NOTE =
-  "View only: people can open tonight's pool and set and watch them, but can't add to them. The whiteboard carries on as usual.";
+  "View only: people can follow tonight's set but can't add to it. The whiteboard carries on as usual.";
 
-export function requestNote(mode: RequestsMode, link: LinkState): string {
-  if (mode === true) return OPEN_NOTE;
-  if (mode === false || !link.window) return link.open ? OPEN_NOTE : CLOSED_NOTE;
-  return link.open
-    ? `Auto: taking requests until ${sessionTimeLabel(link.window.closesAt)}. People can add tunes and follow the set, not change it.`
-    : `Auto: not open yet, opens at ${sessionTimeLabel(link.window.opensAt)}. View only until then.`;
+/** What the room can do on the link right now. */
+export function roomNote(open: boolean): string {
+  return open ? OPEN_NOTE : CLOSED_NOTE;
+}
+
+/** The help line under the request link switch: who set it, and when it next changes. */
+export function switchHelp(mode: RequestsMode, link: LinkState): string {
+  if (mode !== null) return "Set by hand";
+  const { state, at } = link.status;
+  if (state === "later" && at) return `On schedule, opens at ${sessionTimeLabel(at)}`;
+  if (state === "open" && at) return `On schedule, closes at ${sessionTimeLabel(at)}`;
+  if (state === "closed" && link.window) {
+    return `On schedule, closed at ${sessionTimeLabel(link.window.closesAt)}`;
+  }
+  return "On schedule";
+}
+
+export function scheduleLabel(win: RequestWindow | null): string {
+  return win ? `${sessionTimeLabel(win.opensAt)} to ${sessionTimeLabel(win.closesAt)}` : "";
 }
 
 export function windowChipText({ state, at }: LinkState["status"]): string {
@@ -168,6 +180,14 @@ export function windowChipText({ state, at }: LinkState["status"]): string {
   if (state === "open") return time ? `Request link open until ${time}` : "Request link open";
   if (state === "later") return `Request link opens at ${time}`;
   return "Request link is view only";
+}
+
+/** The link's state on its own, for rows already labelled "Request link". */
+export function linkStateText({ state, at }: LinkState["status"]): string {
+  const time = at ? sessionTimeLabel(at) : "";
+  if (state === "open") return time ? `Open until ${time}` : "Open";
+  if (state === "later") return `Opens at ${time}`;
+  return "View only";
 }
 
 export function roomWindowText({ state, at }: LinkState["status"]): string {

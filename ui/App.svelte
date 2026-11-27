@@ -6,9 +6,11 @@
   import OrganiserSheet from "./OrganiserSheet.svelte";
   import PhotoLightbox from "./PhotoLightbox.svelte";
   import Recap from "./Recap.svelte";
+  import RequestLinkSheet from "./RequestLinkSheet.svelte";
   import RequestsSection from "./RequestsSection.svelte";
   import RoomRequestSheet from "./RoomRequestSheet.svelte";
   import ScanFlow from "./ScanFlow.svelte";
+  import SessionDetailsSheet from "./SessionDetailsSheet.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
   import SharePanel from "./SharePanel.svelte";
   import SongbookSheet from "./SongbookSheet.svelte";
@@ -48,7 +50,6 @@
   // Imperative because a file input's click() has to run inside the tap itself.
   let scanFlow: ScanFlow | undefined = $state();
   let shareToggle: HTMLButtonElement;
-  let windowChip: HTMLButtonElement | undefined = $state();
 
   const inSession = $derived(view.page === "session");
   // Held off mid-scan: swapping views would drop the review.
@@ -97,7 +98,18 @@
   function onShareTap(event: MouseEvent) {
     event.stopPropagation();
     overlays.settings = false;
-    overlays.share = overlays.share ? false : "top";
+    overlays.share = !overlays.share;
+  }
+
+  function openRequestLink() {
+    overlays.share = false;
+    overlays.sessionDetails = false;
+    overlays.requestLink = true;
+  }
+
+  function openSessionDetails() {
+    overlays.share = false;
+    overlays.sessionDetails = true;
   }
 
   function onSettingsTap(event: MouseEvent) {
@@ -162,7 +174,21 @@
   </button>
   <div class="title-stack">
     <p class={["club-name", { eyebrow: inSession }]}>Ukulele Tuesday</p>
-    <h1>{inSession ? session.label : BRAND_TITLE}</h1>
+    <h1>
+      {#if inSession && view.mode === "full"}
+        <button
+          id="session-title"
+          class="title-button tap-target"
+          type="button"
+          aria-haspopup="dialog"
+          onclick={openSessionDetails}
+        >
+          {session.label}<Icon name="chevron" extraClass="title-chevron" />
+        </button>
+      {:else}
+        {inSession ? session.label : BRAND_TITLE}
+      {/if}
+    </h1>
   </div>
   {#if !inSession}
     <button
@@ -179,19 +205,10 @@
 
   {#if overlays.share}
     <SharePanel
-      at={overlays.share}
       onclose={() => (overlays.share = false)}
-      onVisibility={changeVisibility}
-      onRequestsMode={changeRequestsMode}
-      onWindow={changeRequestsWindow}
       onShareLink={shareSessionLink}
-      onEdition={(editionId) => {
-        // At once, so a cached book switch reaches peers even if the refresh
-        // never lands.
-        scopeCatalogueToEdition(editionId);
-        persist();
-      }}
-      openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
+      onRequestLink={openRequestLink}
+      openers={() => [shareToggle]}
     />
   {/if}
   {#if overlays.settings}
@@ -220,8 +237,8 @@
             class="window-pill"
             type="button"
             data-state={session.link.status.state}
-            bind:this={windowChip}
-            onclick={() => (overlays.share = "requests")}
+            aria-haspopup="dialog"
+            onclick={openRequestLink}
           >
             {windowChipText(session.link.status)}<Icon
               name="forward"
@@ -333,6 +350,26 @@
 {#if overlays.newSession}
   <NewSessionSheet onStart={startSession} onclose={() => (overlays.newSession = false)} />
 {/if}
+{#if overlays.requestLink}
+  <RequestLinkSheet
+    onMode={changeRequestsMode}
+    onWindow={changeRequestsWindow}
+    onclose={() => (overlays.requestLink = false)}
+  />
+{/if}
+{#if overlays.sessionDetails}
+  <SessionDetailsSheet
+    onEdition={(editionId) => {
+      // At once, so a cached book switch reaches peers even if the refresh
+      // never lands.
+      scopeCatalogueToEdition(editionId);
+      persist();
+    }}
+    onVisibility={changeVisibility}
+    onRequestLink={openRequestLink}
+    onclose={() => (overlays.sessionDetails = false)}
+  />
+{/if}
 {#if overlays.request}
   <RoomRequestSheet
     entry={overlays.request.entry}
@@ -350,7 +387,18 @@
   <WhatsNewSheet entries={overlays.whatsNew} onclose={() => (overlays.whatsNew = null)} />
 {/if}
 
-<footer id="edition-note" class="note" hidden={!inSession}>{editionNote}</footer>
+<footer id="edition-note" class="note" hidden={!inSession || !editionNote}>
+  {editionNote}{#if view.mode === "full"}<span class="edition-sep" aria-hidden="true">
+      ·
+    </span><button
+      type="button"
+      id="edition-change"
+      class="link-button"
+      onclick={openSessionDetails}
+    >
+      Change
+    </button>{/if}
+</footer>
 
 {#if overlays.photo}
   <PhotoLightbox src={overlays.photo} onclose={() => (overlays.photo = null)} />

@@ -119,7 +119,7 @@
       onkeydown={onDateKeydown}
     />
   </label>
-  <!-- Read-only: the share panel edits the window once the session exists. -->
+  <!-- Read-only: the request link sheet edits the window once the session exists. -->
   <p class="note" id="new-session-window-note">{windowNote}</p>
   <label class="field">
     <span>Songbook</span>

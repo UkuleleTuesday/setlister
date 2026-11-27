@@ -155,6 +155,11 @@ export function sessionTimeLabel(date: Date | null): string {
   return date ? TIME_FORMAT.format(date) : "";
 }
 
+/** The whole date, never relative: where "Tonight" would hide which night it is. */
+export function sessionLongDate(date: Date | null): string {
+  return date ? `${WEEKDAY_FORMAT.format(date)} ${FULL_DATE_FORMAT.format(date)}` : "";
+}
+
 // <input type="date"> bridge, in local time: toISOString() and
 // new Date("YYYY-MM-DD") are both UTC, so they land on the wrong day.
 export function toDateInputValue(date: Date): string {

@@ -54,8 +54,8 @@ test("a changed key drops an organiser to the request view on their next write",
   await startSession(page);
   await setOrganiserKey("a-brand-new-key-0000000000000000");
 
-  await page.locator("#share-toggle").tap();
-  await page.locator("#share-requests").selectOption("closed");
+  await page.locator("#window-chip").tap();
+  await page.locator("#request-link-switch").tap();
   await expect(page.locator("body")).toHaveClass(/room-mode/);
   await expect(page.locator("#add-feedback")).toHaveText(
     "Organiser access has changed. Tap the latest organiser link.",

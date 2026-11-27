@@ -4,8 +4,9 @@ import type { CatalogueEntry } from "./types.js";
 import type { WhatsNewEntry } from "./whats-new.js";
 
 class Overlays {
-  /** "requests" opens the share panel scrolled to the request link. */
-  share = $state<false | "top" | "requests">(false);
+  share = $state(false);
+  requestLink = $state(false);
+  sessionDetails = $state(false);
   settings = $state(false);
   newSession = $state(false);
   songbook = $state(false);

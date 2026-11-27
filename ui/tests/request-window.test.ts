@@ -7,12 +7,15 @@ import {
   fromDateTimeInputValue,
   isWithinWindow,
   linkState,
+  linkStateText,
   minutesUntilOpen,
   openingSoonLabel,
   openingSoonNote,
-  requestNote,
   resolveWindow,
+  roomNote,
   roomWindowText,
+  scheduleLabel,
+  switchHelp,
   toDateTimeInputValue,
   windowChipText,
   windowStatus,
@@ -256,8 +259,10 @@ describe("linkState and its wording", () => {
     expect(link.soonMinutes).toBeNull();
     expect(link.status.state).toBe("open");
     expect(windowChipText(link.status)).toMatch(/^Request link open until /);
+    expect(linkStateText(link.status)).toMatch(/^Open until /);
     expect(roomWindowText(link.status)).toMatch(/^Requests open until /);
-    expect(requestNote(null, link)).toMatch(/^Auto: taking requests until /);
+    expect(switchHelp(null, link)).toMatch(/^On schedule, closes at /);
+    expect(roomNote(link.open)).toMatch(/^People on the link can add tunes/);
   });
 
   it("counts down only in auto mode, inside the notice period", () => {
@@ -266,7 +271,9 @@ describe("linkState and its wording", () => {
     expect(soon.soonMinutes).toBe(12);
     expect(soon.status.state).toBe("later");
     expect(windowChipText(soon.status)).toMatch(/^Request link opens at /);
-    expect(requestNote(null, soon)).toMatch(/^Auto: not open yet, opens at /);
+    expect(linkStateText(soon.status)).toMatch(/^Opens at /);
+    expect(switchHelp(null, soon)).toMatch(/^On schedule, opens at /);
+    expect(roomNote(soon.open)).toMatch(/^View only:/);
     expect(openingSoonNote(12)).toBe(
       "Requests open in 12 minutes. Pop your tune on the whiteboard of wishes for now.",
     );
@@ -278,17 +285,26 @@ describe("linkState and its wording", () => {
     const closed = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 21));
     expect(closed.open).toBe(false);
     expect(windowChipText(closed.status)).toBe("Request link is view only");
-    expect(requestNote(false, closed)).toMatch(/^View only:/);
+    expect(linkStateText(closed.status)).toBe("View only");
+    expect(switchHelp(false, closed)).toBe("Set by hand");
     const open = linkState({ ...auto, requestsOpen: true }, created, at(2026, 7, 5, 6));
     expect(open.open).toBe(true);
     expect(windowChipText(open.status)).toBe("Request link open");
     expect(roomWindowText(open.status)).toBe("Requests open");
-    expect(requestNote(true, open)).toMatch(/^The request link is a view for the room/);
+    expect(switchHelp(true, open)).toBe("Set by hand");
   });
 
   it("reads a session with no date yet as open, with no window", () => {
     const link = linkState(auto, null, at(2026, 7, 4, 21));
     expect(link).toMatchObject({ open: true, window: null, soonMinutes: null });
-    expect(requestNote(null, link)).toMatch(/^The request link is a view for the room/);
+    expect(switchHelp(null, link)).toBe("On schedule");
+    expect(scheduleLabel(link.window)).toBe("");
+  });
+
+  it("says when the schedule closed the link, and spells the schedule out", () => {
+    const after = linkState(auto, created, at(2026, 7, 4, 23));
+    expect(after.open).toBe(false);
+    expect(switchHelp(null, after)).toMatch(/^On schedule, closed at /);
+    expect(scheduleLabel(after.window)).toMatch(/ to /);
   });
 });
