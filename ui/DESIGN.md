@@ -27,6 +27,9 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
    rely on colour alone: pair it with an icon, a dot or text.
 7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
    somewhere or open something; arrows only move a row (`earlier`, `later`).
+8. **One header for every view.** `.app-header` says where you are (the club
+   name as `.eyebrow` over the h1) and what you can do here. The way out and the
+   night's status sit under it in `.session-bar`, never in the header.
 
 ## Tokens
 
@@ -53,9 +56,12 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.btn-lg`                                  | Hero actions on the page, such as Add a tune or New session. Not inside sheets.                   |
 | `.link-button`                             | Text-only actions inline with content. The hit area is built in.                                  |
 | `.icon-button`                             | Round, bordered icon-only button, such as the header's share and settings. Needs an `aria-label`. |
+| `.app-header`                              | Every view's top: `.title-stack`, then `.header-actions`, settings last. Titles wrap.             |
+| `.session-bar`                             | Under a session's header: "All sessions", then one status item (the request pill, or Edit/Done).  |
+| `.badge` (`.badge-dot`)                    | A count, or a dot, on a button's corner. Status colour, and say it in the `aria-label` too.       |
 | `.tap-target`                              | Grows a small control's hit area to 44px without moving the layout.                               |
 | `.eyebrow`                                 | Uppercase label: section headings, kickers, the club name.                                        |
-| `.popover`                                 | A panel anchored under a header button. Set `left`/`right` and `width` per instance.              |
+| `.popover`                                 | A panel under the header, anchored right below its actions. Set `width` per instance.             |
 | `Sheet.svelte`                             | Modal dialogs. Stack actions in `.actions`: primary first, then soft.                             |
 | `.field`                                   | Label, then control, then an optional `.note`.                                                    |
 | `.note`, `.error`                          | Help text and failures.                                                                           |

@@ -62,7 +62,14 @@
     document.body.classList.toggle("room-mode", view.room);
   });
 
-  const shareCount = $derived(inSession && session.id ? session.roster.length : 0);
+  // A count of one is only you, so it says nothing.
+  const shareCount = $derived(
+    inSession && session.id && session.roster.length > 1 ? session.roster.length : 0,
+  );
+  // The chevron rides the last word, so a wrapped title never strands it on a line alone.
+  const titleBreak = $derived(session.label.lastIndexOf(" ") + 1);
+  const titleHead = $derived(session.label.slice(0, titleBreak));
+  const titleTail = $derived(session.label.slice(titleBreak));
   const shareLabel = $derived(
     !session.id
       ? "Share session"
@@ -138,42 +145,9 @@
   <title>{pageTitle(inSession ? session.label : "")}</title>
 </svelte:head>
 
-<header>
-  <button
-    id="share-toggle"
-    class="share-toggle icon-button"
-    class:active={!!session.id}
-    type="button"
-    aria-label={shareLabel}
-    aria-expanded={!!overlays.share}
-    aria-controls="share-panel"
-    hidden={!inSession}
-    bind:this={shareToggle}
-    onclick={onShareTap}
-  >
-    <Icon name="share" />
-  </button>
-  <span
-    id="share-count-badge"
-    class="share-count-badge"
-    aria-hidden="true"
-    hidden={shareCount === 0}
-  >
-    {shareCount || ""}
-  </span>
-  <button
-    id="settings-toggle"
-    class="settings-toggle icon-button"
-    type="button"
-    aria-label="Settings"
-    aria-expanded={overlays.settings}
-    aria-controls="settings-panel"
-    onclick={onSettingsTap}
-  >
-    <Icon name="settings" />
-  </button>
+<header class="app-header">
   <div class="title-stack">
-    <p class={["club-name", { eyebrow: inSession }]}>Ukulele Tuesday</p>
+    <p class="club-name eyebrow">Ukulele Tuesday</p>
     <h1>
       {#if inSession && view.mode === "full"}
         <button
@@ -183,25 +157,57 @@
           aria-haspopup="dialog"
           onclick={openSessionDetails}
         >
-          {session.label}<Icon name="chevron" extraClass="title-chevron" />
+          {titleHead}<span class="title-tail">
+            {titleTail}<Icon name="chevron" extraClass="title-chevron" />
+          </span>
         </button>
       {:else}
         {inSession ? session.label : BRAND_TITLE}
       {/if}
     </h1>
   </div>
-  {#if !inSession}
+  <div class="header-actions">
+    {#if !inSession}
+      <button
+        id="whats-new-banner"
+        class="whats-new-banner tap-target"
+        class:unseen={!bannerSeen}
+        type="button"
+        hidden={!latest}
+        onclick={openWhatsNew}
+      >
+        <Icon name="news" /><span class="btn-label">What’s new</span>
+        <span class="badge badge-dot" aria-hidden="true" hidden={bannerSeen}></span>
+      </button>
+    {/if}
     <button
-      id="whats-new-banner"
-      class="whats-new-banner tap-target"
-      class:unseen={!bannerSeen}
+      id="share-toggle"
+      class="share-toggle icon-button"
       type="button"
-      hidden={!latest}
-      onclick={openWhatsNew}
+      aria-label={shareLabel}
+      aria-expanded={!!overlays.share}
+      aria-controls="share-panel"
+      hidden={!inSession}
+      bind:this={shareToggle}
+      onclick={onShareTap}
     >
-      <Icon name="news" /><span class="btn-label">What’s new</span>
+      <Icon name="share" />
+      <span id="share-count-badge" class="badge" aria-hidden="true" hidden={shareCount === 0}>
+        {shareCount || ""}
+      </span>
     </button>
-  {/if}
+    <button
+      id="settings-toggle"
+      class="settings-toggle icon-button"
+      type="button"
+      aria-label="Settings"
+      aria-expanded={overlays.settings}
+      aria-controls="settings-panel"
+      onclick={onSettingsTap}
+    >
+      <Icon name="settings" />
+    </button>
+  </div>
 
   {#if overlays.share}
     <SharePanel

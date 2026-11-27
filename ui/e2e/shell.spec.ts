@@ -18,9 +18,9 @@ test("the header names the night, and home takes the brand back", async ({ phone
   await expect(page.locator("body")).toHaveClass(/in-session/);
   const share = page.locator("#share-toggle");
   await expect(share).toBeVisible();
-  await expect(share).toHaveClass(/active/);
   await expect(share).toHaveAccessibleName(`Sharing session ${id}. Tap for options`);
-  await expect(page.locator("#share-count-badge")).toHaveText("1");
+  // Alone, the count would only say "you".
+  await expect(page.locator("#share-count-badge")).toBeHidden();
   await expect(page.locator("#edition-note")).toContainText("Matched against “Current”");
 
   await page.locator("#back-home").tap();
@@ -29,6 +29,25 @@ test("the header names the night, and home takes the brand back", async ({ phone
   await expect(page).toHaveTitle("Setlister · Ukulele Tuesday");
   await expect(page.locator("body")).not.toHaveClass(/in-session/);
   await expect(page.locator("#share-count-badge")).toBeHidden();
+});
+
+test("the header and session bar fit a 320px phone", async ({ phone }) => {
+  const page = await phone();
+  await startSession(page);
+  await page.setViewportSize({ width: 320, height: 640 });
+  for (const id of [
+    "#session-title",
+    "#share-toggle",
+    "#settings-toggle",
+    "#back-home",
+    "#window-chip",
+  ]) {
+    const box = (await page.locator(id).boundingBox())!;
+    expect(box.x, id).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, id).toBeLessThanOrEqual(320);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 });
 
 test("home's night speaks to the room and to organisers", async ({ phone }) => {

@@ -106,6 +106,11 @@
   box-sizing: border-box;
 }
 
+/* Pages that scroll and pages that don't keep the same centre on desktop. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -208,7 +213,7 @@ button:not(:disabled):active {
   box-shadow: var(--shadow-xs);
 }
 .icon-button:disabled {
-  opacity: 0.6;
+  opacity: var(--disabled-opacity);
   cursor: default;
 }
 
@@ -237,13 +242,44 @@ button:not(:disabled):active {
   color: var(--muted);
 }
 
+/* Corner badge inside a button (which needs position: relative): a count,
+   or with .badge-dot a bare dot. Colour it per use from a status token, and say
+   the same thing in the button's accessible name. */
+.badge {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 var(--space-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+.badge-dot {
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-1));
+  min-width: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  padding: 0;
+}
+
 /* Anchored panel under a header button. */
 .popover {
   position: absolute;
-  top: 3.4rem;
+  top: calc(100% + var(--space-2));
   z-index: var(--z-popover);
-  max-height: calc(100vh - 4.5rem);
-  max-height: calc(100dvh - 4.5rem);
+  max-height: calc(100vh - 5rem);
+  max-height: calc(100dvh - 5rem);
   overflow-y: auto;
   text-align: left;
   padding: var(--space-5);
@@ -473,93 +509,49 @@ svg.icon.spin {
   display: none !important;
 }
 
-/* Home: a quiet wordmark level with the corner buttons; the night is the hero. */
-header {
+/* One header for every view: the title stack, then its actions, in main's
+   column. The way out and the session's status live in .session-bar below. */
+.app-header {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
   max-width: 560px;
   margin: 0 auto;
-  padding: max(0.9rem, env(safe-area-inset-top)) max(var(--space-5), env(safe-area-inset-right)) 0
-    max(var(--space-5), env(safe-area-inset-left));
+  padding: max(var(--space-4), env(safe-area-inset-top))
+    max(var(--space-5), env(safe-area-inset-right)) 0 max(var(--space-5), env(safe-area-inset-left));
+}
+.title-stack {
+  flex: 1;
+  min-width: 0;
 }
 .club-name {
   margin: 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
   line-height: 1.2;
 }
-header h1 {
-  margin: 0;
+.app-header h1 {
+  margin: var(--space-1) 0 0;
   font-size: var(--text-xl);
   line-height: 1.2;
   letter-spacing: var(--tracking-tight);
+  overflow-wrap: anywhere;
 }
-/* min-height: at least as tall as the pinned corner buttons, or Share
-   overhangs "All sessions" below a short date. */
-body.in-session header {
-  max-width: none;
-  min-height: calc(max(0.9rem, env(safe-area-inset-top)) + 2.7rem);
+.header-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-5);
-  text-align: center;
-}
-body.in-session header h1 {
-  letter-spacing: normal;
-}
-/* The club name says whose night it is on a link opened away from the pub. */
-body.in-session .title-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: calc(100% - 6rem);
-  margin: 0;
-}
-/* The stack holds the clearance: the h1's max-width would resolve against the
-   shrink-wrapped stack and squeeze the date into a sliver. */
-body.in-session .title-stack h1 {
-  max-width: none;
-  margin: 0;
-}
-body.in-session .club-name {
-  color: var(--accent);
-  font-size: var(--text-2xs);
+  gap: var(--space-2);
 }
 
-.settings-toggle,
-.share-toggle {
-  position: absolute;
-  top: max(0.9rem, env(safe-area-inset-top));
-}
-.settings-toggle {
-  right: max(0.9rem, env(safe-area-inset-right));
-}
-.share-toggle {
-  left: max(0.9rem, env(safe-area-inset-left));
-}
-/* The dot means "shared" doesn't rely on colour alone. */
-.share-toggle.active {
-  border-color: var(--confirmed);
-  box-shadow:
-    0 0 0 2px rgba(46, 125, 50, 0.35),
-    var(--shadow-xs);
-}
-.share-toggle.active::after {
-  content: "";
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
+/* Green like the presence dots: how many people are on this night. */
+.share-toggle .badge {
   background: var(--confirmed);
-  border: 2px solid var(--card);
 }
 
-.share-panel {
-  left: max(0.9rem, env(safe-area-inset-left));
-  width: min(18rem, calc(100vw - 1.8rem));
+.share-panel,
+.settings-panel {
+  right: max(var(--space-5), env(safe-area-inset-right));
+  width: min(18rem, calc(100vw - 2 * var(--space-5)));
 }
 .share-panel .share-session-name {
   margin: 0 0 var(--space-1);
@@ -594,19 +586,22 @@ body.in-session .club-name {
 /* The night's name, as the door to its details (organisers only). */
 .title-button {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
   padding: 0;
   border: none;
   background: none;
   font: inherit;
   color: inherit;
+  text-align: left;
   cursor: pointer;
+}
+.title-tail {
+  white-space: nowrap;
 }
 svg.title-chevron {
   width: 0.9em;
   height: 0.9em;
+  margin-left: var(--space-1);
+  vertical-align: -0.1em;
   color: var(--muted);
 }
 
@@ -672,31 +667,6 @@ svg.title-chevron {
   overflow-wrap: anywhere;
 }
 
-.share-count-badge {
-  position: absolute;
-  top: max(0.5rem, calc(env(safe-area-inset-top) - 0.4rem));
-  left: max(2.55rem, calc(env(safe-area-inset-left) + 1.65rem));
-  z-index: 11;
-  min-width: 1.05rem;
-  height: 1.05rem;
-  padding: 0 var(--space-1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-micro);
-  font-weight: var(--weight-bold);
-  line-height: 1;
-  color: var(--on-accent);
-  background: var(--confirmed);
-  border: 1.5px solid var(--bg);
-  border-radius: var(--radius-full);
-  pointer-events: none;
-}
-
-.settings-panel {
-  right: max(0.9rem, env(safe-area-inset-right));
-  width: min(18rem, calc(100vw - 1.8rem));
-}
 main {
   max-width: 560px;
   margin: 0 auto;
@@ -1102,9 +1072,7 @@ h2#past-heading {
 /* Sits beside the settings button, at its height and in its quiet style,
    until there's news: then it fills and wears a dot. */
 .whats-new-banner {
-  position: absolute;
-  top: max(0.9rem, env(safe-area-inset-top));
-  right: calc(max(0.9rem, env(safe-area-inset-right)) + 2.4rem + var(--space-2));
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1124,17 +1092,6 @@ h2#past-heading {
   background: var(--accent-soft);
   box-shadow: none;
   color: var(--accent);
-}
-.whats-new-banner.unseen::after {
-  content: "";
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--bg);
 }
 /* In flow, so its hit area clears the last entry and the divider. */
 .whats-new-earlier {
@@ -1185,11 +1142,14 @@ h2#past-heading {
 }
 
 /* --- Session bar ---------------------------------------------------------- */
+/* Under the header: the way out on the left, the night's status on the right.
+   Wraps on a narrow phone rather than squeeze either. */
 .session-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
   margin: 0 0 var(--space-1);
   min-height: 44px;
 }
@@ -1378,7 +1338,6 @@ button.window-pill::after {
    Class-driven like `fresh`. Hides organiser controls; the rules enforce the
    permission. */
 body.room-mode .share-toggle,
-body.room-mode .share-count-badge,
 body.room-mode .settings-toggle,
 body.room-mode #edition-note {
   display: none;
