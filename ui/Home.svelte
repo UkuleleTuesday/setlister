@@ -43,11 +43,13 @@
       ? "Loading sessions…"
       : history.status === "error"
         ? "Couldn’t load sessions."
-        : history.entries.length
-          ? ""
-          : organiserStatus.isOrganiser
-            ? "No sessions yet. Start one above."
-            : "No sessions yet.",
+        : "",
+  );
+  // Most phones on home are the room's, which can't snap or run the night.
+  const pitch = $derived(
+    organiserStatus.isOrganiser
+      ? "Snap the whiteboard, take requests and set the running order."
+      : "Ask for the tunes you want to play and follow what’s up next.",
   );
 
   function meta(entry: Entry) {
@@ -106,6 +108,38 @@
   {/each}
 {/snippet}
 
+<div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
+
+<!-- The night is the hero: it's what most phones come to home for. -->
+<div id="next-session" hidden={!next}>
+  {#if next}
+    <button
+      type="button"
+      class="next-session-card"
+      data-id={next.id}
+      onclick={() => onPick(next.id)}
+    >
+      {@render tile(next, true)}
+      <span class="session-item-text">
+        <span class="next-session-name">{next.label || "Date pending"}</span>
+        <span class="next-session-meta">{meta(next)}</span>
+      </span>
+      <span class="next-session-pitch">{pitch}</span>
+      <span class="next-session-open">
+        Open the setlist<Icon name="forward" />
+      </span>
+    </button>
+  {/if}
+</div>
+<div id="no-night" class="no-night callout" hidden={history.status !== "ready" || !!next}>
+  <p class="no-night-title">No night planned yet</p>
+  <p>
+    {organiserStatus.isOrganiser
+      ? "Start one and the room can send requests."
+      : "When the organisers start the next one, it shows up here."}
+  </p>
+</div>
+
 {#if organiserStatus.isOrganiser}
   <button
     id="new-session"
@@ -116,28 +150,8 @@
     <Icon name="add" /><span class="btn-label">New session</span>
   </button>
 {/if}
-<div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
 
-<h2 id="upcoming-heading" hidden={layout.upcoming.length === 0}>Coming up</h2>
-<div id="next-session" hidden={!next}>
-  {#if next}
-    <!-- No CTA verb: home opens the full view, so any verb would miscast someone. -->
-    <button
-      type="button"
-      class="next-session-card"
-      data-id={next.id}
-      onclick={() => onPick(next.id)}
-    >
-      {@render tile(next, true)}
-      <span class="session-item-text">
-        <span class="next-session-kicker eyebrow">Next session</span>
-        <span class="next-session-name">{next.label || "Date pending"}</span>
-        <span class="next-session-meta">{meta(next)}</span>
-      </span>
-      <Icon name="forward" extraClass="session-item-chevron" />
-    </button>
-  {/if}
-</div>
+<h2 id="upcoming-heading" hidden={layout.upcoming.length < 2}>Coming up</h2>
 <ul id="upcoming-list" class="inset-list" hidden={layout.upcoming.length < 2}>
   {#each layout.upcoming.slice(1) as entry (entry.id)}
     {@render item(entry, entry.label || "Date pending", "upcoming")}

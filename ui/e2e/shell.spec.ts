@@ -5,14 +5,14 @@ test("the header names the night, and home takes the brand back", async ({ phone
   const page = await phone();
   await page.goto("/");
   const title = page.locator("header h1");
-  await expect(title).toHaveText("🎶 Setlister");
+  await expect(title).toHaveText("Setlister");
   await expect(page).toHaveTitle("Setlister · Ukulele Tuesday");
   await expect(page.locator("#share-toggle")).toBeHidden();
   await expect(page.locator("#edition-note")).toBeHidden();
 
   const id = await startSession(page);
   // Not always "Tonight": after midnight it's a weekday and date.
-  await expect(title).not.toHaveText("🎶 Setlister");
+  await expect(title).not.toHaveText("Setlister");
   const label = (await title.textContent())!;
   await expect(page).toHaveTitle(`${label} · Setlister`);
   await expect(page.locator("body")).toHaveClass(/in-session/);
@@ -25,8 +25,30 @@ test("the header names the night, and home takes the brand back", async ({ phone
 
   await page.locator("#back-home").tap();
   await expect(page.locator("#home")).toBeVisible();
-  await expect(title).toHaveText("🎶 Setlister");
+  await expect(title).toHaveText("Setlister");
   await expect(page).toHaveTitle("Setlister · Ukulele Tuesday");
   await expect(page.locator("body")).not.toHaveClass(/in-session/);
   await expect(page.locator("#share-count-badge")).toBeHidden();
+});
+
+test("home's night speaks to the room and to organisers", async ({ phone }) => {
+  const organiser = await phone();
+  await startSession(organiser);
+  await organiser.locator("#back-home").tap();
+  await expect(organiser.locator(".next-session-pitch")).toContainText("Snap the whiteboard");
+
+  const room = await phone({ room: true });
+  await room.goto("/");
+  await expect(room.locator(".next-session-pitch")).toContainText("Ask for the tunes");
+});
+
+test("with no night planned, home says so to each role", async ({ phone }) => {
+  const room = await phone({ room: true });
+  await room.goto("/");
+  await expect(room.locator("#no-night")).toContainText("shows up here");
+
+  const organiser = await phone();
+  await organiser.goto("/");
+  await expect(organiser.locator("#no-night")).toContainText("Start one");
+  await expect(organiser.locator("#new-session")).toHaveClass(/btn-primary/);
 });

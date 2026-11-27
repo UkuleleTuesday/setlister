@@ -43,7 +43,7 @@
     writeWhatsNewSeen,
   } from "./whats-new.js";
 
-  const BRAND_TITLE = "🎶 Setlister";
+  const BRAND_TITLE = "Setlister";
 
   // Imperative because a file input's click() has to run inside the tap itself.
   let scanFlow: ScanFlow | undefined = $state();
@@ -109,8 +109,8 @@
   const latest = latestEntry<WhatsNewEntry>();
   let bannerSeen = $state(readWhatsNewSeen() === latest?.date);
 
-  function openWhatsNew(entries: WhatsNewEntry[]) {
-    overlays.whatsNew = entries;
+  function openWhatsNew() {
+    overlays.whatsNew = sortedEntries<WhatsNewEntry>();
     bannerSeen = true;
     writeWhatsNewSeen(latest?.date || "");
   }
@@ -161,10 +161,21 @@
     <Icon name="settings" />
   </button>
   <div class="title-stack">
-    <p class="club-name eyebrow">Ukulele Tuesday</p>
+    <p class={["club-name", { eyebrow: inSession }]}>Ukulele Tuesday</p>
     <h1>{inSession ? session.label : BRAND_TITLE}</h1>
   </div>
-  <p class="subtitle">Snap the whiteboard of wishes, build the setlist together.</p>
+  {#if !inSession}
+    <button
+      id="whats-new-banner"
+      class="whats-new-banner tap-target"
+      class:unseen={!bannerSeen}
+      type="button"
+      hidden={!latest}
+      onclick={openWhatsNew}
+    >
+      <Icon name="news" /><span class="btn-label">What’s new</span>
+    </button>
+  {/if}
 
   {#if overlays.share}
     <SharePanel
@@ -305,16 +316,6 @@
     </div>
   {:else}
     <section id="home">
-      <button
-        id="whats-new-banner"
-        class="whats-new-banner callout"
-        type="button"
-        hidden={!latest || bannerSeen}
-        onclick={() => latest && openWhatsNew([latest])}
-      >
-        <Icon name="news" /><span class="btn-label">What’s new</span>
-      </button>
-
       <Home
         onPick={openSession}
         onNewSession={() => {
@@ -322,17 +323,6 @@
           overlays.newSession = true;
         }}
       />
-
-      <p id="whats-new-footer" class="whats-new-footer" hidden={!latest}>
-        <button
-          id="whats-new-open"
-          class="link-button"
-          type="button"
-          onclick={() => openWhatsNew(sortedEntries<WhatsNewEntry>())}
-        >
-          What’s new
-        </button>
-      </p>
     </section>
   {/if}
 </main>

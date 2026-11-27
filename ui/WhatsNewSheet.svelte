@@ -12,7 +12,14 @@
     onclose: () => void;
   } = $props();
 
-  const blocks = $derived(entries.map((entry) => ({ entry, label: whatsNewDateLabel(entry) })));
+  // The latest entry is the news; the rest are there for anyone who asks.
+  let showEarlier = $state(false);
+  const blocks = $derived(
+    (showEarlier ? entries : entries.slice(0, 1)).map((entry) => ({
+      entry,
+      label: whatsNewDateLabel(entry),
+    })),
+  );
 </script>
 
 <Sheet id="whats-new-sheet" labelledby="whats-new-title" {onclose}>
@@ -30,6 +37,16 @@
         </ul>
       </section>
     {/each}
+    {#if !showEarlier && entries.length > 1}
+      <button
+        id="whats-new-earlier"
+        class="link-button whats-new-earlier"
+        type="button"
+        onclick={() => (showEarlier = true)}
+      >
+        Earlier updates
+      </button>
+    {/if}
   </div>
   <div class="actions">
     <button id="whats-new-close" class="btn btn-soft" type="button" onclick={onclose}>Close</button>

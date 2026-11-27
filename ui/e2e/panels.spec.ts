@@ -29,7 +29,7 @@ test("Visibility unlists a night, leaving the link working", async ({ phone }) =
   await expect(page.locator("#share-visibility")).toBeEnabled();
   await page.locator("#share-toggle").tap();
   await page.locator("#back-home").tap();
-  await expect(page.locator("#session-list-status")).toHaveText(/no sessions/i);
+  await expect(page.locator("#no-night")).toContainText("No night planned yet");
   await page.goto(`/?session=${id}`);
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#share-visibility")).toHaveValue("unlisted");
