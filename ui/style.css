@@ -1043,15 +1043,15 @@ button.window-pill::after {
 }
 
 /* --- Room mode (#86) -------------------------------------------------------
-   Class-driven like `fresh`. This hides a view, not a permission: anyone with
-   the plain link has the full app. */
+   Class-driven like `fresh`. Hides organiser controls; the rules enforce the
+   permission. */
 body.room-mode .share-toggle,
 body.room-mode .share-count-badge,
 body.room-mode .settings-toggle,
 body.room-mode #edition-note {
   display: none;
 }
-#session-view.room .session-bar,
+#session-view.room #window-chip,
 #session-view.room .fresh-intro,
 #session-view.room .setlist-actions,
 #session-view.room #add,
