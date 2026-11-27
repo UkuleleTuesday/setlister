@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Presence from "./Presence.svelte";
+  import { catalogue } from "./catalogue.svelte.js";
+  import { editionLabel } from "./editions.js";
   import { features } from "./features.js";
   import { fromDateTimeInputValue, requestNote, toDateTimeInputValue } from "./request-window.js";
   import { session } from "./session.svelte.js";
@@ -11,6 +13,7 @@
     onRequestsMode,
     onWindow,
     onShareLink,
+    onEdition,
     at,
     onclose,
     openers,
@@ -22,6 +25,7 @@
     onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
     /** True when the link was copied rather than shared. */
     onShareLink: () => Promise<boolean>;
+    onEdition: (editionId: string) => void;
     at: "top" | "requests";
     onclose: () => void;
     /** Taps on these don't count as outside. */
@@ -48,6 +52,15 @@
   const resolved = $derived(session.link.window);
   const openTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.opensAt) : "");
   const closeTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.closesAt) : "");
+
+  // The session's book may be missing from the listing; list it anyway so the
+  // select doesn't silently snap to another book.
+  const editionOptions = $derived.by(() => {
+    const id = catalogue.editionId;
+    const known = catalogue.editions.length ? catalogue.editions : [{ id: "current" }];
+    const all = known.some((e) => e.id === id) ? known : [...known, { id }];
+    return all.map((e) => ({ id: e.id, label: editionLabel(e) }));
+  });
 
   function modeOf(meta: SessionMeta): RequestsSwitch {
     return meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
@@ -158,6 +171,15 @@
     </label>
     <p class="note">Anyone with the link can open it either way.</p>
   {/if}
+  <label class="field" id="edition-setting">
+    <span>Songbook</span>
+    <select id="edition" bind:value={() => catalogue.editionId, onEdition}>
+      {#each editionOptions as option (option.id)}
+        <option value={option.id}>{option.label}</option>
+      {/each}
+    </select>
+  </label>
+  <p class="note">Changes the songbook for everyone in this session.</p>
   <!-- Named for the link: "Requests: Closed" would read as the club no longer
        taking requests while the whiteboard carries on. -->
   <label class="field" bind:this={requestsField}>

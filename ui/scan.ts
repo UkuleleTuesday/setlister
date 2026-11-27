@@ -9,13 +9,10 @@ export interface ParseResponse {
   catalogue: CatalogueEntry[];
 }
 
-/** The API clamps or ignores out-of-range values. */
+// No model, thinking or image-size knobs: the API owns those defaults
+// (utrequests/config.py), so every phone scans the same way.
 export interface ParseOptions {
   edition: string;
-  model: string;
-  disableThinking: boolean;
-  sendCatalogue: boolean;
-  maxImageEdge: number;
 }
 
 export async function requestParse(
@@ -27,11 +24,6 @@ export async function requestParse(
   const form = new FormData();
   form.append("image", image);
   form.append("edition", options.edition);
-  if (options.model) form.append("model", options.model);
-  form.append("thinking_budget", options.disableThinking ? "0" : "1024");
-  form.append("catalogue_in_prompt", options.sendCatalogue ? "true" : "false");
-  // Sent even after a downscale, for browsers that couldn't shrink the photo.
-  form.append("max_image_edge", String(options.maxImageEdge));
   const res = await fetch(`${apiBase}/api/parse`, { method: "POST", body: form, signal });
   if (!res.ok) {
     const detail = (await res.json().catch(() => ({}))).detail;

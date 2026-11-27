@@ -64,13 +64,6 @@ export const rowActions: RowActions = {
       );
     }
   },
-  setMatch: (uid, entry) =>
-    withRow(uid, (row) => {
-      row.match = entry;
-      row.status = "confirmed";
-      row.explanation = "Manually selected";
-      row.alternatives = [];
-    }),
   moveBy,
   // Holds remote snapshots while a finger is on a row.
   gesture: (active) => sync.setGestureActive(active),

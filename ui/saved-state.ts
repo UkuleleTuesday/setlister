@@ -14,8 +14,6 @@ export interface SavedState {
   votes: Votes;
   edition: Edition | null;
   name: string;
-  /** applySettings() in settings.svelte.ts validates its own fields. */
-  settings: unknown;
 }
 
 export function writeSavedState(state: SavedState): void {
@@ -46,6 +44,5 @@ export function readSavedState(): Partial<SavedState> {
   const edition = parseEdition(s.edition);
   if (edition) out.edition = edition;
   if (typeof s.name === "string") out.name = s.name;
-  out.settings = s.settings;
   return out;
 }

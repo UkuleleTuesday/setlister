@@ -174,21 +174,17 @@
       onRequestsMode={changeRequestsMode}
       onWindow={changeRequestsWindow}
       onShareLink={shareSessionLink}
-      openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
-    />
-  {/if}
-  <!-- persist() at once, so a cached book switch reaches peers even if the
-       refresh never lands. -->
-  {#if overlays.settings}
-    <SettingsPanel
-      onclose={() => (overlays.settings = false)}
-      onName={setPlayerName}
-      onChange={persist}
       onEdition={(editionId) => {
+        // At once, so a cached book switch reaches peers even if the refresh
+        // never lands.
         scopeCatalogueToEdition(editionId);
         persist();
       }}
+      openers={() => [shareToggle, windowChip].filter((el) => el !== undefined)}
     />
+  {/if}
+  {#if overlays.settings}
+    <SettingsPanel onclose={() => (overlays.settings = false)} onName={setPlayerName} />
   {/if}
 </header>
 

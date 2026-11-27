@@ -47,7 +47,7 @@
   </div>
   <ol id="recap-rows" class="recap-list numbered">
     {#each played as row (row.uid)}
-      <RowCard {row} context="recap" {actions} showSuggestions={false} />
+      <RowCard {row} context="recap" {actions} />
     {/each}
   </ol>
   <p id="recap-empty" class="note" hidden={played.length > 0}>
@@ -63,6 +63,5 @@
     rows={unplayed}
     context="recap"
     {actions}
-    showSuggestions={false}
   />
 </section>

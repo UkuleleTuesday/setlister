@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_MAX_EDGE,
-  downscaleImage,
-  jpegName,
-  resolveMaxEdge,
-  targetSize,
-} from "../downscale.js";
+import { DEFAULT_MAX_EDGE, downscaleImage, jpegName, targetSize } from "../downscale.js";
 
 const photo = (over: { size?: number; name?: string; type?: string } = {}) => {
   const { size = 4_000_000, name = "IMG_0042.HEIC", type = "image/jpeg" } = over;
@@ -24,21 +18,6 @@ const deps = (width: number, height: number, blobSize: number) => ({
     Object.defineProperty(blob, "size", { value: blobSize });
     return blob;
   },
-});
-
-describe("resolveMaxEdge", () => {
-  it("falls back to the server's own default when the field is blank", () => {
-    expect(resolveMaxEdge("")).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge(undefined)).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge("not a number")).toBe(DEFAULT_MAX_EDGE);
-    expect(resolveMaxEdge("0")).toBe(DEFAULT_MAX_EDGE);
-  });
-
-  it("clamps to the range the API accepts, so client and server agree", () => {
-    expect(resolveMaxEdge("64")).toBe(256);
-    expect(resolveMaxEdge("99999")).toBe(4096);
-    expect(resolveMaxEdge("2048")).toBe(2048);
-  });
 });
 
 describe("targetSize", () => {
@@ -83,7 +62,22 @@ describe("downscaleImage", () => {
     expect(out.size).toBe(300_000);
   });
 
-  it("honours a custom max edge from settings", async () => {
+  it("defaults to the API's max edge, since scans no longer send their own", async () => {
+    let asked: unknown = null;
+    await downscaleImage(photo(), {
+      deps: {
+        createBitmap: async () => bitmap(4032, 3024),
+        encodeJpeg: async (_bitmap, dims) => {
+          asked = dims;
+          return new Blob([]);
+        },
+      },
+    });
+    expect(DEFAULT_MAX_EDGE).toBe(1600);
+    expect(asked).toEqual({ width: 1600, height: 1200 });
+  });
+
+  it("honours a custom max edge", async () => {
     let asked: unknown = null;
     await downscaleImage(photo(), {
       maxEdge: 1024,

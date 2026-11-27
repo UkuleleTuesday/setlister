@@ -11,7 +11,6 @@
     rows,
     context,
     actions,
-    showSuggestions,
     startOpen = false,
     numbered = false,
   }: {
@@ -21,7 +20,6 @@
     rows: Row[];
     context: RowContext;
     actions: RowActions;
-    showSuggestions: boolean;
     startOpen?: boolean;
     numbered?: boolean;
   } = $props();
@@ -53,14 +51,7 @@
         class:numbered
       >
         {#each rows as row, i (row.uid)}
-          <RowCard
-            {row}
-            {context}
-            {actions}
-            {showSuggestions}
-            first={i === 0}
-            last={i === rows.length - 1}
-          />
+          <RowCard {row} {context} {actions} first={i === 0} last={i === rows.length - 1} />
         {/each}
       </svelte:element>
     {/if}

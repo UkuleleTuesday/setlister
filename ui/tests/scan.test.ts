@@ -65,13 +65,7 @@ describe("planScan", () => {
 });
 
 describe("requestParse", () => {
-  const options = {
-    edition: "uke-9",
-    model: "",
-    disableThinking: false,
-    sendCatalogue: true,
-    maxImageEdge: 1600,
-  };
+  const options = { edition: "uke-9" };
   const failWith = (status: number, body: unknown) =>
     vi.stubGlobal(
       "fetch",
@@ -80,6 +74,15 @@ describe("requestParse", () => {
   const parse = () => requestParse("", new Blob(["x"]), options, new AbortController().signal);
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("sends only the photo and the edition, leaving the rest to the API's defaults", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ rows: [] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await parse();
+    const form = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect([...form.keys()].sort()).toEqual(["edition", "image"]);
+    expect(form.get("edition")).toBe("uke-9");
+  });
 
   it("throws the server's detail as the message", async () => {
     failWith(422, { detail: "That photo is too blurry." });
