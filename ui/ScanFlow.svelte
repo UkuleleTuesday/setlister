@@ -11,7 +11,6 @@
   import { night } from "./night.svelte.js";
   import { notices } from "./notices.svelte.js";
   import { reviewNote, scanResultMessage } from "./scan.js";
-  import { settings } from "./settings.svelte.js";
   import type { CatalogueEntry, Row } from "./types.js";
 
   /** What a finished scan left for review (`scan` has added the rest). */
@@ -251,7 +250,6 @@
       <ReviewRow
         {row}
         duplicate={row.match ? findDuplicate(night.upNext, night.requests, rowKey(row)) : null}
-        showSuggestions={settings.showSuggestions}
         catalogue={catalogue.entries}
         catalogueStatus={catalogue.status}
         upNext={night.upNext}

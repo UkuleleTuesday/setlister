@@ -8,7 +8,6 @@
   import { night } from "./night.svelte.js";
   import { playedOrder } from "./recap.js";
   import { session } from "./session.svelte.js";
-  import { settings } from "./settings.svelte.js";
 
   let {
     actions,
@@ -142,7 +141,6 @@
     {actions}
     startOpen={session.past}
     numbered={session.past}
-    showSuggestions={settings.showSuggestions}
   />
   <ul id="upnext-rows" bind:this={list} {@attach reorder}>
     {#each shown as row (row.uid)}
@@ -153,7 +151,6 @@
         vote={rowVote(row)}
         isNext={row.uid === nextUid}
         dragging={row.uid === dragUid}
-        showSuggestions={settings.showSuggestions}
       />
     {/each}
   </ul>

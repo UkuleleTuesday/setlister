@@ -2,6 +2,7 @@
   import Icon from "./Icon.svelte";
   import SongPicker from "./SongPicker.svelte";
   import { type Duplicate, duplicateLabel } from "./dupes.js";
+  import { features } from "./features.js";
   import { alternativesOf } from "./row-shape.js";
   import type { CatalogueStatus } from "./songbook.js";
   import type { CatalogueEntry, Row } from "./types.js";
@@ -10,7 +11,6 @@
   let {
     row,
     duplicate,
-    showSuggestions,
     catalogue,
     catalogueStatus,
     upNext,
@@ -21,7 +21,6 @@
   }: {
     row: Row;
     duplicate: Duplicate | null;
-    showSuggestions: boolean;
     catalogue: CatalogueEntry[];
     catalogueStatus: CatalogueStatus;
     upNext: Row[];
@@ -41,7 +40,12 @@
   // one written at the start of the {#if}.
   const flagged = $derived(Boolean(row.match) && row.status !== "confirmed");
   const reason = $derived(row.explanation || "Needs a check");
-  const alternatives = $derived(alternativesOf(row));
+  // Only where the reader wasn't sure: a clean match needs no second guess.
+  const suggestions = $derived(
+    features.reviewSuggestions && row.status !== "confirmed" && !row.removed
+      ? alternativesOf(row)
+      : [],
+  );
   const raw = $derived(
     `wrote: “${row.raw_title}”` +
       (row.raw_page ? ` · p.${row.raw_page}` : " · no page") +
@@ -95,10 +99,15 @@
       {#if row.match && duplicate}
         <div class="dup-note">{duplicateLabel(duplicate.where)}</div>
       {/if}
-      {#if showSuggestions && alternatives.length && !row.removed}
+      {#if suggestions.length}
         <div class="chips">
-          {#each alternatives as alt, i (i)}
-            <button onclick={() => setMatch(alt.entry)}>
+          <span class="chips-label">Or was it</span>
+          {#each suggestions as alt, i (i)}
+            <button
+              type="button"
+              aria-label={`Change to ${alt.entry.display}, page ${alt.entry.page}`}
+              onclick={() => setMatch(alt.entry)}
+            >
               {alt.entry.title} (p.{alt.entry.page})
             </button>
           {/each}

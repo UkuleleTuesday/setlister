@@ -2,7 +2,7 @@ import type { RequestAnswer } from "./RoomRequestSheet.svelte";
 import type { ScanOutcome } from "./ScanFlow.svelte";
 import { API_BASE } from "./api.js";
 import { adoptCatalogue, catalogue } from "./catalogue.svelte.js";
-import { downscaleImage, resolveMaxEdge } from "./downscale.js";
+import { downscaleImage } from "./downscale.js";
 import { duplicateLabel, findDuplicate, matchKey } from "./dupes.js";
 import { night } from "./night.svelte.js";
 import { notices } from "./notices.svelte.js";
@@ -19,7 +19,6 @@ import { persist } from "./save.js";
 import { sendRoomWrite } from "./room-writes.js";
 import { planScan, requestParse } from "./scan.js";
 import { linkNow } from "./session.svelte.js";
-import { settings } from "./settings.svelte.js";
 import * as sync from "./sync.js";
 import type { CatalogueEntry, Row } from "./types.js";
 import { view } from "./view.svelte.js";
@@ -152,20 +151,12 @@ function scannedRow(row: Omit<Row, "uid">): Row {
 
 // Rejects (abort included) for ScanFlow to word.
 export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOutcome> {
-  const { maxImageEdge, model, disableThinking, sendCatalogue } = settings;
-  const maxEdge = resolveMaxEdge(maxImageEdge);
-  const upload = await downscaleImage(file, { maxEdge });
+  const upload = await downscaleImage(file);
   const data = await requestParse(
     API_BASE,
     upload,
-    {
-      // Not the select's value: it can lag behind night.edition.
-      edition: night.edition?.id || catalogue.editionId,
-      model,
-      disableThinking,
-      sendCatalogue,
-      maxImageEdge: maxEdge,
-    },
+    // Not the select's value: it can lag behind night.edition.
+    { edition: night.edition?.id || catalogue.editionId },
     signal,
   );
   adoptCatalogue(data);

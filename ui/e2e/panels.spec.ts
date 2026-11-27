@@ -93,35 +93,28 @@ test("a copied link says so, then settles back", async ({ phone }) => {
   await expect(button).toHaveText("Share link", { timeout: 3000 });
 });
 
-test("settings remember the name and the toggles; the songbook choice is session-only", async ({
+test("settings keep this phone's name; the songbook is set per session in the share panel", async ({
   phone,
 }) => {
   const page = await phone();
   await startSession(page);
 
   await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#settings-panel")).toBeVisible();
-  await expect(page.locator("#edition-setting")).toBeVisible();
+  const settings = page.locator("#settings-panel");
+  await expect(settings).toBeVisible();
+  await expect(settings.locator("#edition-setting, #advanced-setting, .switch")).toHaveCount(0);
   await page.locator("#player-name").fill("Robin");
-  // A switch, announced as one, and the whole row is its tap target.
-  await expect(page.getByRole("switch", { name: /Suggest other matches/ })).not.toBeChecked();
-  await page.getByText("Suggest other matches").tap();
-  await expect(page.locator("#show-suggestions")).toBeChecked();
   await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#settings-panel")).toBeHidden();
+  await expect(settings).toBeHidden();
 
   await page.locator("#share-toggle").tap();
   await expect(page.locator("#share-presence-list")).toContainText("Robin (you)");
+  await expect(page.locator("#share-panel #edition-setting")).toBeVisible();
+  await page.locator("#share-toggle").tap();
 
   await page.reload();
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#player-name")).toHaveValue("Robin");
-  await expect(page.locator("#show-suggestions")).toBeChecked();
-
-  await page.locator("#settings-toggle").tap();
-  await page.locator("#back-home").tap();
-  await page.locator("#settings-toggle").tap();
-  await expect(page.locator("#edition-setting")).toBeHidden();
 });
 
 test("one popover at a time; a stray tap closes either, a tap inside doesn't", async ({

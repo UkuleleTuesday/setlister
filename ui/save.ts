@@ -1,6 +1,5 @@
 import { night, nightSnapshot } from "./night.svelte.js";
 import { readSavedState, writeSavedState } from "./saved-state.js";
-import { applySettings, settingsSnapshot } from "./settings.svelte.js";
 import * as sync from "./sync.js";
 import { view } from "./view.svelte.js";
 
@@ -9,7 +8,6 @@ export function persist() {
   writeSavedState({
     ...lists,
     name: night.name,
-    settings: settingsSnapshot(),
   });
   if (sync.getSessionId() && view.mode === "full") sync.notifyLocalChange(lists);
 }
@@ -21,5 +19,4 @@ export function restore() {
   if (saved.votes) night.votes = saved.votes;
   if (saved.edition) night.edition = saved.edition;
   if (saved.name !== undefined) night.name = saved.name;
-  applySettings(saved.settings);
 }

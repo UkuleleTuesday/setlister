@@ -68,16 +68,20 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 
 ## Settings
 
-1. **Group by who a setting affects.** "You" is this phone only. "This
-   session" changes it for everyone in it, and says so in its help text.
-2. **Changes apply at once.** No Save button. While a shared change saves, its
+1. **Put a setting where its effect lives.** The gear holds this phone's
+   settings only. Anything that changes the session for everyone belongs in
+   the share panel, and says so in its help text.
+2. **Prefer no setting.** If a sensible default or the situation can decide,
+   don't ask. The API owns scan tuning, and runner-up matches show only where
+   the reader was unsure.
+3. **Changes apply at once.** No Save button. While a shared change saves, its
    control is disabled; a failure shows as `.error` under it.
-3. **Pick the control by the choice:** on/off is a `.switch`, never a bare
+4. **Pick the control by the choice:** on/off is a `.switch`, never a bare
    checkbox; a long list is a `<select>`; free text is a `.field`.
-4. **Short label, effect underneath.** Add a `.setting-help` line when the
+5. **Short label, effect underneath.** Add a `.setting-help` line when the
    label doesn't say what happens. Offer "Use default" once a value is
    overridden.
-5. **Rare settings go in a named `.disclosure`**, collapsed by default.
+6. **Rare settings go in a named `.disclosure`**, collapsed by default.
 
 ## Exceptions
 

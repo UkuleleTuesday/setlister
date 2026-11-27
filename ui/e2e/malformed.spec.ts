@@ -56,7 +56,7 @@ async function stored(id: string) {
   return { rows: Object.keys(doc.fields.rows.mapValue.fields ?? {}), edition: doc.fields.edition };
 }
 
-// Suggestions on so the chips render.
+// `settings` is an older build's key, which this one ignores.
 async function withBadSavedState(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem(

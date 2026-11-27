@@ -1,7 +1,6 @@
 <!-- UpNextSection.svelte runs drag-to-reorder, catching presses on the handle. -->
 <script module lang="ts">
   import type { RowVote } from "./lists.svelte.js";
-  import type { CatalogueEntry } from "./types.js";
 
   export type RowContext =
     | "upnext"
@@ -22,7 +21,6 @@
     promote: (uid: string) => void;
     demote: (uid: string) => void;
     vote: (uid: string) => void;
-    setMatch: (uid: string, entry: CatalogueEntry) => void;
     /** Keyboard reorder: one visible slot up (-1) or down (1). */
     moveBy: (uid: string, delta: -1 | 1) => void;
     /** Swaps a played tune with its neighbour in the order played. */
@@ -38,7 +36,6 @@
   import Icon from "./Icon.svelte";
   import { stateTime } from "./gig-state.js";
   import { sessionTimeLabel } from "./session-index.js";
-  import { alternativesOf } from "./row-shape.js";
   import type { Row } from "./types.js";
   import { sourceLabel } from "./view-mode.js";
 
@@ -51,7 +48,6 @@
     dragging = false,
     first = false,
     last = false,
-    showSuggestions,
   }: {
     row: Row;
     context: RowContext;
@@ -62,7 +58,6 @@
     /** Ends of a played-edit list, where one move button has nowhere to go. */
     first?: boolean;
     last?: boolean;
-    showSuggestions: boolean;
   } = $props();
 
   // A swipe has to travel this far before it's a swipe, not a tap.
@@ -112,7 +107,6 @@
     return text.charAt(0).toUpperCase() + text.slice(1);
   });
   const showMeta = $derived(metaText !== "" || Boolean(row.match));
-  const alternatives = $derived(alternativesOf(row));
 
   // "+1 · 2" doesn't say what it counts, so the aria-label does.
   const voteLabel = $derived.by(() => {
@@ -275,15 +269,6 @@
       {#if showMeta}
         <div class="row-meta">
           {#if row.match}<span class="page-badge">p.{row.match.page}</span>{/if}{metaText}
-        </div>
-      {/if}
-      {#if showSuggestions && alternatives.length && !row.removed}
-        <div class="chips">
-          {#each alternatives as alt, i (i)}
-            <button onclick={() => actions.setMatch(row.uid, alt.entry)}>
-              {alt.entry.title} (p.{alt.entry.page})
-            </button>
-          {/each}
         </div>
       {/if}
     </div>

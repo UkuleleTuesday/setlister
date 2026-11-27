@@ -4,7 +4,6 @@
   import { lists, rowVote } from "./lists.svelte.js";
   import { night } from "./night.svelte.js";
   import { notices } from "./notices.svelte.js";
-  import { settings } from "./settings.svelte.js";
   import { sortForDisplay } from "./votes.js";
 
   let {
@@ -80,13 +79,7 @@
   </p>
   <ul id="requests-rows">
     {#each sorted as row (row.uid)}
-      <RowCard
-        {row}
-        context={lists.room ? "room" : "requests"}
-        {actions}
-        vote={rowVote(row)}
-        showSuggestions={settings.showSuggestions}
-      />
+      <RowCard {row} context={lists.room ? "room" : "requests"} {actions} vote={rowVote(row)} />
     {/each}
   </ul>
   <p id="requests-empty" class="note" hidden={visible.length > 0}>{emptyText}</p>
