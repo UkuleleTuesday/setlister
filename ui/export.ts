@@ -1,17 +1,11 @@
-// The night as it leaves the app: the plain-text setlist the copy button puts
-// on the clipboard, and the JSON the download button saves. Both cover both
-// lists, running order first: Up next, then the requests in the pool.
-
 import type { Edition, Row } from "./types.js";
 
-/** What gets exported: not removed, and crossed-out only when asked for. */
 export function exportedRows(upNext: Row[], requests: Row[], includeCrossed: boolean): Row[] {
   return [...upNext, ...requests].filter(
     (row) => !row.removed && (includeCrossed || !row.crossed_out),
   );
 }
 
-/** One line per tune: "Jolene - Dolly Parton (p.12)", or "?? <raw>" unmatched. */
 export function exportText(rows: Row[]): string {
   return rows
     .map((row) =>
@@ -22,19 +16,14 @@ export function exportText(rows: Row[]): string {
     .join("\n");
 }
 
-/** An exported row: a row without the app's own UI and provenance fields. */
 export type ExportedRow = Omit<Row, "uid" | "source" | "addedBy" | "removed" | "played" | "binned">;
 
-// `played` and `binned` are live gig-tracking state, not part of the setlist
-// payload; the times they were set (`playedAt` / `binnedAt`) are exported as
-// the night's record of what got played when. A row carrying `playedAt` is a
-// played row.
+// The flags are live state; their times stay, as the night's record.
 function stripInternal(row: Row): ExportedRow {
   const { uid, source, addedBy, removed, played, binned, ...rest } = row;
   return rest;
 }
 
-/** The download's `requests.json`. */
 export function exportPayload(edition: Edition | null, generatedAt: string, rows: Row[]) {
   return {
     edition,

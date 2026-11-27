@@ -1,8 +1,5 @@
-// Control icons for the app (#53), from lucide: one consistent stroke style
-// rather than emoji, which render differently on every platform, are louder
-// than their importance and read ambiguously (⬆️ looks like "upload").
-// Per-icon ESM imports keep the bundle small: Vite tree-shakes the rest.
-// Icon.svelte draws them.
+// Lucide, not emoji (#53): emoji render differently per platform, shout, and
+// read ambiguously (⬆️ looks like "upload").
 
 import {
   ArrowLeft,
@@ -28,13 +25,9 @@ import {
   X,
 } from "lucide";
 
-// Semantic names decouple call sites from the icon set: "promote" reads as
-// intent, the specific lucide glyph is an implementation detail we can swap.
 export const ICONS = {
-  // Promote/demote move a row across the two lists (not a one-slot nudge), so
-  // they borrow the "add to / remove from queue" idiom rather than a bare
-  // arrow: +list = put it in the running order, −list = drop it back to the
-  // pool. The bin icon owns deletion, so −list can't be misread as "remove".
+  // They cross lists, not nudge a slot, so the queue idiom, not an arrow. The
+  // bin owns deletion, so −list can't be misread as "remove".
   promote: ListPlus,
   demote: ListMinus,
   played: Check,
@@ -52,15 +45,10 @@ export const ICONS = {
   close: X,
   chevron: ChevronDown,
   loader: LoaderCircle,
-  // "Something shipped": the What's new banner and sheet.
   news: Sparkles,
-  // Session navigation: out to the history list.
   back: ArrowLeft,
-  // Correcting a confidently-matched review row.
   edit: Pencil,
-  // "I want this one" on a request (#83).
   want: ThumbsUp,
-  // The room's "find a tune in the songbook" trigger.
   search: Search,
 };
 

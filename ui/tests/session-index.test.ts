@@ -1,9 +1,3 @@
-// The date-labelling policy from session-index.ts — no Firestore, no emulator.
-//
-// This is what users actually read in the history list, and every branch of it
-// is relative to "now", so every test pins the clock explicitly. A test that
-// reads the wall clock here is a test that fails at midnight.
-
 import { describe, expect, it } from "vitest";
 import {
   disambiguate,
@@ -14,10 +8,11 @@ import {
   plannedSessionMessage,
   sessionDateLabel,
   sessionTimeLabel,
+  timestampToDate,
   toDateInputValue,
 } from "../session-index.js";
 
-// Tuesday 4 August 2026, 21:00 — a club night, mid-session.
+// A club Tuesday, mid-session.
 const NOW = new Date(2026, 7, 4, 21, 0);
 const at = (y: number, m: number, d: number, h = 20, min = 0) => new Date(y, m, d, h, min);
 
@@ -40,29 +35,19 @@ describe("sessionDateLabel", () => {
   });
 
   it("keeps a session that runs past midnight on the night it started", () => {
-    // Started 21:00 Tuesday, still going at 00:30 Wednesday — an ordinary pub
-    // night. It must not relabel itself "Yesterday" while people are still
-    // adding songs to it.
     const started = at(2026, 7, 4, 21, 0);
     const halfPastMidnight = at(2026, 7, 5, 0, 30);
     expect(sessionDateLabel(started, halfPastMidnight)).toBe("Tonight");
-    // A song added at 00:45 belongs to the same night, too.
     expect(sessionDateLabel(at(2026, 7, 5, 0, 45), halfPastMidnight)).toBe("Tonight");
-    // But by Wednesday morning it really is yesterday.
     expect(sessionDateLabel(started, at(2026, 7, 5, 10, 0))).toBe("Yesterday");
   });
 
   it("stamps a night beyond yesterday with its date, weekday kept off-Tuesday", () => {
-    // A bare "Tuesday" says nothing to a club that meets every Tuesday, so
-    // beyond the neighbouring nights it's the date, with the weekday only
-    // where it's the interesting part.
     expect(sessionDateLabel(at(2026, 6, 30), NOW)).toMatch(/^Thursday /);
     expect(sessionDateLabel(at(2026, 6, 29), NOW)).toMatch(/^Wednesday /);
   });
 
   it("gives a past club Tuesday inside the week the bare date", () => {
-    // Viewed on a Sunday evening, the previous Tuesday is 5 nights back:
-    // "Tuesday" alone wouldn't say which one, the date does.
     const sunday = new Date(2026, 7, 9, 21, 0);
     expect(sessionDateLabel(at(2026, 7, 4, 20, 14), sunday)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 4)),
@@ -70,14 +55,13 @@ describe("sessionDateLabel", () => {
   });
 
   it("drops to a date once a week has passed", () => {
-    // 28 July 2026 is a Tuesday: the club's normal night, so no weekday.
+    // 28 July 2026 is a Tuesday.
     expect(sessionDateLabel(at(2026, 6, 28), NOW)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 6, 28)),
     );
   });
 
   it("keeps the weekday for a night that isn't the club's Tuesday", () => {
-    // 23 July 2026 is a Thursday — the interesting thing about it.
     expect(sessionDateLabel(at(2026, 6, 23), NOW)).toMatch(/^Thursday /);
   });
 
@@ -93,21 +77,19 @@ describe("sessionDateLabel", () => {
   });
 
   it("stamps a night beyond tomorrow with its date, never a Next prefix", () => {
-    // Ahead of tomorrow the concrete date is the label, with the weekday for
-    // any night that isn't the club's Tuesday.
-    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toMatch(/^Friday /); // Fri 7 Aug
-    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toMatch(/^Monday /); // Mon 10 Aug
+    expect(sessionDateLabel(at(2026, 7, 7), NOW)).toMatch(/^Friday /);
+    expect(sessionDateLabel(at(2026, 7, 10), NOW)).toMatch(/^Monday /);
   });
 
   it("gives next club Tuesday the bare date", () => {
-    // 11 Aug 2026 is the next Tuesday — the club's normal night, so no weekday.
+    // 11 August 2026 is a Tuesday.
     expect(sessionDateLabel(at(2026, 7, 11), NOW)).toBe(
       new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" }).format(at(2026, 7, 11)),
     );
   });
 
   it("keeps the weekday for a far-future night that isn't a Tuesday", () => {
-    expect(sessionDateLabel(at(2026, 7, 13), NOW)).toMatch(/^Thursday /); // Thu 13 Aug
+    expect(sessionDateLabel(at(2026, 7, 13), NOW)).toMatch(/^Thursday /);
   });
 
   it("adds the year to a future date in a different year", () => {
@@ -124,9 +106,6 @@ describe("sessionDateLabel", () => {
   });
 });
 
-// The <input type="date"> bridge. Both directions are timezone footguns
-// (toISOString / new Date("YYYY-MM-DD") are UTC), so pin the local-time
-// behaviour explicitly.
 describe("date input helpers", () => {
   it("renders the LOCAL calendar day, even just after midnight", () => {
     expect(toDateInputValue(new Date(2026, 7, 5, 0, 30))).toBe("2026-08-05");
@@ -184,10 +163,10 @@ describe("disambiguate", () => {
     expect(labels[0]).toMatch(/^Tonight · /);
     expect(labels[1]).toMatch(/^Tonight · /);
     expect(labels[0]).not.toBe(labels[1]);
-    expect(labels[2]).toBe("Yesterday"); // unique, stays clean
+    expect(labels[2]).toBe("Yesterday");
   });
 
-  it("ignores a legacy stored name — the date is the label now", () => {
+  it("ignores a legacy stored name: the date is the label", () => {
     const [entry] = disambiguate([{ name: "Open mic", createdAt: at(2026, 7, 4, 20) }], NOW);
     expect(entry.label).toBe("Tonight");
   });
@@ -200,9 +179,6 @@ describe("disambiguate", () => {
   });
 });
 
-// The home screen's upcoming/past split. Same night semantics as the labels
-// above: a night belongs to the evening it started, and "tonight" is upcoming
-// until the 04:00 boundary.
 describe("partitionSessions", () => {
   it("files tonight under upcoming and yesterday under past", () => {
     const tonight = { createdAt: at(2026, 7, 4, 20) };
@@ -212,7 +188,7 @@ describe("partitionSessions", () => {
     expect(past).toEqual([yesterday]);
   });
 
-  it("counts a daytime session today as upcoming — its night hasn't happened yet", () => {
+  it("counts a daytime session today as upcoming", () => {
     const { upcoming } = partitionSessions([{ createdAt: at(2026, 7, 4, 11, 0) }], NOW);
     expect(upcoming).toHaveLength(1);
   });
@@ -233,7 +209,7 @@ describe("partitionSessions", () => {
     expect(past).toEqual([yesterday]);
   });
 
-  it("files a session with no resolved date under past — it can't claim a future night", () => {
+  it("files a session with no resolved date under past", () => {
     const { upcoming, past } = partitionSessions([{ createdAt: null }], NOW);
     expect(upcoming).toHaveLength(0);
     expect(past).toHaveLength(1);
@@ -250,9 +226,6 @@ describe("partitionSessions", () => {
   });
 });
 
-// The refusal users read when Start is blocked because a night is already
-// planned. The date label does the heavy lifting; these pin that the message
-// names the right night and always offers the Unlisted way out.
 describe("plannedSessionMessage", () => {
   it("names tonight's session", () => {
     const msg = plannedSessionMessage({ createdAt: at(2026, 7, 4, 20) }, NOW);
@@ -267,13 +240,10 @@ describe("plannedSessionMessage", () => {
   });
 
   it("keeps the weekday for a future night off the club's Tuesday", () => {
-    // 13 August 2026 is a Thursday.
     expect(plannedSessionMessage({ createdAt: at(2026, 7, 13) }, NOW)).toMatch(/Thursday/);
   });
 
   it("falls back to a generic night when the date is unresolved", () => {
-    // Defensive: a null createdAt files under past and can't normally reach
-    // here, but a blank in the message would read as a bug.
     expect(plannedSessionMessage({ createdAt: null }, NOW)).toContain(
       "already planned for an upcoming night",
     );
@@ -288,8 +258,6 @@ describe("plannedSessionMessage", () => {
   });
 });
 
-// The one write-side shape, shared by create/re-list/backfill. A stub fx is
-// enough: what matters is which branch (server stamp vs picked date) fires.
 describe("indexEntryData", () => {
   const SERVER_STAMP = Symbol("serverTimestamp");
   const fx = {
@@ -315,6 +283,20 @@ describe("indexEntryData", () => {
   it("clamps createdBy to the rules' 60-char cap", () => {
     const entry = indexEntryData({ createdBy: "x".repeat(80) }, fx);
     expect(entry.createdBy).toHaveLength(60);
+  });
+});
+
+describe("timestampToDate", () => {
+  it("reads anything with toDate() as a Date", () => {
+    const d = at(2026, 7, 4);
+    expect(timestampToDate({ toDate: () => d })).toBe(d);
+  });
+
+  it("reads a pending serverTimestamp (null) or a non-Timestamp as null", () => {
+    expect(timestampToDate(null)).toBeNull();
+    expect(timestampToDate(undefined)).toBeNull();
+    expect(timestampToDate("2026-08-04")).toBeNull();
+    expect(timestampToDate({ toDate: "nope" })).toBeNull();
   });
 });
 

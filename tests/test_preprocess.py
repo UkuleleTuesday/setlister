@@ -27,7 +27,7 @@ def test_resizes_long_edge():
     assert mime == "image/jpeg"
     result = open_result(jpeg)
     assert max(result.size) == 1600
-    assert result.size == (1600, 1200)  # aspect ratio preserved
+    assert result.size == (1600, 1200)
 
 
 def test_small_image_not_upscaled():
@@ -36,7 +36,7 @@ def test_small_image_not_upscaled():
 
 
 def test_exif_orientation_applied():
-    # orientation 6 = rotate 90 CW: a landscape source becomes portrait
+    # Orientation 6 = rotate 90 CW.
     jpeg, _ = prepare_image(make_jpeg(400, 200, exif_orientation=6), max_edge=1600)
     assert open_result(jpeg).size == (200, 400)
 

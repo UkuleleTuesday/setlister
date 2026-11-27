@@ -1,11 +1,3 @@
-<!--
-  "Here now": the live roster of people connected to this session, inside the
-  share panel, which passes in session.roster (presence.ts, via live.ts).
-  "You" is marked, and unnamed peers show their generated default name.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import type { RosterEntry } from "./presence.js";
 

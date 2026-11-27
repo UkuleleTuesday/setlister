@@ -1,9 +1,7 @@
-"""Deterministic matching of extracted whiteboard rows against the catalogue.
+"""Deterministic matching of whiteboard rows against the catalogue.
 
-Pure module (no I/O): rapidfuzz title scoring plus rule-based validation of
-the handwritten page number. The vision model's ``catalogue_guess`` is only
-trusted when it verbatim-matches a catalogue entry, and even then it merely
-adds a small scoring bonus — the catalogue remains the source of truth.
+The model's ``catalogue_guess`` only adds a small bonus: the catalogue, not the
+model, decides.
 """
 
 import re

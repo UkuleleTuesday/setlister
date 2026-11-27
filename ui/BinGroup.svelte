@@ -1,8 +1,4 @@
-<!--
-  The bin: every binned row from both lists, collapsed to one line at the
-  foot of the session view. Binned rows stay in their home arrays, so
-  un-binning restores each one in place. A thin wrapper over RowGroup.
--->
+<!-- Binned rows stay in their home arrays, so un-binning restores each in place. -->
 <script lang="ts">
   import type { RowActions } from "./Row.svelte";
   import RowGroup from "./RowGroup.svelte";

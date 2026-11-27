@@ -1,4 +1,3 @@
-// Organiser link helpers (#151).
 import { describe, expect, it } from "vitest";
 
 import {

@@ -1,15 +1,5 @@
-<!--
-  Full-screen viewer for the scanned board, opened from a flagged review row's
-  warning so a match can be checked against the handwriting by eye.
-
-  Mobile-first dismissal: there's no Escape key on a phone and "tap the
-  backdrop but not the photo" is a fiddly target, so tapping ANYWHERE on the
-  overlay closes it. The ✕ is the obvious, thumb-sized and keyboard-reachable
-  way out (its click bubbles to the overlay); Escape is a desktop bonus.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
+<!-- A tap anywhere closes it, the photo included. The ✕ has no handler of its
+     own: its click bubbles to the overlay. -->
 <script lang="ts">
   import Icon from "./Icon.svelte";
 

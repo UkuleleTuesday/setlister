@@ -1,21 +1,13 @@
-"""OpenTelemetry → Google Cloud Trace wiring.
+"""OpenTelemetry to Cloud Trace, nesting stage spans under Cloud Run's request span.
 
-The API runs as a gen2 Cloud Function (Cloud Run underneath), which already
-emits a per-request trace. We nest custom spans for each pipeline stage under
-it so the Cloud Trace waterfall shows where the milliseconds go.
-
-Off-GCP (local dev, tests) this is a no-op: no exporter is installed, so the
-default OpenTelemetry tracer records spans cheaply and never phones home.
-Export is enabled only in the managed runtime (``K_SERVICE`` is set by Cloud
-Run/Functions) or when ``ENABLE_CLOUD_TRACE`` is truthy.
+Off GCP no exporter is installed, so spans are cheap and never leave the process.
 """
 
 import os
 
 from opentelemetry import trace
 
-# Module-level tracer — usable immediately. Until ``setup_tracing`` installs a
-# real provider, this resolves against the default (no-export) provider.
+# Usable before setup_tracing(): it resolves against the default no-export provider.
 tracer = trace.get_tracer("setlister")
 
 _provider = None
@@ -29,7 +21,6 @@ def _export_enabled() -> bool:
 
 
 def setup_tracing() -> None:
-    """Install the Cloud Trace exporter once per instance (idempotent)."""
     global _provider
     if _provider is not None or not _export_enabled():
         return
@@ -52,17 +43,12 @@ def setup_tracing() -> None:
         )
     )
     trace.set_tracer_provider(provider)
-    # Parse the incoming X-Cloud-Trace-Context header so our spans nest under
-    # Cloud Run's auto request span.
+    # Reads X-Cloud-Trace-Context so our spans nest under Cloud Run's.
     set_global_textmap(CloudTraceFormatPropagator())
     _provider = provider
 
 
 def flush() -> None:
-    """Force-flush pending spans.
-
-    Cloud Functions can freeze the instance between invocations, so a lazy
-    batch export may never ship — call this at the end of each request.
-    """
+    """Call per request: a frozen instance may never ship a lazy batch."""
     if _provider is not None:
         _provider.force_flush()

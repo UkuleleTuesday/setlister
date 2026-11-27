@@ -1,15 +1,3 @@
-<!--
-  The in-session share popover, anchored under the share button: what the
-  night is called, its visibility, the request link's mode and window, who's
-  here, and the session link.
-
-  It renders the session as sync last reported it (session.svelte.ts) and
-  hands every change back through the props; sharing.ts writes the metadata.
-  The panel only owns the optimistic-then-revert dance around those writes.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Presence from "./Presence.svelte";
@@ -26,23 +14,21 @@
     onclose,
     openers,
   }: {
-    /** Write `listed`; reject if it didn't land (the select reverts). */
+    /** Rejects if the write didn't land, and the select reverts. */
     onVisibility: (listed: boolean) => Promise<void>;
-    /** Write the request link's mode; reject if it didn't land. */
     onRequestsMode: (mode: RequestsSwitch) => Promise<void>;
-    /** Write the window overrides (null clears a side); reject if it didn't land. */
+    /** null clears a side. */
     onWindow: (window: { opensAt: Date | null; closesAt: Date | null }) => Promise<void>;
-    /** Offer the session link; true when it was copied rather than shared. */
+    /** True when the link was copied rather than shared. */
     onShareLink: () => Promise<boolean>;
-    /** Where to open: the top, or scrolled to the request link. */
     at: "top" | "requests";
     onclose: () => void;
-    /** Elements outside the panel that open it: taps on them don't close it. */
+    /** Taps on these don't count as outside. */
     openers: () => Element[];
   } = $props();
 
-  // The two selects are optimistic: they show the pick at once and revert if
-  // the write doesn't land. Each follows the stored value until then.
+  // Optimistic: the selects show a pick at once and revert if the write fails.
+  // Until then each follows the stored value.
   let visibility: "shared" | "unlisted" = $derived(session.meta.listed ? "shared" : "unlisted");
   let requestsMode: RequestsSwitch = $derived(modeOf(session.meta));
   let visibilityBusy = $state(false);
@@ -55,11 +41,8 @@
   let openTimeInput: HTMLInputElement | undefined = $state();
   let closeTimeInput: HTMLInputElement | undefined = $state();
 
-  // The window fields show the RESOLVED window (an override if set, else the
-  // smart default) so they never look empty, and "Use default" shows only on
-  // a side that has an override to clear. All hidden outside auto mode: a
-  // forced open/closed makes the window inert, and live-looking fields for a
-  // schedule that isn't in effect would lie.
+  // The fields show the resolved window, so they never look empty. Hidden
+  // outside auto, where the schedule isn't in effect.
   const auto = $derived(session.meta.requestsOpen === null);
   const resolved = $derived(session.link.window);
   const openTimeValue = $derived(resolved ? toDateTimeInputValue(resolved.opensAt) : "");
@@ -69,13 +52,10 @@
     return meta.requestsOpen === true ? "open" : meta.requestsOpen === false ? "closed" : "auto";
   }
 
-  // The window chip's shortcut: the request link's row, in view.
   $effect(() => {
     if (at === "requests") requestsField?.scrollIntoView({ block: "nearest" });
   });
 
-  // Shared / Unlisted. Unlisted removes the row from the club's list only;
-  // the link keeps working, which the note under the select says out loud.
   async function changeVisibility(next: "shared" | "unlisted") {
     visibility = next;
     const listed = next === "shared";
@@ -83,28 +63,26 @@
     try {
       await onVisibility(listed);
     } catch {
-      visibility = listed ? "unlisted" : "shared"; // the write didn't land
+      visibility = listed ? "unlisted" : "shared";
     } finally {
       visibilityBusy = false;
     }
   }
 
-  // Auto / Taking requests / View only. The previous value is remembered
-  // rather than inferred: a 3-way revert can't be read off "not this".
+  // Passed in: a 3-way revert can't be read off "not this".
   async function changeRequestsMode(previous: RequestsSwitch) {
     requestsBusy = true;
     try {
       await onRequestsMode(requestsMode);
     } catch {
-      requestsMode = previous; // the write didn't land
+      requestsMode = previous;
     } finally {
       requestsBusy = false;
     }
   }
 
-  // Each side writes independently: the other side's stored override goes
-  // out with it, so one save can't silently clear the other. An empty field
-  // (a cleared picker, or "Use default") clears that side's override.
+  // Sends the other side's stored override too, so one save can't clear it.
+  // An empty field clears this side.
   async function changeWindow(side: "open" | "close") {
     const opensAt =
       side === "open" ? fromDateTimeInputValue(openTimeInput?.value) : session.meta.requestsOpensAt;
@@ -115,8 +93,7 @@
     try {
       await onWindow({ opensAt, closesAt });
     } catch {
-      // Put back what's stored. The fields are one-way bound, so an unchanged
-      // value wouldn't reach the DOM on its own.
+      // One-way bound: an unchanged value wouldn't reach the DOM on its own.
       if (openTimeInput) openTimeInput.value = openTimeValue;
       if (closeTimeInput) closeTimeInput.value = closeTimeValue;
     }
@@ -135,8 +112,6 @@
     flashTimer = setTimeout(() => (flashing = false), 1500);
   }
 
-  // Forgiving dismissal: a tap anywhere outside closes it, except on the
-  // buttons that open it. Escape is a desktop bonus.
   function onDocumentClick(event: MouseEvent) {
     const target = event.target as Node | null;
     if (!target || panel?.contains(target)) return;
@@ -151,7 +126,6 @@
 
 <svelte:document onclick={onDocumentClick} onkeydown={onKeydown} />
 
-<!-- Anchored top-left under the share button, mirroring the settings panel. -->
 <div
   id="share-panel"
   class="share-panel"
@@ -159,9 +133,7 @@
   aria-label="Session sharing"
   bind:this={panel}
 >
-  <!-- Lead with what the night is called; the raw id is just the link slug,
-       demoted to a footnote so it can still be matched against the URL read
-       out across the table. -->
+  <!-- The id stays so it can be matched against a URL read out across the table. -->
   <p class="share-session-name" id="share-session-name">{session.label}</p>
   <p class="share-session-label note">
     Session id: <strong id="share-session-id">{session.id ?? ""}</strong>
@@ -169,10 +141,7 @@
   <p class="note">
     Anyone with the link can follow the night and add requests. Only organisers can run it.
   </p>
-  <!-- Whether this night appears in the club's session list. NOT a privacy
-       control: the link works either way (see firestore.rules), as the note
-       underneath says. "Shared" names the listed state, not a level of
-       access. -->
+  <!-- Not a privacy control: the link works either way (see firestore.rules). -->
   <label class="field">
     <span>Visibility</span>
     <select
@@ -186,11 +155,8 @@
     </select>
   </label>
   <p class="note">Anyone with the link can open it either way.</p>
-  <!-- Whether the request link below takes tunes (#86). Named after that
-       LINK, not "requests", with states that say what the link does:
-       "Requests: Closed" above a "Share request link" button would read as a
-       contradiction, or as the club having stopped taking requests while the
-       whiteboard carries on. -->
+  <!-- Named for the link: "Requests: Closed" would read as the club no longer
+       taking requests while the whiteboard carries on. -->
   <label class="field" bind:this={requestsField}>
     <span>Request link</span>
     <select
@@ -208,9 +174,7 @@
       <option value="closed">View only</option>
     </select>
   </label>
-  <!-- The request window: when Auto's own schedule opens/closes the link.
-       datetime-local rather than a bare time picker, so there's no
-       day-of-week to infer for a close time past midnight. -->
+  <!-- datetime-local, so a close time past midnight has no day to infer. -->
   <label class="field" id="share-requests-open-time-field" hidden={!auto}>
     <span>Requests open</span>
     <input
@@ -250,8 +214,6 @@
     Use default
   </button>
   <Presence roster={session.id ? session.roster : []} />
-  <!-- What the link does for the room (#86) right
-       now: see requestNote in request-window.ts. -->
   <p class="note" id="share-request-note">
     {requestNote(session.meta.requestsOpen, session.link)}
   </p>

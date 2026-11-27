@@ -1,14 +1,10 @@
-<!--
-  A lucide icon as inline SVG (<svg class="icon">), drawn from the icon's node
-  data in icons.ts. Decorative: whatever it labels carries the accessible name.
--->
+<!-- Decorative: whatever it labels carries the accessible name. -->
 <script lang="ts">
   import { ICONS, type IconName } from "./icons.js";
 
   let { name, extraClass = "" }: { name: IconName; extraClass?: string } = $props();
 </script>
 
-<!-- lucide's default attributes: a 24px grid, stroked in the text colour. -->
 <svg
   xmlns="http://www.w3.org/2000/svg"
   width="24"

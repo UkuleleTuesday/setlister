@@ -1,12 +1,4 @@
-<!--
-  Starting a night. The sheet owns its fields, the one-planned-night gate and
-  the Start button's states; creating the session (sync.createSession, the
-  app's lists, navigation) is routing.ts's, behind `onStart`, so this
-  component never touches Firestore writes.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
+<!-- routing.ts creates the session behind `onStart`: this sheet never writes to Firestore. -->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Sheet from "./Sheet.svelte";
@@ -24,7 +16,6 @@
     toDateInputValue,
   } from "./session-index.js";
 
-  /** What Start hands to `onStart`. */
   export interface NewSessionChoice {
     /** null means "now": the server stamps the moment of creation. */
     createdAt: Date | null;
@@ -41,11 +32,8 @@
   // earlier so a bad pick fails here, not as a rules error after Start.
   const MAX_AHEAD_DAYS = 59;
 
-  // Each opening mounts the sheet afresh, so these are its opening values.
-  // Start compares the picker against the date it OPENED on, not a
-  // recomputed "today": an untouched picker means "now" (server stamp), and a
-  // fresh today would turn a sheet left open across midnight into an
-  // explicit yesterday-evening pick.
+  // Start compares against the date the sheet opened on: a recomputed today
+  // would turn a sheet left open past midnight into an explicit yesterday pick.
   const dateDefault = toDateInputValue(new Date());
   const dateMax = toDateInputValue(new Date(Date.now() + MAX_AHEAD_DAYS * 86_400_000));
   let date = $state(dateDefault);
@@ -60,11 +48,8 @@
       ? catalogue.editions.map((e) => ({ id: e.id, label: editionLabel(e) }))
       : [{ id: "current", label: "Current" }],
   );
-  // The soonest upcoming session from the last history load, or null. One
-  // planned night at a time: while this is set, starting another SHARED
-  // session is blocked, and Unlisted is the escape hatch. Advisory only (it
-  // can be stale, or empty after a failed load): start() re-checks against
-  // Firestore, and a night it finds overrides this.
+  // One planned shared night at a time. Advisory (can be stale or empty):
+  // start() re-checks Firestore and overrides it.
   let planned: SessionEntry | null = $derived(
     partitionSessions(history.entries).upcoming[0] ?? null,
   );
@@ -72,9 +57,7 @@
   let error = $state("");
 
   const blocked = $derived(Boolean(planned) && visibility === "shared");
-  // Read-only preview of the default request window (see defaultWindowLabel).
-  // Same "untouched picker means now" rule as start(), so the preview never
-  // disagrees with what Start is about to send.
+  // Same untouched-picker rule as start(), so the preview matches what it sends.
   const windowNote = $derived(
     defaultWindowLabel(
       (date && date !== dateDefault ? fromDateInputValue(date) : null) ?? new Date(),
@@ -83,18 +66,12 @@
 
   async function start() {
     if (blocked || busy) return;
-    // An untouched (or cleared) picker means "now": no createdAt is sent and
-    // the server stamps the moment of creation. Only a different day (a
-    // missed night, or a future one) becomes an explicit date, stamped at
-    // that day's evening.
     const createdAt = date && date !== dateDefault ? fromDateInputValue(date) : null;
     const listed = visibility === "shared";
     error = "";
     busy = true;
     try {
-      // The gate above is only advisory, so a shared create re-asks Firestore
-      // here. Fail closed: an unanswered question is not a "no". Unlisted is
-      // available either way.
+      // Fail closed: an unanswered check is not a "no".
       if (listed) {
         let found: SessionEntry | undefined;
         try {
@@ -111,17 +88,13 @@
       }
       await onStart({ createdAt, listed, editionId: editionId || "current" });
     } catch (err) {
-      // Leave the sheet open with the picked date intact, so Start is one tap
-      // away once they're back on wifi (there's no local-only mode to fall
-      // back to). A "planned session found" refusal leaves Start disabled,
-      // with the notice explaining why.
+      // Stay open with the date intact. A found planned night keeps Start disabled.
       error = `Couldn’t start a session: ${(err as Error).message}`;
       busy = false;
     }
   }
 
-  // Desktop nicety; native mobile date pickers never surface an Enter key.
-  // Enter would sail past a disabled Start, so it honours the same gate.
+  // Desktop only. start() re-checks the gate a disabled button enforces.
   function onDateKeydown(event: KeyboardEvent) {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -130,12 +103,9 @@
   }
 </script>
 
-<!-- No autofocus: opening a date picker nobody needs to touch would put the
-     extra tap back. Today is usually the answer: tap Start and go. -->
+<!-- No autofocus: today is usually right, so the date picker stays shut. -->
 <Sheet id="new-session-sheet" labelledby="new-session-title" {onclose}>
   <h2 id="new-session-title">New session</h2>
-  <!-- Sessions have no names: the date IS the identity, rendered live in
-       each viewer's locale (see start() for what gets stored). -->
   <label class="field">
     <span>Date</span>
     <input
@@ -146,9 +116,8 @@
       onkeydown={onDateKeydown}
     />
   </label>
-  <!-- Editable overrides live in the share panel, once the session exists. -->
+  <!-- Read-only: the share panel edits the window once the session exists. -->
   <p class="note" id="new-session-window-note">{windowNote}</p>
-  <!-- The night's songbook: one book per session is how the club plays. -->
   <label class="field">
     <span>Songbook</span>
     <select id="new-session-edition" bind:value={editionId}>
@@ -165,15 +134,12 @@
     </select>
   </label>
   <p class="note">Anyone with the link can open it either way.</p>
-  <!-- One planned night at a time: while a session is coming up, Start is
-       disabled for Shared and this note says why. -->
   <div id="new-session-notice" class="note planned-notice" hidden={!blocked}>
     {planned ? plannedSessionMessage(planned) : ""}
   </div>
   <div id="new-session-error" class="error" hidden={!error}>{error}</div>
   <div class="actions">
-    <!-- Creating loads the Firestore chunk lazily, so the first tap can take
-         a beat: hence the spinner. -->
+    <!-- The first create lazy-loads Firestore, hence the spinner. -->
     <button id="new-session-start" disabled={blocked || busy} onclick={start}>
       {#if busy}<Icon name="loader" extraClass="spin" />{:else}Start{/if}
     </button>

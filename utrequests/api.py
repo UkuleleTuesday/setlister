@@ -1,10 +1,7 @@
-"""HTTP request handling for the Cloud Function.
+"""HTTP handling for the Cloud Function.
 
-``handle_request`` is framework-light: it takes a Flask request (what
-functions-framework hands us) and returns Flask-style ``(body, status,
-headers)`` tuples, so tests can drive it through a plain Flask app without
-booting functions-framework itself. Error bodies keep the ``{"detail": ...}``
-shape the UI expects.
+Returns Flask ``(body, status, headers)`` tuples so tests can drive it through
+plain Flask. Error bodies are ``{"detail": ...}``, as the UI expects.
 """
 
 import json
@@ -18,9 +15,8 @@ from .vision import VisionConfigError, VisionError
 
 _ALLOWED_METHODS = "GET, POST, OPTIONS"
 
-# The endpoint is public, so the tuning knobs are bounded before use. Exact
-# names, not a prefix: "gemini-2.5-flash" prefixes the image tier too, which is
-# priced per generated image.
+# The endpoint is public, so knobs are bounded. Exact model names, not a
+# prefix: "gemini-2.5-flash" also prefixes the per-image-priced image tier.
 _ALLOWED_MODELS = frozenset({"gemini-2.5-flash", "gemini-2.5-flash-lite"})
 _THINKING_BUDGET_MAX = 24576
 _IMAGE_EDGE_MIN, _IMAGE_EDGE_MAX = 256, 4096
@@ -43,11 +39,7 @@ def _parse_bool(raw: str | None) -> bool | None:
 
 
 def _parse_knobs(request) -> dict:
-    """Read the optional tuning knobs from the request form, bounded and safe.
-
-    Absent or invalid values are dropped so ``parse_photo`` falls back to the
-    configured defaults.
-    """
+    """Absent or invalid knobs are dropped, so ``parse_photo`` uses its defaults."""
     knobs: dict = {}
     model = request.form.get("model") or ""
     if model in _ALLOWED_MODELS:
@@ -67,11 +59,9 @@ def _parse_knobs(request) -> dict:
 
 
 def _cors_headers(request) -> dict[str, str]:
-    """CORS headers for this request; empty allow-origin when not allowed.
+    """Echo an allowlisted Origin, never ``*``.
 
-    The origin is echoed back (never ``*``) and only when it is in the
-    configured allowlist. ``Vary: Origin`` keeps caches from serving one
-    origin's response to another.
+    ``Vary: Origin`` stops caches serving one origin's response to another.
     """
     headers = {"Vary": "Origin"}
     origin = request.headers.get("Origin")
@@ -142,13 +132,7 @@ def _parse(request):
 
 
 def _catalogue(request):
-    """Return the song catalogue for an edition, independent of any photo.
-
-    Backs the UI's manual "add a song" search, which needs the catalogue before
-    (or without) a scan. The payload mirrors the ``edition`` /
-    ``catalogue_generated_at`` / ``catalogue`` subset of ``ParseResponse`` so the
-    frontend populates its state the same way it does after a parse.
-    """
+    """For adding by name without a scan; mirrors ParseResponse's catalogue fields."""
     edition = request.args.get("edition") or "current"
     try:
         cat = fetch_catalogue(edition)
@@ -185,7 +169,6 @@ def _route(request):
 
 
 def handle_request(request):
-    """Dispatch a request to the matching route, flushing any traces after."""
     try:
         return _route(request)
     finally:

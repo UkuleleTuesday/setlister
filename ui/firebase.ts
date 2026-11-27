@@ -1,10 +1,5 @@
-// Lazy Firebase loader. Dynamic imports, so Vite splits Firestore and Auth
-// into their own chunks, fetched on first call; only organiser phones load
-// Auth.
-//
-// Usage:
-//   const { db, fx } = await getFirestore();
-//   const ref = fx.doc(db, "sessions", sessionId);
+// Dynamic imports, so Vite splits Firestore and Auth into lazy chunks (only
+// organiser phones load Auth). Callers use `fx`, never importing firebase.
 
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
@@ -16,7 +11,7 @@ const onLocalhost = () => ["localhost", "127.0.0.1"].includes(location.hostname)
 
 let _app: Promise<FirebaseApp> | null = null;
 
-// One app for both SDKs; reuses an existing one (HMR).
+// Reuses an existing app across HMR.
 function getApp(): Promise<FirebaseApp> {
   _app ??= import("firebase/app").then(({ initializeApp, getApps }) =>
     getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig),
@@ -24,38 +19,19 @@ function getApp(): Promise<FirebaseApp> {
   return _app;
 }
 
-/** The Firestore helpers callers use instead of importing firebase directly. */
 export type Fx = Awaited<ReturnType<typeof _init>>["fx"];
 
-/** What getFirestore() resolves to. */
 export interface FirestoreHandle {
   db: Firestore;
   fx: Fx;
 }
 
-// Memoize the initialisation promise so repeated calls share a single load.
 let _promise: Promise<FirestoreHandle> | null = null;
 
-/**
- * Returns `{ db, fx }` where:
- *   - `db`  is the Firestore database instance
- *   - `fx`  is a namespace of Firestore helper functions so callers never
- *           need to import firebase directly:
- *           { doc, collection, getDoc, getDocs, query, orderBy, limit,
- *             onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch,
- *             runTransaction, serverTimestamp, deleteField, arrayUnion, Timestamp }
- *
- * On the first call the Firebase SDK chunks are fetched; subsequent calls
- * return the memoized result instantly.
- *
- * Mirrors the localhost detection of `API_BASE` in api.ts for the
- * emulator: when running on localhost / 127.0.0.1 the Firestore emulator on
- * port 8081 is used instead of production (8080 is the Python API).
- */
 export async function getFirestore(): Promise<FirestoreHandle> {
   if (_promise) return _promise;
   _promise = _init().catch((err: Error) => {
-    // Reset so a subsequent call can retry after a transient failure.
+    // Reset so a later call can retry after a transient failure.
     _promise = null;
     throw new Error(`Failed to load Firebase: ${err.message}`);
   });
@@ -88,7 +64,7 @@ async function _init() {
 
   const db = _getFirestore(app);
 
-  // The local Firestore emulator when developing (see getFirestore).
+  // 8081: the Python API has 8080.
   if (onLocalhost()) {
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
   }

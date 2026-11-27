@@ -90,8 +90,7 @@ def test_unmatched_gibberish_still_offers_alternatives(sample_catalogue):
 
 
 def test_song_not_in_edition_with_stale_page(sample_catalogue):
-    # "I Kissed a Girl" is not in the current edition; its old page points at
-    # some other song. Whatever the outcome, it must not be auto-confirmed.
+    # Not in this edition, and its old page is now another song.
     row = BoardRow(raw_title="I KISSED A GIRL", raw_page=56)
     matched = match_row(row, sample_catalogue)
     assert matched.status != MatchStatus.CONFIRMED
@@ -136,11 +135,9 @@ def test_sample_photo_extraction_against_current_catalogue(sample_catalogue):
 
     assert len(rows) == 7
 
-    # exact page match survives the edition change
     murder = by_title["MURDER ON THE DANCE FLOOR"]
     assert murder.status == MatchStatus.CONFIRMED
 
-    # drifted pages match the right song but ask for review
     for title, expected in [
         ("Vampire", "vampire - Olivia Rodrigo"),
         ("Sara perchè ti amo", "Sarà Perché Ti Amo - Ricchi E Poveri"),
@@ -152,7 +149,6 @@ def test_sample_photo_extraction_against_current_catalogue(sample_catalogue):
         assert row.match is not None and row.match.display == expected, title
         assert row.status == MatchStatus.NEEDS_REVIEW, title
 
-    # song no longer in the songbook must not be silently confirmed
     assert by_title["I KISSED A GIRL"].status != MatchStatus.CONFIRMED
 
 

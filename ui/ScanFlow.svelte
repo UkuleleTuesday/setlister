@@ -1,24 +1,6 @@
 <!--
-  The whiteboard scan, start to finish: the photo and its scanning overlay
-  (#add), then the review sheet for the rows that need a look (#review).
-
-  The flow is ONE explicit phase rather than a handful of flags, so an
-  impossible mix (reviewing while scanning, an overlay over nothing) can't be
-  represented:
-    idle      nothing in flight; maybe a result line or an error showing
-    scanning  the photo is up and the overlay sweeps; Cancel or the timeout
-              aborts
-    reviewing the flagged rows wait in #review; #add steps aside
-    failed    the scan errored: the photo stays up beside the error
-  The error box doubles as the session view's error line (notices.session),
-  so it lives outside the phase.
-
-  What a scan DOES to the night (the API call, the catalogue it brings back,
-  the rows that go straight in) is the `scan` prop (adds.ts); what review
-  keeps goes to `onConfirm`. This component is the screens and their states.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
+  One phase rather than flags, so impossible mixes can't be represented. The
+  error box is the session view's (notices.session), so it sits outside it.
 -->
 <script lang="ts">
   import { onMount, tick } from "svelte";
@@ -55,19 +37,12 @@
     scan: (file: File, signal: AbortSignal) => Promise<ScanOutcome>;
     /** The rows review kept, as plain objects. */
     onConfirm: (kept: Row[]) => void;
-    /** A flagged row's warning was tapped: show the photo full-screen. */
     onShowPhoto: (imageUrl: string) => void;
-    /** Review opened or closed (the session view's fresh state depends on it). */
     onReviewChange: (reviewing: boolean) => void;
   } = $props();
 
-  // A hung request would sweep the beam forever with no way out but a reload
-  // (#44). Two escapes: this ceiling (generous, because a cold Cloud Function
-  // plus a thinking model legitimately takes tens of seconds) and the
-  // overlay's Cancel.
+  // Generous: a cold Cloud Function plus a thinking model takes tens of seconds.
   const SCAN_TIMEOUT_MS = 90_000;
-  // Long waits feel shorter with signs of life. The copy advances rather than
-  // cycling, and stops on the last message.
   const SCAN_MESSAGES = [
     "Reading the board…",
     "Deciphering the handwriting…",
@@ -75,12 +50,11 @@
     "Nearly there…",
   ];
   const STATUS_STEP_MS = 4000;
-  // Post-scan feedback, timed like notices.requests (notices.svelte.ts).
+  // Matches notices.requests.
   const RESULT_MS = 8000;
 
   let phase = $state<Phase>({ kind: "idle" });
-  // The flagged rows under review; deep state, since remove/restore and
-  // corrections edit them in place.
+  // Deep state: remove/restore and corrections edit rows in place.
   let entries: Row[] = $state([]);
   let result = $state("");
   let statusIndex = $state(0);
@@ -98,20 +72,16 @@
   const imageUrl = $derived(phase.kind === "idle" ? null : phase.imageUrl);
   const kept = $derived(entries.filter((e) => !e.removed).length);
 
-  /** Open the camera / photo picker (the "Snap the board" button). */
   export function pickPhoto() {
     photoInput?.click();
   }
 
-  // Leaving the session unmounts this, dropping a review in progress (its
-  // rows belong to the night that was showing): release the photo, and stop
-  // the session view counting songs as coming.
+  // Leaving the session drops a review in progress: its rows belong to that night.
   onMount(() => () => {
     if (phase.kind !== "idle") URL.revokeObjectURL(phase.imageUrl);
     if (phase.kind === "reviewing") onReviewChange(false);
   });
 
-  /** Drop the review (and its photo), back to idle. */
   function closeReview() {
     if (phase.kind !== "reviewing") return;
     // The photo is only reachable from the review sheet: release it with it.
@@ -136,9 +106,7 @@
   async function onPhoto() {
     const file = photoInput?.files?.[0];
     if (!file) return;
-    // A fresh scan replaces a failed scan's photo: release its object URL
-    // before minting a new one. A reviewing photo isn't released here: a
-    // flagged row can reopen it to eyeball a match against the handwriting.
+    // Not a reviewing photo: a flagged row can still reopen that one.
     if (phase.kind === "failed") URL.revokeObjectURL(phase.imageUrl);
     const url = URL.createObjectURL(file);
     phase = { kind: "scanning", imageUrl: url };
@@ -148,7 +116,7 @@
     statusTimer = setInterval(() => {
       statusIndex = Math.min(statusIndex + 1, SCAN_MESSAGES.length - 1);
     }, STATUS_STEP_MS);
-    // Bring the photo (and its sweep) into view: it can sit below the lists.
+    // The photo can sit below the lists.
     await tick();
     previewWrap?.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -169,17 +137,14 @@
         await tick();
         reviewSection?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
-        // Nothing to check: no review sheet, just say what happened. The
-        // photo has no reachable viewer without a review, so release it.
+        // Without a review the photo has no viewer.
         URL.revokeObjectURL(url);
         phase = { kind: "idle" };
         flashResult(scanResultMessage(outcome.autoAdded, outcome.autoSkipped));
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") {
-        // Only the timeout is a failure worth an error box: a deliberate
-        // cancel just puts the camera back, with a line saying nothing was
-        // read.
+        // A deliberate cancel isn't worth an error box.
         URL.revokeObjectURL(url);
         phase = { kind: "idle" };
         if (endedBy === "timeout") {
@@ -188,9 +153,8 @@
           flashResult("Scan cancelled. Nothing was added.");
         }
       } else {
-        // A fetch that never reached the server rejects with a TypeError and
-        // an unhelpful message ("Failed to fetch"): word it for humans.
-        // Server errors carry a user-facing `detail` and pass through.
+        // A fetch that never reached the server is a TypeError ("Failed to
+        // fetch"). Server errors carry a user-facing message.
         phase = { kind: "failed", imageUrl: url };
         notices.session.show(
           err instanceof TypeError
@@ -214,9 +178,7 @@
     onConfirm(keep);
   }
 
-  // Cancelling throws away the flagged rows (and the wait for the scan): one
-  // stray tap shouldn't do that silently. The clear matches are already safe
-  // in Requests (#80), and the prompt says so.
+  // One stray tap shouldn't silently throw away the flagged rows.
   function cancelReview() {
     if (phase.kind !== "reviewing") return;
     const message = phase.autoAdded
@@ -243,10 +205,6 @@
     bind:this={photoInput}
     onchange={onPhoto}
   />
-  <!-- Post-scan feedback for the no-review path: when every row matched
-       confidently they go straight into Requests (#80) and this line is the
-       only acknowledgement, duplicates skipped included (#52). aria-live so
-       the news reaches screen readers without moving focus. -->
   <p id="scan-result" class="flash-note" aria-live="polite" hidden={!result}>{result}</p>
 
   <div
@@ -256,10 +214,8 @@
     bind:this={previewWrap}
   >
     <img id="preview" alt="" src={imageUrl ?? undefined} />
-    <!-- The overlay itself is inert (pointer-events: none) so the sweep never
-         eats a tap; only Cancel opts back in. It can't be aria-hidden as a
-         whole (that would bury a focusable control), so the decorative sweep
-         is hidden piece by piece. -->
+    <!-- Not aria-hidden as a whole: that would bury Cancel. The decorative
+         pieces are hidden one by one. -->
     <div id="scan-overlay" class="scan-overlay" hidden={phase.kind !== "scanning"}>
       <div class="scan-beam" aria-hidden="true"></div>
       <div class="scan-corner tl" aria-hidden="true"></div>
@@ -272,7 +228,6 @@
             {SCAN_MESSAGES[statusIndex]}
           </span>
         </div>
-        <!-- The way out of a hung scan without reloading the page (#44). -->
         <button
           id="scan-cancel"
           class="scan-cancel"

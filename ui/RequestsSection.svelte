@@ -1,15 +1,3 @@
-<!--
-  "Requests": the incoming pool. Everything added by name or snapped off the
-  board lands here first, then gets promoted up into the set. Most wanted
-  first (#83), for display only (see sortForDisplay in votes.ts).
-
-  It renders the night (night.svelte.ts) and hands every change back through
-  `actions`. The camera and songbook buttons open the scan flow and the
-  songbook, which live elsewhere.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
@@ -25,18 +13,14 @@
     onSnap,
   }: {
     actions: RowActions;
-    /** "Add a tune": open the songbook. */
     onAddTune: () => void;
-    /** "Snap the board": open the camera. */
     onSnap: () => void;
   } = $props();
 
   const visible = $derived(night.requests.filter((e) => !e.binned));
   const sorted = $derived(sortForDisplay(visible, night.votes));
 
-  // The empty note mentions snapping the board, but the room has no camera:
-  // there, adding by name is the only door, and once requests are closed
-  // (#86) there's no door at all, so pointing at one would be a lie.
+  // The room has no camera, and a closed link has no way in to point at.
   const emptyText = $derived(
     lists.room
       ? lists.roomOpen
@@ -52,8 +36,7 @@
       · {visible.length}
     </span>
   </h2>
-  <!-- Players vote, organisers promote. A closed room can't vote, so it gets
-       no hint about thumbs. -->
+  <!-- A closed room can't vote, so no hint about thumbs. -->
   <p
     id="requests-hint"
     class="list-hint"
@@ -63,38 +46,28 @@
       ? "Thumbs up the ones you want to hear."
       : "Most wanted first. Move one up when it's time."}
   </p>
-  <!-- Full app only: both ways in, side by side at the TOP of the pool.
-       Mid-night someone shouts a request and it has to go in without
-       scrolling past twenty cards; the board gets snapped from the same spot.
-       The request view has its own add button up in .room-top. -->
+  <!-- At the top of the pool so a shouted request goes in without scrolling. -->
   <div id="manual-add" class="manual-add">
     <button type="button" class="songbook-trigger" onclick={onAddTune}>
       <Icon name="add" /><span class="btn-label">Add a tune</span>
     </button>
-    <!-- A real button (not a label) so it's reachable and activatable with a
-         keyboard or switch access; it opens the scan flow's file input. -->
+    <!-- A button, not a <label> for the file input, so keyboards and switch
+         access can use it. -->
     <button id="camera-button" class="camera-button" type="button" onclick={onSnap}>
       <Icon name="camera" /><span class="btn-label">Snap the board</span>
     </button>
   </div>
-  <!-- Takes the add button's place once the request link closes (#86). Room
-       mode only, and shown purely by the mode CSS (no hidden attribute) so a
-       room device that loads a closed session never flashes a control it
-       can't use. The pool below remains: the room gets to watch. -->
+  <!-- Shown by mode CSS only, not `hidden`, so a room device loading a closed
+       session never flashes a control it can't use. -->
   <p id="requests-closed-note" class="requests-closed-note note">
     Requests are closed here for tonight. Pop your tune on the whiteboard of wishes instead.
   </p>
-  <!-- 30 minutes before the window opens, room devices see this instead of
-       the closed note above: same mode-CSS swap, one extra state. -->
   <p id="requests-opening-soon-note" class="requests-opening-soon-note note">
     {lists.openingSoon}
   </p>
-  <!-- Why a quick add didn't add a row, or that it did. aria-live so it
-       reaches screen readers without moving focus. -->
   <p id="add-feedback" class="flash-note" aria-live="polite" hidden={!notices.requests.text}>
     {notices.requests.text}
   </p>
-  <!-- Room mode gets read-only rows apart from the want button. -->
   <ul id="requests-rows">
     {#each sorted as row (row.uid)}
       <RowCard

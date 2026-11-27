@@ -1,5 +1,4 @@
-// Organiser registration (#151): sign in anonymously, write
-// `organisers/{uid}` with the link's key. Room phones never load Auth.
+// Room phones never load Auth.
 
 import { getAuth, getFirestore } from "./firebase.js";
 import { night } from "./night.svelte.js";

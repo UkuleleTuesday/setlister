@@ -1,11 +1,7 @@
-// The whiteboard scan, minus the UI: the /api/parse call, and what a scan's
-// rows mean for the night. ScanFlow.svelte owns the screens; adds.ts owns the
-// lists the rows land in.
-
 import { findDuplicate, rowKey } from "./dupes.js";
 import type { CatalogueEntry, Edition, Row } from "./types.js";
 
-/** What /api/parse answers (utrequests/models.py ParseResponse). */
+/** Mirrors utrequests/models.py ParseResponse. */
 export interface ParseResponse {
   edition: Edition;
   catalogue_generated_at: string;
@@ -13,7 +9,7 @@ export interface ParseResponse {
   catalogue: CatalogueEntry[];
 }
 
-/** The settings-panel knobs a scan sends; the API clamps or ignores them. */
+/** The API clamps or ignores out-of-range values. */
 export interface ParseOptions {
   edition: string;
   model: string;
@@ -22,11 +18,6 @@ export interface ParseOptions {
   maxImageEdge: number;
 }
 
-/**
- * POST the photo to /api/parse. Server errors carry a user-facing `detail`,
- * which becomes the thrown message; an abort or a network failure rejects as
- * fetch does (AbortError / TypeError), for the caller to word.
- */
 export async function requestParse(
   apiBase: string,
   image: Blob,
@@ -39,9 +30,7 @@ export async function requestParse(
   if (options.model) form.append("model", options.model);
   form.append("thinking_budget", options.disableThinking ? "0" : "1024");
   form.append("catalogue_in_prompt", options.sendCatalogue ? "true" : "false");
-  // Sent anyway: a browser that couldn't downscale still gets the size it
-  // asked for, and when the shrink worked this is a no-op on a photo that
-  // already fits.
+  // Sent even after a downscale, for browsers that couldn't shrink the photo.
   form.append("max_image_edge", String(options.maxImageEdge));
   const res = await fetch(`${apiBase}/api/parse`, { method: "POST", body: form, signal });
   if (!res.ok) {
@@ -51,27 +40,16 @@ export async function requestParse(
   return res.json();
 }
 
-/** A scan's rows, sorted by what happens to them. */
 export interface ScanPlan {
-  /** Confident, new to the night: straight into Requests (#80). */
   fresh: Row[];
-  /** Everything else, for the review sheet; duplicates arrive pre-removed. */
   flagged: Row[];
-  /** Confident rows dropped as already listed, or repeated on the board. */
   skipped: number;
 }
 
 /**
- * Confident matches skip the queue (#80): on a mostly-legible board,
- * reviewing rows that need no review would be the bulk of the tap work. Only
- * the flagged rows (needs_review / conflict / unmatched) go to review;
- * crossed-out-but-confirmed rows auto-add with their flag.
- *
- * Duplicate gate (#52): a re-scan must not double the night, so confident
- * rows already on the lists, or earlier in this same batch (boards repeat
- * songs too), are skipped. Flagged rows that duplicate the lists, the fresh
- * rows included, arrive pre-removed: the review sheet's remove/restore IS
- * the "offer to skip", and restoring opts a copy back in deliberately.
+ * Confident rows skip review (#80): on a legible board, reviewing them would
+ * be most of the tapping. Flagged duplicates arrive pre-removed rather than
+ * dropped, so restoring one in review opts a copy back in (#52).
  */
 export function planScan(entries: Row[], upNext: Row[], requests: Row[]): ScanPlan {
   const seen = new Set<string>();
@@ -95,7 +73,6 @@ export function planScan(entries: Row[], upNext: Row[], requests: Row[]): ScanPl
   return { fresh, flagged, skipped };
 }
 
-/** What a scan with nothing to review says it did. */
 export function scanResultMessage(added: number, skipped: number): string {
   if (added) {
     return `Added ${added} from the board${skipped ? ` · skipped ${skipped} already listed` : ""}`;
@@ -104,11 +81,7 @@ export function scanResultMessage(added: number, skipped: number): string {
   return "Couldn't read any songs off that photo. Try a closer, straighter shot.";
 }
 
-/**
- * The review sheet's opening line. Orientation first: how many rows skipped
- * the queue (and how many were already listed), so "the sheet shows 3 but
- * the board had 12" reads as the feature it is, not a bug.
- */
+/** Says what skipped review, so "the sheet shows 3, the board had 12" reads as intended. */
 export function reviewNote(autoAdded: number, autoSkipped: number): string {
   if (autoAdded) {
     const dupes = autoSkipped ? ` (${autoSkipped} already listed)` : "";

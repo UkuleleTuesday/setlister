@@ -1,5 +1,3 @@
-// The page chrome (App.svelte): the header's title and share button, the tab
-// title, and the edition footnote.
 import { expect, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
 
@@ -13,7 +11,7 @@ test("the header names the night, and home takes the brand back", async ({ phone
   await expect(page.locator("#edition-note")).toBeHidden();
 
   const id = await startSession(page);
-  // The night's date ("Tonight", or a weekday and date late at night).
+  // Not always "Tonight": after midnight it's a weekday and date.
   await expect(title).not.toHaveText("🎶 Setlister");
   const label = (await title.textContent())!;
   await expect(page).toHaveTitle(`${label} · Setlister`);

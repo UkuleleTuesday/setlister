@@ -1,4 +1,3 @@
-
 import type { RequestAnswer } from "./RoomRequestSheet.svelte";
 import type { ScanOutcome } from "./ScanFlow.svelte";
 import { API_BASE } from "./api.js";
@@ -17,6 +16,7 @@ import {
   writeLastRoomAdd,
 } from "./room-limits.js";
 import { persist } from "./save.js";
+import { sendRoomWrite } from "./room-writes.js";
 import { planScan, requestParse } from "./scan.js";
 import { linkNow } from "./session.svelte.js";
 import { settings } from "./settings.svelte.js";
@@ -29,15 +29,6 @@ function newUid(): string {
   return crypto.randomUUID
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-// The room's writes, through the only shapes the rules allow it (sync.ts).
-export function sendRoomWrite(write: Promise<void>, failure: string) {
-  write.catch((err) => {
-    console.warn(failure, err);
-    notices.requests.show(failure);
-    sync.refresh().catch(() => {});
-  });
 }
 
 export function pickSong(entry: CatalogueEntry) {

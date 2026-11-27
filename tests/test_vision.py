@@ -10,8 +10,6 @@ from .conftest import load_fixture
 
 
 class FakeClient:
-    """Mimics genai.Client for tests: returns a canned JSON response."""
-
     def __init__(self, text):
         self.calls = []
         outer = self
@@ -64,7 +62,6 @@ def test_extract_rows_passes_thinking_budget(sample_catalogue, fake_client):
 def test_extract_rows_defaults_thinking_budget_from_settings(
     sample_catalogue, fake_client
 ):
-    # config default is 0 (thinking disabled).
     extract_rows(b"img", "image/jpeg", sample_catalogue, client=fake_client)
     assert fake_client.calls[0]["config"].thinking_config.thinking_budget == 0
 

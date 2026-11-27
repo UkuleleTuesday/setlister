@@ -3,8 +3,7 @@ import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-// Rest-sibling destructuring is how we drop fields from a row:
-// `({ uid, source, ...rest }) => rest`.
+// Rest-sibling destructuring is how we drop fields: `({ uid, ...rest }) => rest`.
 const unusedVars = ["error", { ignoreRestSiblings: true }];
 
 export default tseslint.config(
@@ -13,14 +12,12 @@ export default tseslint.config(
   tseslint.configs.recommended,
   svelte.configs.recommended,
   {
-    // TypeScript inside <script lang="ts">, and in runes modules (.svelte.ts).
     files: ["**/*.svelte", "**/*.svelte.ts"],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
   {
-    // typescript-eslint's version covers .js and .ts alike. The base rule is
-    // off everywhere: it misreads TS (flags parameter names in function
-    // types) and would report every JS hit twice.
+    // The base rule misreads TS (flags parameter names in function types) and
+    // would double-report JS, which typescript-eslint's version covers too.
     rules: {
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": unusedVars,
@@ -31,7 +28,6 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    // Config files run under Node, not in the page.
     files: ["eslint.config.js", "vite.config.js", "playwright.config.ts"],
     languageOptions: { globals: globals.node },
   },

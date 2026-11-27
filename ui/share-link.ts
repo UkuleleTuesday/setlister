@@ -1,12 +1,9 @@
-// Handing a link or the setlist to the phone: the native share sheet where
-// there is one (the primary target), else the clipboard.
-
 export async function copyToClipboard(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
-    // The Clipboard API needs a secure context and permission; fall back to
-    // the legacy execCommand path so copy still works on older mobile browsers.
+    // The Clipboard API needs a secure context and permission; older mobile
+    // browsers only have execCommand.
     const textarea = document.createElement("textarea");
     textarea.value = text;
     document.body.appendChild(textarea);
@@ -16,8 +13,7 @@ export async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-// Returns whether it was copied, so the button that was tapped can flash a
-// confirmation (SharePanel.svelte does). A share sheet confirms itself.
+// True when copied, so the button can flash a confirmation; a share sheet confirms itself.
 export async function offerLink(url: string, title: string): Promise<boolean> {
   if (navigator.share) {
     try {

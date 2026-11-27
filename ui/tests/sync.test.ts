@@ -1,9 +1,3 @@
-// The two pure halves of the sync engine.
-//
-// `deserialize` is the safety net that stops a concurrent move+edit merge
-// losing songs, and `diff` decides what actually gets written — a bug in either
-// costs a club its setlist, quietly. Neither needs Firestore.
-
 import { describe, expect, it } from "vitest";
 import {
   deserialize,
@@ -19,7 +13,6 @@ import { row as baseRow } from "./fixtures.js";
 
 const row = (uid: string, title: string) => baseRow({ uid, raw_title: title });
 
-// diff() only calls fx.deleteField(); a sentinel is enough to assert on.
 const DELETED = Symbol("deleteField");
 const fx = { deleteField: () => DELETED };
 
@@ -70,7 +63,6 @@ describe("serialize / deserialize", () => {
     expect(deserialize({ rows: "nope", upNextOrder: 3, votes: "nope" })).toEqual(empty);
   });
 
-  // #157: a bad row costs that row, not the night.
   it("skips rows that aren't objects filed under their own uid", () => {
     const back = deserialize({
       rows: {
@@ -95,7 +87,6 @@ describe("serialize / deserialize", () => {
   });
 
   it("deletes skipped rows and a bad edition on the next push", () => {
-    // diff()'s base is the doc as stored, so skipped entries go out as deletes.
     const doc = {
       rows: { a: row("a", "Wagon Wheel"), gone: null as unknown as Row },
       upNextOrder: ["a"],
@@ -109,10 +100,6 @@ describe("serialize / deserialize", () => {
 });
 
 describe("readMeta", () => {
-  // A session with no `listed` field predates visibility and should be adopted
-  // into the club's history. A session with `listed: false` was deliberately
-  // unlisted and must be left alone. Collapsing the two would make opening an
-  // unlisted session's own share link re-advertise it to everyone.
   it("treats a missing listed field as legacy, not as unlisted-on-purpose", () => {
     const meta = readMeta({ createdBy: "" });
     expect(meta.legacy).toBe(true);
@@ -154,11 +141,6 @@ describe("readMeta", () => {
     });
   });
 
-  // requestsOpen is tri-state: true/false are a deliberate override, absent is
-  // AUTO: follow the request window (see request-window.ts), not "always
-  // open". Sessions without the field read as auto too; the window's default
-  // covers a whole ordinary night, so that's invisible for anything actually
-  // happening tonight.
   it("treats a missing requestsOpen as auto, not forced either way", () => {
     expect(readMeta({ createdBy: "" }).requestsOpen).toBeNull();
     expect(readMeta({ createdBy: "", listed: true }).requestsOpen).toBeNull();
@@ -167,9 +149,9 @@ describe("readMeta", () => {
   it("reads an explicit true or false as a forced override", () => {
     expect(readMeta({ requestsOpen: false }).requestsOpen).toBe(false);
     expect(readMeta({ requestsOpen: true }).requestsOpen).toBe(true);
-    // A wrong-typed value is not a forced close: falling back to auto beats a
-    // session nobody can request from because a stray write put a string in
-    // the field.
+  });
+
+  it("reads a wrong-typed requestsOpen as auto, not forced closed", () => {
     expect(readMeta({ requestsOpen: "no" }).requestsOpen).toBeNull();
   });
 
@@ -228,10 +210,6 @@ describe("diff", () => {
     expect(updates).toHaveProperty("upNextOrder");
   });
 
-  // Votes (#83) must go out leaf by leaf. A wholesale `votes` write would be
-  // last-writer-wins, which is precisely what the separate field exists to
-  // avoid: the room votes for the same song at the same moment, and all of
-  // those taps have to survive.
   describe("votes", () => {
     const voted = (votes: Votes): SyncFields => ({ ...structuredClone(base), votes });
 
@@ -270,8 +248,6 @@ describe("diff", () => {
       expect(diff(voted(votes), voted(structuredClone(votes)), fx)).toBeNull();
     });
 
-    // Votes are keyed on the row uid, which promote()/demote() carry across:
-    // a promote must push as two order arrays and touch no vote leaf.
     it("carries a voted row between the lists without disturbing its votes", () => {
       const pooled: SyncFields = {
         ...structuredClone(base),
@@ -286,8 +262,7 @@ describe("diff", () => {
   });
 });
 
-// The room's two writes (#152): the exact shapes firestore.rules' isRoomWrite
-// accepts, which tests/rules.test.ts replays against the emulator.
+// Must match firestore.rules' isRoomWrite; tests/rules.test.ts replays them.
 describe("room writes", () => {
   const roomFx = {
     arrayUnion: (...values: unknown[]) => ({ union: values }),

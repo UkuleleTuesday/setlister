@@ -1,23 +1,19 @@
-// The organiser link, `#organise=<key>` (#151): pure helpers, tested under
-// node. The key is in the hash so it never reaches server logs.
+// `#organise=<key>` (#151): the key is in the hash so it never reaches server logs.
 
 // The real key is 32 hex chars; this only rejects garbage.
 const MAX_KEY_LENGTH = 200;
 
-/** The key in an organiser link's hash, or null if the hash isn't one. */
 export function parseOrganiseKey(hash: string): string | null {
   const key = new URLSearchParams(hash.replace(/^#/, "")).get("organise")?.trim();
   return key && key.length <= MAX_KEY_LENGTH ? key : null;
 }
 
-/** The same URL without its hash, keeping the path and `?session=`. */
 export function stripHash(href: string): string {
   const url = new URL(href);
   url.hash = "";
   return url.toString();
 }
 
-/** The key from a pasted link or a bare key. */
 export function parseOrganiseInput(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -46,7 +42,6 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// Raw Firebase errors go to the console, never the sheet.
 export function describeRegistrationError(err: unknown): RegistrationError {
   const code = (err as { code?: unknown } | null)?.code;
   const text = err instanceof Error ? err.message : String(err);

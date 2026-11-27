@@ -1,17 +1,3 @@
-<!--
-  The home view's session history: "New session", the next night as a big
-  card, any further prepped nights, and the club's history below. Mounted
-  inside <section id="home"> between the What's new banner and footer, which
-  App.svelte owns (they're the release notes' doors, not the history).
-
-  It lays out history.svelte.ts (which routing loads) with session-index.ts,
-  where labelling, disambiguation and the upcoming/past split are pure
-  functions. Its error line is notices.home (why a route bounced back here);
-  taps go out through the props.
-
-  The ids and classes are load-bearing: style.css and the e2e suite select on
-  them. No scoped <style> here; the global stylesheet stays global.
--->
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { history, loadHistory } from "./history.svelte.js";
@@ -23,19 +9,14 @@
     onPick,
     onNewSession,
   }: {
-    /** A session card was tapped. */
     onPick: (id: string) => void;
-    /** "New session" was tapped. */
     onNewSession: () => void;
   } = $props();
 
-  // How many past nights show before the rest collapse. Enough to cover "the
-  // last month or so" at one Tuesday a week without the history burying the
-  // page.
+  // About a month of Tuesdays.
   const PAST_VISIBLE = 5;
 
-  // Survives a reload of the history, so a background refresh doesn't slam it
-  // shut under someone's thumb.
+  // Survives a history reload, so a background refresh doesn't slam it shut.
   let pastOlderOpen = $state(false);
 
   // Label the WHOLE list before splitting, so two sessions the same night get
@@ -45,8 +26,7 @@
     return partitionSessions(disambiguate(history.entries, now), now);
   });
   const next = $derived(layout.upcoming[0]);
-  // Never hide a single item behind a tap: at the threshold, one more row
-  // costs less than a one-row disclosure.
+  // Never hide a single row behind a one-row disclosure.
   const collapse = $derived(layout.past.length > PAST_VISIBLE + 1);
   const pastVisible = $derived(collapse ? layout.past.slice(0, PAST_VISIBLE) : layout.past);
   const pastOlder = $derived(collapse ? layout.past.slice(PAST_VISIBLE) : []);
@@ -68,10 +48,7 @@
   }
 </script>
 
-<!-- `label` is the session's date in this viewer's locale (see
-     disambiguate()/sessionDateLabel()). A just-created doc can be waiting on
-     its server timestamp, which labels as "": name the state rather than
-     render a blank card. -->
+<!-- A just-created doc awaiting its server timestamp labels as "". -->
 {#snippet item(entry: SessionEntry & { label: string }, extraClass = "")}
   <li>
     <button
@@ -89,8 +66,6 @@
   </li>
 {/snippet}
 
-<!-- While a night is coming up, starting ANOTHER session is a secondary act, so the button steps back to a quiet style;
-     otherwise it's the hero. -->
 {#if organiserStatus.isOrganiser}
   <button
     id="new-session"
@@ -104,17 +79,10 @@
 {/if}
 <div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
 
-<!-- The joinable nights, above the history. The next one leads as a big card
-     (on a club night the screen's one job is getting you into tonight's
-     session), any further prepped nights queue beneath it. Heading and card
-     hidden when nothing is upcoming: then "New session" above is the hero
-     instead. -->
 <h2 id="upcoming-heading" hidden={layout.upcoming.length === 0}>Coming up</h2>
 <div id="next-session" hidden={!next}>
   {#if next}
-    <!-- No CTA line: the home screen opens the FULL view, where people run the
-         whole night, so any verbs here would miscast someone. The card is a
-         button in a list of buttons; the night's name is the message. -->
+    <!-- No CTA verb: home opens the full view, so any verb would miscast someone. -->
     <button
       type="button"
       class="next-session-card"
@@ -133,18 +101,12 @@
   {/each}
 </ul>
 
-<!-- The club's history: a different job (looking back, not joining), so it
-     sits below under its own quiet heading. Only the most recent few show;
-     the rest collapse behind #past-older so a year of Tuesdays doesn't bury
-     the page. -->
 <h2 id="past-heading" hidden={layout.past.length === 0}>Past sessions</h2>
 <ul id="session-list" class="session-list">
   {#each pastVisible as entry (entry.id)}
     {@render item(entry)}
   {/each}
 </ul>
-<!-- Same collapsed-disclosure idea as the session view's played/bin groups,
-     over session items rather than song rows. -->
 <div id="past-older" class="row-group" hidden={pastOlder.length === 0}>
   {#if pastOlder.length}
     <button

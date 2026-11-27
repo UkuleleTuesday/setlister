@@ -1,5 +1,3 @@
-// The session lists (UpNextSection / RequestsSection / BinGroup / Row): the
-// gestures, the reorder, votes, the "Next" tag, the groups and export.
 import type { Locator, Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { expect, storedRowCount, test } from "./fixtures.js";
@@ -16,7 +14,6 @@ const PHOTO = Buffer.from(
 );
 const upNextTitles = (page: Page) => page.locator("#upnext-rows .match-title").allTextContents();
 
-// A horizontal swipe across a card, with pointer events like a thumb's.
 async function swipe(page: Page, card: Locator, direction: "left" | "right") {
   const box = (await card.boundingBox())!;
   const y = box.y + box.height / 2;
@@ -39,7 +36,9 @@ async function threeQueued(page: Page) {
   await expect(page.locator("#upnext-rows > li")).toHaveCount(3);
 }
 
-test("swipes: right promotes and plays, left bins and demotes", async ({ phone }) => {
+test("swipes: right promotes and plays, left bins and demotes, a short drag does nothing", async ({
+  phone,
+}) => {
   const page = await phone();
   await startSession(page);
   await addByName(page, "Jolene", { name: "Alex" });
@@ -56,7 +55,6 @@ test("swipes: right promotes and plays, left bins and demotes", async ({ phone }
   await swipe(page, upNextRow(page, "Jolene"), "right");
   await expect(page.locator("#played-group")).toContainText("1 played");
 
-  // A short drag snaps back and does nothing.
   await addByName(page, "Let It Be");
   const card = requestRow(page, "Let It Be");
   const box = (await card.boundingBox())!;
@@ -68,7 +66,9 @@ test("swipes: right promotes and plays, left bins and demotes", async ({ phone }
   await expect(card).not.toHaveClass(/swiping/);
 });
 
-test("the running order: Next tag, drag and keyboard reorder", async ({ phone }) => {
+test("the running order: Next tag, drag and keyboard reorder, kept on reload", async ({
+  phone,
+}) => {
   const page = await phone();
   await threeQueued(page);
   expect(await upNextTitles(page)).toEqual([
@@ -81,7 +81,6 @@ test("the running order: Next tag, drag and keyboard reorder", async ({ phone })
   await expect(upNextRow(page, "Jolene").locator(".next-tag")).toHaveText("Next");
   await expect(page.locator("#upnext-count")).toHaveText("· 3");
 
-  // Drag Let It Be to the top by its handle.
   const handle = upNextRow(page, "Let It Be").locator(".drag-handle");
   const from = (await handle.boundingBox())!;
   const top = (await upNextRow(page, "Jolene").boundingBox())!;
@@ -97,7 +96,6 @@ test("the running order: Next tag, drag and keyboard reorder", async ({ phone })
     .toEqual(["Let It Be - The Beatles", "Jolene - Dolly Parton", "Hallelujah - Leonard Cohen"]);
   await expect(upNextRow(page, "Let It Be").locator(".next-tag")).toHaveText("Next");
 
-  // Keyboard: Down twice from the top, keeping focus on the moved row.
   await upNextRow(page, "Let It Be").locator(".drag-handle").focus();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
@@ -106,7 +104,6 @@ test("the running order: Next tag, drag and keyboard reorder", async ({ phone })
     .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
   await expect(upNextRow(page, "Let It Be").locator(".drag-handle")).toBeFocused();
 
-  // And it all synced: a reload shows the same order.
   await page.reload();
   await expect
     .poll(() => upNextTitles(page))
@@ -116,14 +113,12 @@ test("the running order: Next tag, drag and keyboard reorder", async ({ phone })
 test("votes toggle, and the pool sorts by them", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
-  // Added by this phone, so each starts on its own asker vote: "You".
   await addByName(page, "Jolene", { name: "Alex" });
   await addByName(page, "Hallelujah");
   const jolene = requestRow(page, "Jolene").locator(".vote-button");
   await expect(jolene).toHaveAttribute("aria-pressed", "true");
   await expect(jolene).toHaveAccessibleName("You want this one");
 
-  // Taking Jolene's vote back drops it below Hallelujah (still on 1).
   await jolene.tap();
   await expect(jolene).toHaveAttribute("aria-pressed", "false");
   await expect(jolene).toHaveAccessibleName("I want this one, nobody has yet");
@@ -139,7 +134,6 @@ test("played and binned groups rescue their rows", async ({ phone }) => {
   await threeQueued(page);
   await upNextRow(page, "Jolene").getByRole("button", { name: "Mark played" }).tap();
   await expect(page.locator("#played-group")).toContainText("1 played");
-  // The next tune moves up to the tag.
   await expect(upNextRow(page, "Hallelujah").locator(".next-tag")).toHaveText("Next");
 
   const toggle = page.locator("#played-group .group-toggle");
@@ -186,8 +180,6 @@ test("export copies and downloads the night, and goes inert when empty", async (
 });
 
 test("export follows the include-crossed-out setting (#185)", async ({ phone, parseRows }) => {
-  // One confident row the board had crossed out: in the night, but not in the
-  // export until the setting says so.
   parseRows.current = [
     {
       raw_title: "Jolene",
@@ -210,8 +202,8 @@ test("export follows the include-crossed-out setting (#185)", async ({ phone, pa
   });
   await expect(requestRow(page, "Jolene")).toContainText("crossed out");
   await expect(page.locator("#copy")).toBeDisabled();
-  // Let the row's own push land first, so its snapshot can't redraw the
-  // buttons for the setting and hide whether the setting does.
+  // Let the row's push land first, or its snapshot redraws the buttons and
+  // hides whether the setting did.
   await expect.poll(() => storedRowCount(id)).toBe(1);
   await page.waitForTimeout(500);
 

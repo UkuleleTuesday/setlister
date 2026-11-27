@@ -1,9 +1,7 @@
-"""Extract whiteboard rows with Gemini, constrained to structured JSON.
+"""Extract whiteboard rows with Gemini as structured JSON.
 
-The catalogue is sent along with the photo as *transcription context* — it
-primes the model to read ambiguous handwriting, but all matching decisions
-happen locally in :mod:`utrequests.matcher`. ``catalogue_guess`` values that
-are not verbatim catalogue entries are discarded here.
+The catalogue in the prompt only helps read handwriting; matching happens in
+:mod:`utrequests.matcher`.
 """
 
 from functools import lru_cache
@@ -15,8 +13,6 @@ from google.genai import types
 from .config import get_settings
 from .models import Catalogue, WhiteboardExtraction
 
-# With the songbook attached: the board references it, so the model gets a
-# transcription hint and a catalogue_guess to copy verbatim.
 PROMPT_TEMPLATE = """\
 This photo shows a whiteboard where people write song requests, one per row: \
 a handwritten song title and a page number.
@@ -39,8 +35,6 @@ SONGBOOK (page | Title - Artist):
 {catalogue_lines}
 """
 
-# Without the songbook (catalogue_in_prompt=False): pure transcription, no
-# guesses — matching happens locally against the catalogue in the matcher.
 PROMPT_NO_CATALOGUE = """\
 This photo shows a whiteboard where people write song requests, one per row: \
 a handwritten song title and a page number.
@@ -75,7 +69,6 @@ def build_prompt(catalogue: Catalogue, *, include_catalogue: bool = True) -> str
 
 @lru_cache
 def get_client() -> genai.Client:
-    # Vertex AI over ADC — no API key, matching ../tabby and songbook-generator.
     settings = get_settings()
     try:
         return genai.Client(

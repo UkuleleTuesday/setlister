@@ -1,12 +1,9 @@
-"""Fixed-window, in-process rate limiting for the API.
+"""Fixed-window, in-process rate limiting.
 
-The pure decision layer (``window_bucket``, ``evaluate``, ``parse_client_ip``)
-is adapted from lure's ``functions/ratelimit.py``. The counter store here is a
-plain module-level dict rather than Firestore: it is per-instance and resets on
-every cold start, which is an accepted weakness — the deploy caps
-``--max-instances``, so worst-case spend on the paid Gemini call is bounded by
-``limit x instances`` per window. If real abuse ever shows up, lure's
-Firestore-backed enforcer is the drop-in upgrade path.
+Counters are per instance and reset on cold start, an accepted weakness: the
+deploy caps ``--max-instances``, so Gemini spend is bounded by
+``limit x instances`` per window. lure's Firestore-backed enforcer is the
+upgrade path if abuse shows up.
 """
 
 from __future__ import annotations
@@ -18,27 +15,19 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RateDecision:
-    """Outcome of a rate-limit check."""
-
     allowed: bool
     remaining: int
     retry_after: int  # seconds until the window resets; 0 when allowed
 
 
 def window_bucket(now: float, window_seconds: int) -> int:
-    """Integer index of the fixed window containing ``now``."""
     return int(now // window_seconds)
 
 
 def evaluate(
     count_before: int, limit: int, now: float, window_seconds: int
 ) -> RateDecision:
-    """Decide whether the request that brings the window count to
-    ``count_before + 1`` is allowed. Pure — no I/O.
-
-    ``retry_after`` is the time to the end of the current window, floored to 1
-    so a 429 never advertises ``Retry-After: 0``.
-    """
+    """``retry_after`` is floored to 1 so a 429 never says ``Retry-After: 0``."""
     bucket = window_bucket(now, window_seconds)
     window_end = (bucket + 1) * window_seconds
     retry_after = max(1, math.ceil(window_end - now))
@@ -50,13 +39,10 @@ def evaluate(
 
 
 def parse_client_ip(xff: str | None, remote_addr: str | None = None) -> str:
-    """Best-effort client IP from an ``X-Forwarded-For`` header.
+    """Leftmost ``X-Forwarded-For`` entry, the original client.
 
-    Cloud Functions' front end appends the connecting client to XFF, so the
-    original client is the leftmost entry. That hop is client-controllable, so
-    this only supports best-effort per-IP limits (the hard backstop is
-    ``--max-instances``). Falls back to ``remote_addr`` and finally the literal
-    ``"unknown"`` so every request maps to some identifier.
+    It is client-controllable, so per-IP limits are best effort; the hard
+    backstop is ``--max-instances``.
     """
     if xff:
         first = xff.split(",")[0].strip()
@@ -67,8 +53,7 @@ def parse_client_ip(xff: str | None, remote_addr: str | None = None) -> str:
     return "unknown"
 
 
-# key -> (bucket, count). Entries from past windows are replaced on the next
-# hit for the same key; the dict is bounded by _MAX_KEYS as a memory backstop.
+# key -> (bucket, count)
 _counters: dict[str, tuple[int, int]] = {}
 _MAX_KEYS = 10_000
 
@@ -76,7 +61,6 @@ _MAX_KEYS = 10_000
 def check(
     key: str, limit: int, window_seconds: int, now: float | None = None
 ) -> RateDecision:
-    """Record one request for ``key`` and return the decision."""
     if now is None:
         now = time.time()
     bucket = window_bucket(now, window_seconds)
@@ -90,13 +74,10 @@ def check(
 
 
 def _room_for_new_key(current_bucket: int) -> bool:
-    """Whether a not-yet-tracked key can be recorded; prunes stale windows first.
+    """Prunes stale windows, but never evicts a live counter.
 
-    Never displaces a live counter. Clearing the table (or evicting current-window
-    entries to make room) hands any caller a rate-limit reset: flood _MAX_KEYS
-    fresh keys and everyone else's budget goes back to zero. A table still full
-    after pruning instead stops tracking *new* keys until the window turns, which
-    bounds memory without touching anyone's existing budget.
+    Evicting would let anyone flood _MAX_KEYS fresh keys to reset everyone's
+    budget. A table still full stops tracking new keys until the window turns.
     """
     if len(_counters) < _MAX_KEYS:
         return True
@@ -106,5 +87,4 @@ def _room_for_new_key(current_bucket: int) -> bool:
 
 
 def clear() -> None:
-    """Reset all counters (test helper)."""
     _counters.clear()

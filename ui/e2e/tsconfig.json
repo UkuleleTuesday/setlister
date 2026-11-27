@@ -1,5 +1,4 @@
 {
-  // Playwright runs under Node, like the unit tests (see tests/tsconfig.json).
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["node"]

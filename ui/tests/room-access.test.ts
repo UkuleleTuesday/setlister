@@ -13,7 +13,7 @@ vi.mock("../firebase.js", () => firebase);
 vi.mock("../api.js", () => ({ API_BASE: "" }));
 
 const { persist } = await import("../save.js");
-const { sendRoomWrite } = await import("../adds.js");
+const { sendRoomWrite } = await import("../room-writes.js");
 const { restoreOrganiser } = await import("../organiser.svelte.js");
 const { organiserStatus, setOrganiser } = await import("../organiser-status.svelte.js");
 const { notices } = await import("../notices.svelte.js");

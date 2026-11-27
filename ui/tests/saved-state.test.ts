@@ -1,4 +1,3 @@
-// What a reload restores: bad rows and editions are skipped (#157).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEY, readSavedState } from "../saved-state.js";
 import { row } from "./fixtures.js";
@@ -32,6 +31,18 @@ describe("readSavedState", () => {
     expect(readSavedState()).not.toHaveProperty("edition");
     save({ edition: { id: "current" } });
     expect(readSavedState().edition).toEqual({ id: "current" });
+  });
+
+  it("drops votes and a name of the wrong kind", () => {
+    save({ votes: "lots", name: 7 });
+    const saved = readSavedState();
+    expect(saved).not.toHaveProperty("votes");
+    expect(saved).not.toHaveProperty("name");
+  });
+
+  it("reads a corrupt payload as nothing", () => {
+    localStorage.setItem(STORAGE_KEY, "{not json");
+    expect(readSavedState()).toEqual({});
   });
 
   it("still reads the pre-split setlist as Up next", () => {

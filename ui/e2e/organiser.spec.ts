@@ -1,5 +1,3 @@
-// The organiser link (#151), Settings → Organisers, and what organiser status
-// decides (#152): the view, New session, and losing it when the key changes.
 import type { Page } from "@playwright/test";
 import { ORGANISER_KEY as KEY, expect, organiserRows, setOrganiserKey, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
@@ -20,7 +18,6 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
   await expect(page.locator("body")).toHaveClass(/room-mode/);
 
-  // Mid-session: the link only changes the hash.
   await page.goto(`/?session=${id}#organise=${KEY}`);
   await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
   const sheet = page.locator("#organiser-sheet");
@@ -34,7 +31,7 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   await expect(sheet).toBeHidden();
   await expect(page.locator("body")).not.toHaveClass(/room-mode/);
 
-  // From home: a session's join closes settings when it lands.
+  // From home: in a session, the join landing would close settings.
   await page.goto("/");
   await expect(page.locator("#new-session")).toBeVisible();
   await openOrganiserSettings(page);
@@ -114,7 +111,6 @@ test("a pasted link registers too, under the name the phone already has", async 
 
   await page.locator("#organiser-link").fill(`https://example.com/setlister/#organise=${KEY}`);
   await page.locator("#organiser-link-register").tap();
-  // The phone has a name: no name step.
   await expect(page.locator("#organiser-title")).toHaveText("You’re on the organiser list");
   await expect(page.locator("#organiser-message")).toContainText("Registered as Robin.");
   await expect(page.locator("#organiser-name")).toHaveCount(0);
