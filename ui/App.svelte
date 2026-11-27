@@ -31,6 +31,7 @@
   import { pageTitle } from "./session-index.js";
   import { session } from "./session.svelte.js";
   import {
+    changeBlurb,
     changeRequestsMode,
     changeRequestsWindow,
     changeVisibility,
@@ -279,6 +280,13 @@
         {/if}
       </div>
 
+      {#if session.meta.blurb && !session.past}
+        <section id="night-note" class="night-note callout" aria-labelledby="night-note-label">
+          <p id="night-note-label" class="eyebrow">From the organisers</p>
+          <p class="night-note-text">{session.meta.blurb}</p>
+        </section>
+      {/if}
+
       {#if recap}
         <Recap
           actions={rowActions}
@@ -384,6 +392,7 @@
       persist();
     }}
     onVisibility={changeVisibility}
+    onBlurb={changeBlurb}
     onRequestLink={openRequestLink}
     onclose={() => (overlays.sessionDetails = false)}
   />

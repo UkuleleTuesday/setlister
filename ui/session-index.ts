@@ -9,6 +9,14 @@ export interface SessionEntry {
   id: string;
   createdBy: string;
   createdAt: Date | null;
+  blurb: string;
+}
+
+export const BLURB_MAX = 160;
+
+/** One line, trimmed and capped: what firestore.rules accepts and the card shows. */
+export function cleanBlurb(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, BLURB_MAX);
 }
 
 export type LabelledEntry<T extends Pick<SessionEntry, "createdAt">> = T & { label: string };
@@ -220,14 +228,17 @@ export function plannedSessionMessage(
 }
 
 // Must pass firestore.rules: createdBy <= 60 chars, createdAt <= 60 days ahead.
+// No blurb key when empty: production's rules reject it until they're deployed.
 export function indexEntryData(
-  { createdBy, createdAt }: { createdBy?: unknown; createdAt?: Date | null },
+  { createdBy, createdAt, blurb }: { createdBy?: unknown; createdAt?: Date | null; blurb?: string },
   fx: { serverTimestamp(): unknown; Timestamp: { fromDate(date: Date): unknown } },
 ) {
+  const note = cleanBlurb(blurb || "");
   return {
     v: 1,
     createdBy: String(createdBy || "").slice(0, 60),
     createdAt: createdAt ? fx.Timestamp.fromDate(createdAt) : fx.serverTimestamp(),
+    ...(note && { blurb: note }),
   };
 }
 
@@ -237,6 +248,7 @@ function toEntry(id: string, data: unknown): SessionEntry {
     id,
     createdBy: typeof doc.createdBy === "string" ? doc.createdBy : "",
     createdAt: timestampToDate(doc.createdAt),
+    blurb: typeof doc.blurb === "string" ? doc.blurb : "",
   };
 }
 

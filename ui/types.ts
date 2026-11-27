@@ -76,6 +76,8 @@ export interface SyncFields {
 export interface SessionMeta {
   createdBy: string;
   listed: boolean;
+  /** The organisers' note on home's card for this night; "" shows the default. */
+  blurb: string;
   /** true = forced open, false = forced closed, null = auto (request-window.ts). */
   requestsOpen: boolean | null;
   requestsOpensAt: Date | null;
