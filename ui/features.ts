@@ -5,4 +5,6 @@ export const features = {
   unlistedSessions: false,
   /** Runner-up matches as one-tap chips in scan review, on rows that aren't a clean match. */
   reviewSuggestions: true,
+  /** Copy and Download on Up next and the recap. Off until export matches the live-gig lists (#91). */
+  exportButtons: false,
 };

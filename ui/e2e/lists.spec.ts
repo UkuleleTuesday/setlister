@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { bySong } from "./api.js";
+import { features } from "../features.js";
 import { expect, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
@@ -148,7 +149,17 @@ test("played and binned groups rescue their rows", async ({ phone }) => {
   await expect(page.locator("#upnext-rows > li")).toHaveCount(3);
 });
 
+test("export buttons stay hidden while the feature is off", async ({ phone }) => {
+  test.skip(features.exportButtons, "features.exportButtons is on");
+  const page = await phone();
+  await startSession(page);
+  await addByName(page, "Jolene", { name: "Alex" });
+  await expect(page.locator("#copy")).toHaveCount(0);
+  await expect(page.locator("#download")).toHaveCount(0);
+});
+
 test("export copies and downloads the night, and goes inert when empty", async ({ phone }) => {
+  test.skip(!features.exportButtons, "features.exportButtons is off");
   const page = await phone();
   await startSession(page);
   await expect(page.locator("#copy")).toBeDisabled();
@@ -201,8 +212,10 @@ test("export keeps crossed-out rows", async ({ phone, parseRows }) => {
     buffer: PHOTO,
   });
   await expect(requestRow(page, "Jolene")).toContainText("crossed out");
-  await expect(page.locator("#copy")).toBeEnabled();
-  await expect(page.locator("#download")).toBeEnabled();
+  if (features.exportButtons) {
+    await expect(page.locator("#copy")).toBeEnabled();
+    await expect(page.locator("#download")).toBeEnabled();
+  }
 
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#include-crossed")).toHaveCount(0);
