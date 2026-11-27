@@ -22,3 +22,23 @@ export async function addByName(page: Page, title: string, { name }: { name?: st
   await page.locator("#room-request-confirm").tap();
   await expect(request).toBeHidden();
 }
+
+/**
+ * Sets the request link by hand, so tests don't depend on the time of day. A
+ * switch already in that state gets flipped twice: by schedule isn't by hand.
+ */
+export async function setRequests(page: Page, open: boolean) {
+  await page.locator("#window-chip").tap();
+  const toggle = page.locator("#request-link-switch");
+  await expect(toggle).toBeVisible();
+  if ((await toggle.isChecked()) === open) {
+    await toggle.tap();
+    await expect(toggle).toBeChecked({ checked: !open });
+    await expect(toggle).toBeEnabled();
+  }
+  await toggle.tap();
+  await expect(toggle).toBeChecked({ checked: open });
+  await expect(page.locator("#request-link-help")).toHaveText("Set by hand");
+  await page.locator("#request-link-close").tap();
+  await expect(page.locator("#request-link-sheet")).toBeHidden();
+}

@@ -1,16 +1,13 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
-import { addByName, startSession } from "./steps.js";
+import { addByName, setRequests, startSession } from "./steps.js";
 
 // Forced open so tests don't depend on the time of day. Must run before any
 // tune is added: this write's snapshot, landing inside sync.ts's push debounce,
 // would replace unpushed local edits (#153).
 async function openForRequests(organiser: Page): Promise<string> {
   const id = await startSession(organiser);
-  await organiser.locator("#share-toggle").tap();
-  await organiser.locator("#share-requests").selectOption("open");
-  await organiser.locator("#share-toggle").tap();
-  await expect(organiser.locator("#share-panel")).toBeHidden();
+  await setRequests(organiser, true);
   return id;
 }
 
@@ -18,6 +15,7 @@ async function openForRequests(organiser: Page): Promise<string> {
 async function joinRoom(room: Page, id: string) {
   await room.goto(`/?session=${id}`);
   await expect(room.locator("#room-window")).toHaveText(/requests open/i);
+  await expect(room.locator("#session-title")).toHaveCount(0);
   await expect(
     room.locator("#requests-rows").getByRole("listitem").filter({ hasText: "Jolene" }),
   ).toBeVisible();

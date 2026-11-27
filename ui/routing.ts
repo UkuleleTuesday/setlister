@@ -24,6 +24,8 @@ export function setView(page: "home" | "session") {
   view.page = page;
   if (page === "home") {
     overlays.share = false;
+    overlays.requestLink = false;
+    overlays.sessionDetails = false;
     view.editingPast = false;
   }
   overlays.settings = false;

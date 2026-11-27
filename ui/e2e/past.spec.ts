@@ -32,6 +32,12 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
   await expect(page.locator("#window-chip")).toHaveCount(0);
   await expect(page.locator(".songbook-trigger:visible")).toHaveCount(0);
 
+  // Its songbook is part of the record: locked until Edit.
+  await page.locator("#session-title").tap();
+  await expect(page.locator("#session-details-sheet #edition")).toBeDisabled();
+  await expect(page.locator("#session-details-request-link")).toHaveCount(0);
+  await page.locator("#session-details-close").tap();
+
   const edit = page.locator("#past-edit");
   await expect(edit).toHaveText("Edit");
   await edit.tap();

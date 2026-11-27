@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { expect, test } from "./fixtures.js";
-import { addByName, startSession } from "./steps.js";
+import { addByName, setRequests, startSession } from "./steps.js";
 
 const songbook = (page: Page) => page.locator("#songbook-sheet");
 const songButton = (page: Page, title: string) =>
@@ -73,9 +73,7 @@ test("tonight's tags: requested tunes show their thumbs, played ones refuse", as
 test("the room waits a minute between requests, but can still back a tune", async ({ phone }) => {
   const organiser = await phone();
   const id = await startSession(organiser);
-  await organiser.locator("#share-toggle").tap();
-  await organiser.locator("#share-requests").selectOption("open");
-  await organiser.locator("#share-toggle").tap();
+  await setRequests(organiser, true);
   await addByName(organiser, "Jolene", { name: "Alex" });
 
   const room = await phone({ room: true });
@@ -104,9 +102,7 @@ test("the confirm sheet needs a name, carries a comment, renames, and cancels cl
 }) => {
   const organiser = await phone();
   const id = await startSession(organiser);
-  await organiser.locator("#share-toggle").tap();
-  await organiser.locator("#share-requests").selectOption("open");
-  await organiser.locator("#share-toggle").tap();
+  await setRequests(organiser, true);
 
   const room = await phone({ room: true });
   await room.goto(`/?session=${id}`);

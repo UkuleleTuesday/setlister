@@ -568,7 +568,8 @@ body.in-session .club-name {
   overflow-wrap: anywhere;
 }
 .share-panel .share-session-label {
-  margin: 0 0 var(--space-1);
+  margin: 0 0 var(--space-3);
+  text-align: center;
 }
 .share-panel .share-session-label strong {
   color: var(--confirmed);
@@ -578,7 +579,64 @@ body.in-session .club-name {
 }
 .share-panel .actions {
   flex-direction: column;
-  margin: 0;
+  margin: 0 0 var(--space-2);
+}
+.share-link-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-min);
+  border-top: 1px solid var(--divider);
+  font-size: var(--text-md);
+}
+
+/* The night's name, as the door to its details (organisers only). */
+.title-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+svg.title-chevron {
+  width: 0.9em;
+  height: 0.9em;
+  color: var(--muted);
+}
+
+/* A read-only value in a sheet: label left, value right. */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--tap-min);
+  margin: 0 0 var(--space-3);
+  border-bottom: 1px solid var(--divider);
+  font-size: var(--text-md);
+}
+.detail-label {
+  color: var(--text-secondary);
+}
+.share-panel .share-presence {
+  margin-bottom: 0;
+}
+.session-details-links {
+  margin: 0 0 var(--space-4);
+}
+
+#request-link-sheet .request-link-note {
+  margin: var(--space-2) 0 var(--space-3);
+}
+.disclosure-detail {
+  color: var(--muted);
+  font-weight: var(--weight-medium);
 }
 
 .share-presence {
@@ -651,6 +709,9 @@ footer#edition-note {
   padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
   text-align: center;
 }
+.edition-sep {
+  margin: 0 var(--space-2);
+}
 footer#edition-note:empty {
   display: none;
 }
@@ -668,7 +729,8 @@ footer#edition-note:empty {
 .field select,
 .field input[type="number"],
 .field input[type="text"],
-.field input[type="date"] {
+.field input[type="date"],
+.field input[type="datetime-local"] {
   width: 100%;
   min-height: 44px;
   padding: var(--space-3);
@@ -678,6 +740,7 @@ footer#edition-note:empty {
   background: var(--card);
 }
 /* iOS renders date inputs as centred, intrinsic-height buttons. */
+.field input[type="datetime-local"],
 .field input[type="date"] {
   -webkit-appearance: none;
   appearance: none;

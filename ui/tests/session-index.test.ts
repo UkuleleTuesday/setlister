@@ -10,6 +10,7 @@ import {
   partitionSessions,
   pastSessionTitle,
   plannedSessionMessage,
+  sessionLongDate,
   sessionDateLabel,
   sessionTimeLabel,
   timestampToDate,
@@ -135,6 +136,18 @@ describe("date input helpers", () => {
   it("stamps an evening, so a picked day labels as Tonight on its night", () => {
     expect(sessionDateLabel(fromDateInputValue("2026-08-05"), NOW)).toBe("Tomorrow");
     expect(sessionDateLabel(fromDateInputValue("2026-08-04"), NOW)).toBe("Tonight");
+  });
+});
+
+describe("sessionLongDate", () => {
+  it("names the weekday and the full date, never a relative word", () => {
+    const label = sessionLongDate(new Date());
+    expect(label).not.toMatch(/Tonight|Today/);
+    expect(label).toContain(String(new Date().getFullYear()));
+  });
+
+  it("is empty for a session whose createdAt hasn't resolved yet", () => {
+    expect(sessionLongDate(null)).toBe("");
   });
 });
 
