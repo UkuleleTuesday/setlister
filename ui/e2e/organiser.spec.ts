@@ -1,52 +1,72 @@
-// The organiser link (#151) and Settings → Organisers.
+// The organiser link (#151), Settings → Organisers, and what organiser status
+// decides (#152): the view, New session, and losing it when the key changes.
 import type { Page } from "@playwright/test";
-import { expect, organiserRows, setOrganiserKey, test } from "./fixtures.js";
+import { ORGANISER_KEY as KEY, expect, organiserRows, setOrganiserKey, test } from "./fixtures.js";
 import { startSession } from "./steps.js";
-
-const KEY = "0123456789abcdef0123456789abcdef";
 
 async function openOrganiserSettings(page: Page) {
   await page.locator("#settings-toggle").tap();
   await page.locator("#organiser-setting > summary").tap();
 }
 
-test("the organiser link registers this phone, inside a session too", async ({ phone }) => {
-  await setOrganiserKey(KEY);
-  const page = await phone();
-  const id = await startSession(page);
+test("a room phone gets the request view, and the link makes it an organiser's", async ({
+  phone,
+}) => {
+  const organiser = await phone();
+  const id = await startSession(organiser);
+  const page = await phone({ room: true });
 
-  await page.goto(`/?session=${id}#organise=${KEY}`);
-  // The key is gone; the session stays.
+  await page.goto(`/?session=${id}&mode=full`);
   await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
-  await expect(page.locator("#session-view")).toBeVisible();
+  await expect(page.locator("body")).toHaveClass(/room-mode/);
 
+  // Mid-session: the link only changes the hash.
+  await page.goto(`/?session=${id}#organise=${KEY}`);
+  await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
   const sheet = page.locator("#organiser-sheet");
   await page.locator("#organiser-name").fill("Alex");
   await page.locator("#organiser-register").tap();
   await expect(sheet.locator("#organiser-message")).toHaveText(
-    "Registered as Alex. Nothing changes yet: when running nights becomes organisers-only, this phone is ready.",
+    "Registered as Alex. This phone can now run nights.",
   );
-  expect(await organiserRows()).toEqual([{ name: "Alex", key: KEY }]);
-
+  expect(await organiserRows()).toContainEqual({ name: "Alex", key: KEY });
   await page.locator("#organiser-ok").tap();
   await expect(sheet).toBeHidden();
-
-  await page.reload();
-  await expect(page.locator("#session-view")).toBeVisible();
-  await expect(sheet).toBeHidden();
+  await expect(page.locator("body")).not.toHaveClass(/room-mode/);
 
   // From home: a session's join closes settings when it lands.
   await page.goto("/");
-  await expect(page.locator("#home")).toBeVisible();
+  await expect(page.locator("#new-session")).toBeVisible();
   await openOrganiserSettings(page);
   await expect(page.locator("#organiser-status")).toHaveText(
     "This phone is on the organiser list, as Alex.",
   );
 });
 
-test("a retired link says so and registers nothing", async ({ phone }) => {
-  await setOrganiserKey(KEY);
+test("a room phone can't start a night", async ({ phone }) => {
+  const page = await phone({ room: true });
+  await page.goto("/");
+  await expect(page.locator("#home")).toBeVisible();
+  await expect(page.locator("#new-session")).toHaveCount(0);
+});
+
+test("a changed key drops an organiser to the request view on their next write", async ({
+  phone,
+}) => {
   const page = await phone();
+  await startSession(page);
+  await setOrganiserKey("a-brand-new-key-0000000000000000");
+
+  await page.locator("#share-toggle").tap();
+  await page.locator("#share-visibility").selectOption("unlisted");
+  await expect(page.locator("body")).toHaveClass(/room-mode/);
+  await expect(page.locator("#add-feedback")).toHaveText(
+    "Organiser access has changed. Tap the latest organiser link.",
+  );
+});
+
+test("a retired link says so and registers nothing", async ({ phone }) => {
+  const page = await phone({ room: true });
   await page.goto("/#organise=not-the-key");
   await expect(page).toHaveURL(/\/$/);
 
@@ -63,8 +83,7 @@ test("a retired link says so and registers nothing", async ({ phone }) => {
 });
 
 test("a stray tap outside keeps the link for a reload; Cancel forgets it", async ({ phone }) => {
-  await setOrganiserKey(KEY);
-  const page = await phone();
+  const page = await phone({ room: true });
   await page.goto(`/#organise=${KEY}`);
   const sheet = page.locator("#organiser-sheet");
   await expect(sheet).toBeVisible();
@@ -83,8 +102,7 @@ test("a stray tap outside keeps the link for a reload; Cancel forgets it", async
 });
 
 test("a pasted link registers too, under the name the phone already has", async ({ phone }) => {
-  await setOrganiserKey(KEY);
-  const page = await phone();
+  const page = await phone({ room: true });
   await page.goto("/");
   await page.locator("#settings-toggle").tap();
   await page.locator("#player-name").fill("Robin");
@@ -106,8 +124,7 @@ test("a pasted link registers too, under the name the phone already has", async 
 test("a failed registration says why in plain words", async ({ phone, allowConsole }) => {
   // The aborted sign-in logs one.
   allowConsole.push(/Failed to load resource|ERR_FAILED/);
-  await setOrganiserKey(KEY);
-  const page = await phone();
+  const page = await phone({ room: true });
   await page.context().route(/127\.0\.0\.1:9099/, (route) => route.abort());
   await page.goto(`/#organise=${KEY}`);
   await page.locator("#organiser-name").fill("Alex");

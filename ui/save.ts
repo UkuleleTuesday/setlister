@@ -6,6 +6,7 @@ import { night, nightSnapshot } from "./night.svelte.js";
 import { readSavedState, writeSavedState } from "./saved-state.js";
 import { applySettings, settingsSnapshot } from "./settings.svelte.js";
 import * as sync from "./sync.js";
+import { view } from "./view.svelte.js";
 
 export function persist() {
   const lists = nightSnapshot();
@@ -14,7 +15,8 @@ export function persist() {
     name: night.name,
     settings: settingsSnapshot(),
   });
-  if (sync.getSessionId()) sync.notifyLocalChange(lists);
+  // The room's writes go through sync's room helpers instead (#152).
+  if (sync.getSessionId() && view.mode === "full") sync.notifyLocalChange(lists);
 }
 
 /** Load what this device saved last time. */

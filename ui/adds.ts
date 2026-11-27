@@ -23,6 +23,7 @@ import { persist } from "./save.js";
 import { planScan, requestParse } from "./scan.js";
 import { linkNow } from "./session.svelte.js";
 import { settings } from "./settings.svelte.js";
+import * as sync from "./sync.js";
 import type { CatalogueEntry, Row } from "./types.js";
 import { view } from "./view.svelte.js";
 import { ASKER, hasVoted, seedAsker } from "./votes.js";
@@ -31,6 +32,15 @@ function newUid(): string {
   return crypto.randomUUID
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// The room's writes, through the only shapes the rules allow it (sync.ts).
+export function sendRoomWrite(write: Promise<void>, failure: string) {
+  write.catch((err) => {
+    console.warn(failure, err);
+    notices.requests.show(failure);
+    sync.refresh().catch(() => {});
+  });
 }
 
 // A tap in the songbook does whatever actually helps: a new tune goes to the
@@ -61,6 +71,12 @@ export function pickSong(entry: CatalogueEntry) {
     if (!already) {
       night.votes = seedAsker(night.votes, existing.row.uid, clientId);
       persist();
+      if (room) {
+        sendRoomWrite(
+          sync.setRoomVote(existing.row.uid, clientId, true),
+          "Couldn’t save your thumbs up. Reload and try again.",
+        );
+      }
     }
     overlays.songbook = false;
     notices.requests.show(
@@ -117,10 +133,11 @@ function addByName(entry: CatalogueEntry, comment: string): boolean {
     return false;
   }
   const uid = newUid();
-  night.requests.push({
+  const room = view.mode === "room";
+  const row: Row = {
     uid,
-    source: view.mode === "room" ? "room" : "manual",
-    addedBy: presence.displayName(night.name),
+    source: room ? "room" : "manual",
+    addedBy: presence.displayName(night.name).slice(0, 60),
     raw_title: entry.display,
     raw_page: entry.page,
     notes: (comment || "").trim().slice(0, 120) || null,
@@ -134,14 +151,22 @@ function addByName(entry: CatalogueEntry, comment: string): boolean {
     removed: false,
     played: false,
     binned: false,
-  });
+  };
+  night.requests.push(row);
   // Asking for a song IS wanting it, so it counts as this device's vote (#83),
   // attributed rather than anonymous: their thumb lights up (see seedAsker).
-  night.votes = seedAsker(night.votes, uid, presence.getClientId());
-  // The cool-down starts when a request lands, not at the pick that opened
-  // the sheet: a slow typist shouldn't spend their wait inside the dialog.
-  if (view.mode === "room") writeLastRoomAdd(Date.now());
+  const clientId = presence.getClientId();
+  night.votes = seedAsker(night.votes, uid, clientId);
   persist();
+  if (room) {
+    // The cool-down starts when a request lands, not at the pick that opened
+    // the sheet: a slow typist shouldn't spend their wait inside the dialog.
+    writeLastRoomAdd(Date.now());
+    sendRoomWrite(
+      sync.addRoomRequest(JSON.parse(JSON.stringify(row)), clientId),
+      "Couldn’t add that request. Reload and try again.",
+    );
+  }
   return true;
 }
 

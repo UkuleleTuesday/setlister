@@ -85,13 +85,13 @@ test("bad rows and a bad edition cost those entries, not the night", async ({ ph
   await expect(rows(organiser).filter({ hasText: "Let It Be" })).toBeVisible();
   const other = await phone();
   await withBadSavedState(other);
-  await other.goto(`/?session=${id}&mode=full`);
+  await other.goto(`/?session=${id}`);
   await expect(rows(other).filter({ hasText: "Jolene" })).toBeVisible();
   await expect(rows(other).filter({ hasText: "Let It Be" })).toBeVisible();
   await expect(rows(other)).toHaveCount(3); // Jolene, alts, odd
 
-  const room = await phone();
-  await room.goto(`/?session=${id}&mode=request`);
+  const room = await phone({ room: true });
+  await room.goto(`/?session=${id}`);
   await expect(rows(room).filter({ hasText: "Jolene" })).toBeVisible();
   await addByName(other, "Hallelujah", { name: "Sam" });
   await expect(rows(other).filter({ hasText: bySong("Hallelujah").title })).toBeVisible();

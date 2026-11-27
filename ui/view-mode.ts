@@ -1,51 +1,39 @@
-// Room mode (#86): the room's view of a session (add and watch requests,
-// follow the set read-only), opened from a shared `?mode=request` link. It is
-// a view, not a permission: firestore.rules grants any client with the
-// session id full write access either way. So the job here is only to decide
-// which view a device gets, and to keep that decision sticky: a phone that
-// arrived through the room link stays in the room view across reloads and
-// plain-link opens, never silently graduating to the full app (accidental
-// reordering is the failure mode #86 worries about). The one way out is a
-// deliberate `?mode=full` link; there is no in-app escape.
-//
-// Pure decision logic lives here (routing.ts can't run under node, so this
-// is the testable seam, like dupes.ts and session-id.ts).
+// The session link and row provenance wording. Which view a phone gets is
+// view.svelte.ts's. Pure, so tests run under node.
 
 import type { RowSource } from "./types.js";
 
 /** Which view a device gets: the full app or the room's request view. */
 export type ViewMode = "full" | "room";
 
-// The sticky flag. Its own key, outside setlister.v1 (the saved night).
-export const ROOM_MODE_KEY = "setlister.roomMode.v1";
+// The pre-#152 sticky room flag, cleared at boot.
+const LEGACY_ROOM_MODE_KEY = "setlister.roomMode.v1";
 
-// What view this device gets, from the URL and the sticky flag. Returns
-// `{ mode, store }`: `mode` is the view to render now, `store` is what the
-// sticky flag should become ("room" or null). An unrecognised `mode` param
-// falls through to the flag, so a mangled link can't flip a device's view.
-export function resolveMode(
-  searchParams: URLSearchParams,
-  storedMode: string | null,
-): { mode: ViewMode; store: "room" | null } {
-  const param = searchParams.get("mode");
-  if (param === "request") return { mode: "room", store: "room" };
-  if (param === "full") return { mode: "full", store: null };
-  const room = storedMode === "room";
-  return { mode: room ? "room" : "full", store: room ? "room" : null };
-}
-
-// Every shareable session URL funnels through here so the `mode` param is
-// always deliberate: the room link sets `request`, the full-app link sets
-// `full`. Being handed the full-app link IS the deliberate way out, so it
-// must override a clicker's sticky room flag rather than fall through to it
-// (and since location.href's param is always overwritten, a room-mode sharer
-// can't pass on their own mode by accident). Built on the given href so the
-// GitHub Pages subpath survives.
-export function buildSessionUrl(href: string, id: string, { room = false } = {}): string {
+/** The one session link (#152). */
+export function buildSessionUrl(href: string, id: string): string {
   const url = new URL(href);
   url.searchParams.set("session", id);
-  url.searchParams.set("mode", room ? "request" : "full");
+  url.searchParams.delete("mode");
   return url.toString();
+}
+
+/** The href without a retired `?mode=`, or null if it has none. */
+export function withoutModeParam(href: string): string | null {
+  const url = new URL(href);
+  if (!url.searchParams.has("mode")) return null;
+  url.searchParams.delete("mode");
+  return url.toString();
+}
+
+/** Boot: strip a retired `?mode=` and the old sticky flag. */
+export function retireModeLinks(): void {
+  const clean = withoutModeParam(location.href);
+  if (clean) history.replaceState(history.state, "", clean);
+  try {
+    localStorage.removeItem(LEGACY_ROOM_MODE_KEY);
+  } catch {
+    /* storage blocked */
+  }
 }
 
 // Provenance wording for a row's `source`, shared by every row context so
@@ -54,23 +42,4 @@ export function sourceLabel(source: RowSource | undefined): string {
   if (source === "manual") return "added manually";
   if (source === "room") return "from the room";
   return "from the whiteboard";
-}
-
-// Thin storage wrappers: in private mode stickiness degrades to URL-only,
-// which is fine for an honour-system view.
-export function readStoredMode(): string | null {
-  try {
-    return localStorage.getItem(ROOM_MODE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function writeStoredMode(value: string | null): void {
-  try {
-    if (value) localStorage.setItem(ROOM_MODE_KEY, value);
-    else localStorage.removeItem(ROOM_MODE_KEY);
-  } catch {
-    /* storage blocked: non-fatal */
-  }
 }

@@ -13,7 +13,9 @@ import { settings } from "./settings.svelte.js";
 import { copyToClipboard } from "./share-link.js";
 import * as sync from "./sync.js";
 import type { Row } from "./types.js";
-import { toggleVote } from "./votes.js";
+import { sendRoomWrite } from "./adds.js";
+import { view } from "./view.svelte.js";
+import { hasVoted, toggleVote } from "./votes.js";
 
 // The row behind a uid, changed in place and saved.
 function withRow(uid: string, change: (row: Row) => void) {
@@ -58,8 +60,15 @@ export const rowActions: RowActions = {
   // diff() turns a vote into a single `votes.<uid>.<clientId>` leaf write, so
   // two people voting at once both land.
   vote: (uid) => {
-    night.votes = toggleVote(night.votes, uid, presence.getClientId());
+    const clientId = presence.getClientId();
+    night.votes = toggleVote(night.votes, uid, clientId);
     persist();
+    if (view.mode === "room") {
+      sendRoomWrite(
+        sync.setRoomVote(uid, clientId, hasVoted(night.votes, uid, clientId)),
+        "Couldn’t save your thumbs up. Reload and try again.",
+      );
+    }
   },
   setMatch: (uid, entry) =>
     withRow(uid, (row) => {

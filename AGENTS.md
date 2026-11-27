@@ -46,6 +46,12 @@ the same change, and PR previews run new code against production's rules,
 where a field written at session creation breaks "New session". Run
 `npm run test:emulator` after touching the rules.
 
+## Code
+
+- **No comment beats a duplicate or verbose one.** Make the code say what it
+  does, and pin behaviour with explicit tests. Comment only the why: reasons,
+  hazards, non-obvious mechanisms.
+
 ## Before you push
 
 - Check what tests CI is running, and make a best effort to run the part of the test suite

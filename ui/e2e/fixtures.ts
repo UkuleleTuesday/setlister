@@ -9,7 +9,9 @@
 //   "no console errors" half of the manual check in README > Development.
 //
 // `phone()` opens another device (its own context, so its own localStorage and
-// client id) with the same treatment, for the multi-phone flows.
+// client id) with the same treatment, for the multi-phone flows. It is an
+// organiser's phone, registered through the organiser link (#152);
+// `phone({ room: true })` is a room phone that never signs in.
 import { type BrowserContext, type Page, expect, test as base } from "@playwright/test";
 import { firebaseConfig } from "../firebase-config.js";
 import { type ParseRows, stubApi } from "./api.js";
@@ -23,8 +25,11 @@ import { type ParseRows, stubApi } from "./api.js";
 const EMULATOR = "http://127.0.0.1:8081";
 const PROJECT = firebaseConfig.projectId;
 
+/** The organiser key every test's phones register with. */
+export const ORGANISER_KEY = "0123456789abcdef0123456789abcdef";
+
 interface Fixtures {
-  phone: () => Promise<Page>;
+  phone: (options?: { room?: boolean }) => Promise<Page>;
   parseRows: { current: ParseRows };
   /** Console errors a test expects (a stubbed server error logs one). */
   allowConsole: RegExp[];
@@ -77,6 +82,20 @@ export async function organiserRows(): Promise<{ name?: string; key?: string }[]
   }));
 }
 
+// Through the real link, then back to a phone with no saved name, so specs
+// that expect the first-request name prompt still get it.
+async function registerOrganiser(page: Page) {
+  await page.goto(`/#organise=${ORGANISER_KEY}`);
+  await page.locator("#organiser-name").fill("Organiser");
+  await page.locator("#organiser-register").tap();
+  await page.locator("#organiser-ok").tap();
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem("setlister.v1") || "{}");
+    localStorage.setItem("setlister.v1", JSON.stringify({ ...saved, name: "" }));
+  });
+  await page.reload();
+}
+
 export const test = base.extend<Fixtures>({
   // Playwright reads a fixture's dependencies off a destructured first
   // argument, so a fixture with none must still destructure.
@@ -94,7 +113,8 @@ export const test = base.extend<Fixtures>({
     await clearFirestore();
     const contexts: BrowserContext[] = [];
     const errors: string[] = [];
-    await use(async () => {
+    await setOrganiserKey(ORGANISER_KEY);
+    await use(async ({ room = false } = {}) => {
       const label = `phone ${contexts.length + 1}`;
       // browser.newContext() picks up the project's `use` (viewport, touch).
       const context = await browser.newContext();
@@ -112,7 +132,9 @@ export const test = base.extend<Fixtures>({
         errors.push(`${label}: ${msg.text()}${where ? ` (${where})` : ""}`);
       });
       context.on("weberror", (err) => errors.push(`${label}: ${err.error().message}`));
-      return context.newPage();
+      const page = await context.newPage();
+      if (!room) await registerOrganiser(page);
+      return page;
     });
     for (const context of contexts) await context.close();
     expect(errors, "console errors").toEqual([]);

@@ -10,6 +10,7 @@ import * as presence from "./presence.js";
 import { navigateTo } from "./routing.js";
 import { persist } from "./save.js";
 import { readSync, session } from "./session.svelte.js";
+import { loseOrganiserAccess } from "./organiser.svelte.js";
 import * as sync from "./sync.js";
 import type { ListState } from "./types.js";
 
@@ -49,6 +50,8 @@ export function followSession() {
     } else if (status.status === "left") {
       presence.stopPresence();
       stopClock();
+    } else if (status.status === "error" && sync.isPermissionDenied(status.error)) {
+      loseOrganiserAccess();
     }
     if (!session.id) overlays.share = false; // no session, nothing to share
   });

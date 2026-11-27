@@ -2,6 +2,7 @@
   {
     "date": "2026-11-26",
     "items": [
+      "One link for everyone: the share link now opens the request view, and running the night (starting a session, the running order, the request link) needs the organiser link from the organisers' chat.",
       "When the request link opens or closes on its own schedule, phones on it catch up within a minute: thumbs up switch on and off without a reload.",
       "Ticking \"Include crossed-out rows\" now wakes the copy and download buttons straight away."
     ]

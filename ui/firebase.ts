@@ -43,7 +43,7 @@ let _promise: Promise<FirestoreHandle> | null = null;
  *           need to import firebase directly:
  *           { doc, collection, getDoc, getDocs, query, orderBy, limit,
  *             onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch,
- *             runTransaction, serverTimestamp, deleteField, Timestamp }
+ *             runTransaction, serverTimestamp, deleteField, arrayUnion, Timestamp }
  *
  * On the first call the Firebase SDK chunks are fetched; subsequent calls
  * return the memoized result instantly.
@@ -82,6 +82,7 @@ async function _init() {
     runTransaction,
     serverTimestamp,
     deleteField,
+    arrayUnion,
     Timestamp,
   } = firestoreModule;
 
@@ -108,6 +109,7 @@ async function _init() {
     runTransaction,
     serverTimestamp,
     deleteField,
+    arrayUnion,
     Timestamp,
   };
 

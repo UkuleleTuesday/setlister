@@ -20,15 +20,14 @@ import {
   startRegistration,
   takeOrganiseLink,
 } from "./organiser.svelte.js";
-import { applyViewMode, currentRouteId, followBackButton, navigateTo, setView } from "./routing.js";
+import { currentRouteId, followBackButton, navigateTo, setView } from "./routing.js";
 import { restore } from "./save.js";
+import { retireModeLinks } from "./view-mode.js";
 
 // First: strip an organiser key from the address bar.
 takeOrganiseLink();
+retireModeLinks();
 restore();
-// Resolve the view mode before the first paint: the lists key row
-// interactivity off it, so a sticky room device must know before painting.
-applyViewMode();
 // After restore(): needs the saved name.
 startRegistration();
 // Search from the cached catalogue at once; the network fetch below replaces
