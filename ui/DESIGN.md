@@ -18,12 +18,15 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 4. **Every tappable thing is at least 44px and gives feedback when pressed.**
    The global `button:active` dims it. The platform's tap flash is off, so
    don't bring it back. Keyboard focus shows `--focus-ring`.
-5. **Rows you open lead somewhere visibly.** A row that navigates ends in a
-   `forward` chevron. Lists you open things from are `.inset-list`; lists you
+5. **Anything that opens something shows it.** A row or pill that opens a
+   view or sheet ends in a `forward` chevron; a heading that opens details
+   ends in `chevron`. Lists you open things from are `.inset-list`; lists you
    act on (swipe, vote, reorder) are row cards.
 6. **Status colours carry meaning.** Green is played or matched, orange needs
    a look, red is binned or an error, and purple is the brand and votes. Don't
    rely on colour alone: pair it with an icon, a dot or text.
+7. **Chevrons navigate, arrows move.** `back`, `forward` and `chevron` go
+   somewhere or open something; arrows only move a row (`earlier`, `later`).
 
 ## Tokens
 
@@ -60,7 +63,7 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 | `.inset-list`                              | Rows in one card, split by hairlines, for lists you open things from.                             |
 | `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large for the home hero's next night.       |
 | `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
-| `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills.                                                                          |
+| `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills. A `button.window-pill` ends in `forward` and hits at 44px.               |
 | `.settings-group`                          | An `.eyebrow` naming who the settings affect, over its rows and fields.                           |
 | `.setting-row`                             | A `<label>`: `.setting-text` (and `.setting-help`) on the left, its control on the right.         |
 | `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
@@ -69,8 +72,9 @@ composes them. Mobile-first rules (touch, dismissal, notches) are in
 ## Settings
 
 1. **Put a setting where its effect lives.** The gear holds this phone's
-   settings only. Anything that changes the session for everyone belongs in
-   the share panel, and says so in its help text.
+   settings only. A control that changes the session for everyone sits where
+   that session's status shows, such as the request link behind its pill,
+   and says in its help text that it affects everyone.
 2. **Prefer no setting.** If a sensible default or the situation can decide,
    don't ask. The API owns scan tuning, and runner-up matches show only where
    the reader was unsure.

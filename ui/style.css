@@ -1256,6 +1256,14 @@ h2#past-heading {
 button.window-pill {
   cursor: pointer;
   position: relative;
+  padding-right: var(--space-3);
+}
+/* Negative margins eat the glyph's own side bearings: the bar has ~10px to
+   spare at 390px with a 12-hour time. */
+svg.window-pill-chevron {
+  width: 1em;
+  height: 1em;
+  margin: 0 calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-2));
 }
 /* 36px to look at, 44px to hit. */
 button.window-pill::after {

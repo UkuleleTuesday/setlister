@@ -223,7 +223,10 @@
             bind:this={windowChip}
             onclick={() => (overlays.share = "requests")}
           >
-            {windowChipText(session.link.status)}
+            {windowChipText(session.link.status)}<Icon
+              name="forward"
+              extraClass="window-pill-chevron"
+            />
           </button>
         {:else if view.mode === "full"}
           <button

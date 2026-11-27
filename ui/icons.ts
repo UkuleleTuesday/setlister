@@ -3,11 +3,11 @@
 
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
   Download,
@@ -51,7 +51,8 @@ export const ICONS = {
   forward: ChevronRight,
   loader: LoaderCircle,
   news: Sparkles,
-  back: ArrowLeft,
+  // Chevrons navigate; arrows move a row (DESIGN.md rule 7).
+  back: ChevronLeft,
   // Played order is a nudge by one slot, so arrows here are right.
   earlier: ArrowUp,
   later: ArrowDown,
