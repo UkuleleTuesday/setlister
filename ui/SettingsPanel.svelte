@@ -60,7 +60,7 @@
     <summary>Organisers<Icon name="chevron" extraClass="disclosure-chevron" /></summary>
     {#if organiserStatus.isOrganiser}
       <p id="organiser-status" class="note">
-        This phone is on the organiser list{organiserStatus.name
+        This device is on the organiser list{organiserStatus.name
           ? `, as ${organiserStatus.name}`
           : ""}.
       </p>

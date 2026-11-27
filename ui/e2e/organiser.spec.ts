@@ -24,7 +24,7 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   await page.locator("#organiser-name").fill("Alex");
   await page.locator("#organiser-register").tap();
   await expect(sheet.locator("#organiser-message")).toHaveText(
-    "Registered as Alex. This phone can now run nights.",
+    "Registered as Alex. This device can now run nights.",
   );
   expect(await organiserRows()).toContainEqual({ name: "Alex", key: KEY });
   await page.locator("#organiser-ok").tap();
@@ -36,7 +36,7 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   await expect(page.locator("#new-session")).toBeVisible();
   await openOrganiserSettings(page);
   await expect(page.locator("#organiser-status")).toHaveText(
-    "This phone is on the organiser list, as Alex.",
+    "This device is on the organiser list, as Alex.",
   );
 });
 
