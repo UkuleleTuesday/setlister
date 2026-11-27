@@ -118,16 +118,20 @@
     <span id="session-details-date">{sessionLongDate(session.createdAt) || session.label}</span>
   </p>
 
-  {#if !session.past}
-    <BlurbField
-      id="session-blurb"
-      help="Everyone sees it on home and at the top of the night. Public, and it stays with the night."
-      error={blurbError}
-      disabled={blurbBusy}
-      bind:value={blurbDraft}
-      onchange={saveBlurb}
-    />
-  {/if}
+  <!-- Like the songbook, a past night's note is part of its record: change it
+       only while editing. -->
+  <BlurbField
+    id="session-blurb"
+    help={locked
+      ? "Tap Edit on the night to change its note."
+      : session.past
+        ? "Shows at the top of the night’s recap. Public, and it stays with the night."
+        : "Everyone sees it on home and at the top of the night. Public, and it stays with the night."}
+    error={blurbError}
+    disabled={blurbBusy || locked}
+    bind:value={blurbDraft}
+    onchange={saveBlurb}
+  />
 
   <label class="field" id="edition-setting">
     <span>Songbook</span>

@@ -280,7 +280,7 @@
         {/if}
       </div>
 
-      {#if session.meta.blurb && !session.past}
+      {#if session.meta.blurb}
         <section id="night-note" class="night-note callout" aria-labelledby="night-note-label">
           <p id="night-note-label" class="eyebrow">From the organisers</p>
           <p class="night-note-text">{session.meta.blurb}</p>
