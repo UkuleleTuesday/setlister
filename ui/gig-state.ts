@@ -29,8 +29,7 @@ export function setBinned(row: GigRow, binned: boolean, now = Date.now()): void 
   }
 }
 
-// The working lists: played rows collapse into their group and binned ones into
-// the Bin. Row.svelte has no pressed Played or Bin button because of this.
+// Row.svelte has no pressed Played or Bin button: these filters keep those rows out.
 export function workingUpNext<T extends GigRow>(rows: T[]): T[] {
   return rows.filter((row) => !row.played && !row.binned);
 }

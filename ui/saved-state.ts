@@ -1,6 +1,5 @@
-// The night itself lives in Firestore. This keeps what the phone needs before
-// a doc arrives: who's holding it and which book to search. Read field by
-// field: an older build or a full disk can leave anything (#157).
+// Only what's needed before a session doc arrives; the lists live in Firestore.
+// Read field by field: an older build or a full disk can leave anything (#157).
 
 import { parseEdition } from "./editions.js";
 import type { Edition } from "./types.js";
