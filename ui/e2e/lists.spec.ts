@@ -210,3 +210,18 @@ test("export keeps crossed-out rows", async ({ phone, parseRows }) => {
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#include-crossed")).toHaveCount(0);
 });
+
+test("on a narrow phone, a row's buttons drop under its title", async ({ phone }) => {
+  const page = await phone();
+  await threeQueued(page);
+  const row = upNextRow(page, "Jolene");
+  const titleBottom = async () => {
+    const box = (await row.locator(".match-title").boundingBox())!;
+    return box.y + box.height;
+  };
+  const toolsTop = async () => (await row.locator(".row-tools").boundingBox())!.y;
+
+  expect(await toolsTop()).toBeLessThan(await titleBottom());
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect.poll(async () => (await toolsTop()) >= (await titleBottom())).toBe(true);
+});
