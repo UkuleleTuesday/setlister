@@ -75,6 +75,9 @@
         : [],
     };
   });
+  // Outside the parts' nowrap spans, so the status breaks here and nowhere else.
+  const SEP = " · ";
+
   // Organisers add from inside the night: for them the card only opens it.
   const canRequest = $derived(!organiserStatus.isOrganiser && Boolean(card.link?.open));
   const isTonight = $derived(
@@ -147,7 +150,7 @@
           {#if card.status.length}
             <!-- Breaks only between parts, so "at 7:30 PM" never splits. -->
             <p id="next-session-status" class="next-session-status" class:open={card.link?.open}>
-              {#each card.status as part, i (i)}{#if i}{" · "}{/if}<span>{part}</span>{/each}
+              {#each card.status as part, i (i)}{#if i}{SEP}{/if}<span>{part}</span>{/each}
             </p>
           {/if}
         </div>
