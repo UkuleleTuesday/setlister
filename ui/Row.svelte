@@ -287,11 +287,9 @@
           aria-label={voteLabel}
           onclick={() => actions.vote(row.uid)}
         >
-          <Icon name="want" /><span>
-            {vote.mine ? "You" : "+1"}
-          </span>{#if vote.mine ? vote.count > 1 : vote.count > 0}<span class="vote-count">
-              · {vote.count}
-            </span>{/if}
+          <!-- Compact, so the page tile and the title fit beside it; the
+               fill says whether you're in, the label says the rest. -->
+          <Icon name="want" />{#if vote.count > 0}<span class="vote-count">{vote.count}</span>{/if}
         </button>
       {/if}
       {#if context === "upnext"}

@@ -1906,7 +1906,8 @@ body.room-mode .settings-toggle {
 .row-tools .vote-button {
   gap: var(--space-1);
   min-height: 40px;
-  padding: 0 var(--space-3);
+  min-width: 40px;
+  padding: 0 var(--space-2);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--accent);
@@ -1923,9 +1924,6 @@ body.room-mode .settings-toggle {
   font-variant-numeric: tabular-nums;
 }
 /* Accent, not green or red, so it stays distinct from played and binned. */
-.row-tools .vote-button:not(.voted) .vote-count {
-  color: var(--muted);
-}
 .row-tools .vote-button.voted {
   color: var(--on-accent);
   background: var(--accent);

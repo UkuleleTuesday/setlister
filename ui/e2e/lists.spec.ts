@@ -116,7 +116,8 @@ test("votes toggle, and the pool sorts by them", async ({ phone }) => {
   await expect(jolene).toHaveAccessibleName("I want this one, nobody has yet");
   await expect(page.locator("#requests-rows .match-title").first()).toHaveText("Hallelujah");
   await jolene.tap();
-  await expect(jolene).toHaveText("You");
+  // Just the count: the fill and the label say it's you.
+  await expect(jolene).toHaveText("1");
 });
 
 test("played and binned groups rescue their rows", async ({ phone }) => {
