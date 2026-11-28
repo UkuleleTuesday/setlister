@@ -69,13 +69,37 @@ service cloud.firestore {
       let before = resource.data;
       let after = request.resource.data;
       let rows = after.rows.diff(before.rows);
-      return after.diff(before).affectedKeys().hasOnly(['rows', 'requestsOrder', 'votes', 'updatedAt'])
+      return roomIsTakingRequests(before)
+        && after.diff(before).affectedKeys().hasOnly(['rows', 'requestsOrder', 'votes', 'updatedAt'])
         && after.updatedAt == request.time
         && rows.removedKeys().size() == 0
         && rows.changedKeys().size() == 0
         && ((rows.addedKeys().size() == 0 && after.requestsOrder == before.requestsOrder)
             || isNewRoomRequest(before, after))
         && roomVotesOk(before, after);
+    }
+
+    // Mirrors request-window.ts linkState plus session-index.ts isPastNight, as
+    // a superset: the room view must never offer a write these refuse. Rules
+    // have no time zones, so the local-time bounds (the 22:30 or 04:00 default
+    // close, the night's end at the next local 04:00) become `nightEnd`, which
+    // is later than both: a night ends at most a day after it starts, plus a
+    // DST hour. `grace` covers phone clocks running fast or slow.
+    function roomIsTakingRequests(d) {
+      let mode = d.get('requestsOpen', null);
+      let start = d.createdAt;
+      let grace = duration.value(5, 'm');
+      let nightEnd = start + duration.value(25, 'h');
+      let opens = d.get('requestsOpensAt', start - duration.value(2, 'h'));
+      let closes = d.get('requestsClosesAt', nightEnd);
+      // With only opensAt set, the client fails open when its default close
+      // falls at or before it, and that close is only known to be after `start`.
+      let opensBinds = 'requestsClosesAt' in d || opens <= start;
+      return mode != false
+        && request.time < nightEnd + grace
+        && (mode == true
+            || closes <= opens
+            || ((!opensBinds || request.time >= opens - grace) && request.time < closes + grace));
     }
 
     // The new row's uid is requestsOrder's last element (arrayUnion appends):
@@ -130,7 +154,6 @@ function isValidSession(id) {
     && (!('createdBy' in d) || (d.createdBy is string && d.createdBy.size() <= 60))
     && (!('listed' in d) || d.listed is bool)
     && (!('blurb' in d) || (d.blurb is string && d.blurb.size() <= 160))
-    // A view, not a permission: `rows` is unvalidated and the room can write.
     && (!('requestsOpen' in d) || d.requestsOpen is bool)
     // Unbounded: a bogus window only breaks this one session.
     && (!('requestsOpensAt' in d) || d.requestsOpensAt is timestamp)

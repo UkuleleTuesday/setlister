@@ -24,6 +24,8 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { linkState } from "../request-window.js";
+import { isPastNight } from "../session-index.js";
 
 const RULES = fileURLToPath(new URL("../../firestore.rules", import.meta.url));
 
@@ -36,6 +38,11 @@ const modular = (compat: unknown) => compat as Firestore;
 type Doc = Record<string, unknown>;
 
 const NOW = Timestamp.fromMillis(1_770_000_000_000); // fixed, well in the past
+
+// Room writes are checked against the server clock, so their nights are set
+// relative to it.
+const HOUR = 3_600_000;
+const hoursFromNow = (h: number) => Timestamp.fromMillis(Date.now() + h * HOUR);
 
 const ORGANISER = "org";
 const CURRENT_KEY = "0123456789abcdef0123456789abcdef";
@@ -386,6 +393,7 @@ describe("session writes: organisers and the room", () => {
           rows: { r1: existing("r1"), r2: existing("r2") },
           requestsOrder: ["r1", "r2"],
           votes: { r1: { asker: true } },
+          createdAt: hoursFromNow(0),
         }),
       );
       await setDoc(doc(adminDb, "sessionIndex", ID), indexEntry());
@@ -402,7 +410,7 @@ describe("session writes: organisers and the room", () => {
   });
 
   it("lets the room add to a legacy session with no votes field", async () => {
-    const legacy = session();
+    const legacy = session({ createdAt: hoursFromNow(0) });
     delete legacy.votes;
     delete legacy.listed;
     await seed((adminDb) => setDoc(doc(adminDb, "sessions", ID), legacy));
@@ -483,6 +491,84 @@ describe("session writes: organisers and the room", () => {
     await assertSucceeds(setDoc(doc(db, "sessions", "other-night"), session()));
     await assertSucceeds(setDoc(doc(db, "sessionIndex", "other-night"), indexEntry()));
     await assertSucceeds(deleteDoc(doc(db, "sessionIndex", "other-night")));
+  });
+
+  describe("only while the night takes requests", () => {
+    type Case = {
+      name: string;
+      startsIn: number;
+      requestsOpen?: boolean;
+      opensIn?: number;
+      closesIn?: number;
+      open: boolean;
+    };
+    // Starts are now or whole hours away, so the client's local-time bounds
+    // can't flip a case with the time of day the suite runs at.
+    const cases: Case[] = [
+      { name: "inside the default window", startsIn: 1, open: true },
+      { name: "more than 2 hours before the start", startsIn: 3, open: false },
+      { name: "on a night long over", startsIn: -26, open: false },
+      { name: "View only inside the window", startsIn: 1, requestsOpen: false, open: false },
+      { name: "forced open days ahead", startsIn: 72, requestsOpen: true, open: true },
+      { name: "forced open on a night long over", startsIn: -26, requestsOpen: true, open: false },
+      { name: "after a set close", startsIn: 0, closesIn: -1 / 6, open: false },
+      { name: "before a set open", startsIn: 0, opensIn: 1, closesIn: 3, open: false },
+      { name: "inside a set window", startsIn: 5, opensIn: -1 / 6, closesIn: 3, open: true },
+      {
+        name: "a set close at or before the open",
+        startsIn: 0,
+        opensIn: 2,
+        closesIn: 1,
+        open: true,
+      },
+      { name: "a set open before the start", startsIn: 5, opensIn: 1, open: false },
+      // The client's default close lands before this open, so it fails open.
+      { name: "a set open long after the start", startsIn: 0, opensIn: 20, open: true },
+    ];
+
+    for (const c of cases) {
+      it(`${c.open ? "takes" : "refuses"} the room's writes ${c.name}, as the room view shows`, async () => {
+        const createdAt = hoursFromNow(c.startsIn);
+        const window: Doc = {};
+        if (c.requestsOpen !== undefined) window.requestsOpen = c.requestsOpen;
+        if (c.opensIn !== undefined) window.requestsOpensAt = hoursFromNow(c.opensIn);
+        if (c.closesIn !== undefined) window.requestsClosesAt = hoursFromNow(c.closesIn);
+        const night = session({ rows: { r2: existing("r2") }, requestsOrder: ["r2"], createdAt });
+        delete night.requestsOpen;
+        Object.assign(night, window);
+        await seed((adminDb) => setDoc(doc(adminDb, "sessions", ID), night));
+
+        const now = new Date();
+        const meta = {
+          requestsOpen: c.requestsOpen ?? null,
+          requestsOpensAt: (window.requestsOpensAt as Timestamp | undefined)?.toDate() ?? null,
+          requestsClosesAt: (window.requestsClosesAt as Timestamp | undefined)?.toDate() ?? null,
+        };
+        const roomCanRequest =
+          linkState(meta, createdAt.toDate(), now).open && !isPastNight(createdAt.toDate(), now);
+        expect(roomCanRequest).toBe(c.open);
+
+        const { anonymous } = contexts();
+        const expectRule = (write: Promise<unknown>) =>
+          c.open ? assertSucceeds(write) : assertFails(write);
+        await expectRule(addRequest(anonymous, "fresh"));
+        await expectRule(vote(anonymous, "r2", true));
+        await assertSucceeds(addRequest(db, "from-organiser"));
+      });
+    }
+
+    it("allows a few minutes of phone clock drift either side", async () => {
+      const { anonymous } = contexts();
+      const nights: Doc[] = [
+        session({ createdAt: hoursFromNow(2 + 2 / 60) }),
+        session({ createdAt: hoursFromNow(-1), requestsClosesAt: hoursFromNow(-2 / 60) }),
+      ];
+      for (const night of nights) {
+        delete night.requestsOpen;
+        await seed((adminDb) => setDoc(doc(adminDb, "sessions", ID), night));
+        await assertSucceeds(addRequest(anonymous, `drift-${nights.indexOf(night)}`));
+      }
+    });
   });
 
   it("treats an organiser as the room once the key changes", async () => {
