@@ -72,11 +72,7 @@ test("the running order: Next tag, drag and keyboard reorder, kept on reload", a
 }) => {
   const page = await phone();
   await threeQueued(page);
-  expect(await upNextTitles(page)).toEqual([
-    "Jolene - Dolly Parton",
-    "Hallelujah - Leonard Cohen",
-    "Let It Be - The Beatles",
-  ]);
+  expect(await upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(page.locator("#upnext-rows > li").first()).toHaveClass(/next-up/);
   await expect(page.locator("#upnext-rows .next-tag")).toHaveCount(1);
   await expect(upNextRow(page, "Jolene").locator(".next-tag")).toHaveText("Next");
@@ -92,23 +88,17 @@ test("the running order: Next tag, drag and keyboard reorder, kept on reload", a
     await page.mouse.move(from.x + from.width / 2, y);
   }
   await page.mouse.up();
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Let It Be - The Beatles", "Jolene - Dolly Parton", "Hallelujah - Leonard Cohen"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Let It Be", "Jolene", "Hallelujah"]);
   await expect(upNextRow(page, "Let It Be").locator(".next-tag")).toHaveText("Next");
 
   await upNextRow(page, "Let It Be").locator(".drag-handle").focus();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(upNextRow(page, "Let It Be").locator(".drag-handle")).toBeFocused();
 
   await page.reload();
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
 });
 
 test("votes toggle, and the pool sorts by them", async ({ phone }) => {
@@ -116,6 +106,7 @@ test("votes toggle, and the pool sorts by them", async ({ phone }) => {
   await startSession(page);
   await addByName(page, "Jolene", { name: "Alex" });
   await addByName(page, "Hallelujah");
+  await expect(requestRow(page, "Jolene").locator(".page-tile")).toHaveText(/Page\s*6/);
   const jolene = requestRow(page, "Jolene").locator(".vote-button");
   await expect(jolene).toHaveAttribute("aria-pressed", "true");
   await expect(jolene).toHaveAccessibleName("You want this one");
@@ -123,11 +114,10 @@ test("votes toggle, and the pool sorts by them", async ({ phone }) => {
   await jolene.tap();
   await expect(jolene).toHaveAttribute("aria-pressed", "false");
   await expect(jolene).toHaveAccessibleName("I want this one, nobody has yet");
-  await expect(page.locator("#requests-rows .match-title").first()).toHaveText(
-    "Hallelujah - Leonard Cohen",
-  );
+  await expect(page.locator("#requests-rows .match-title").first()).toHaveText("Hallelujah");
   await jolene.tap();
-  await expect(jolene).toHaveText("You");
+  // Just the count: the fill and the label say it's you.
+  await expect(jolene).toHaveText("1");
 });
 
 test("played and binned groups rescue their rows", async ({ phone }) => {
@@ -219,4 +209,19 @@ test("export keeps crossed-out rows", async ({ phone, parseRows }) => {
 
   await page.locator("#settings-toggle").tap();
   await expect(page.locator("#include-crossed")).toHaveCount(0);
+});
+
+test("on a narrow phone, a row's buttons drop under its title", async ({ phone }) => {
+  const page = await phone();
+  await threeQueued(page);
+  const row = upNextRow(page, "Jolene");
+  const titleBottom = async () => {
+    const box = (await row.locator(".match-title").boundingBox())!;
+    return box.y + box.height;
+  };
+  const toolsTop = async () => (await row.locator(".row-tools").boundingBox())!.y;
+
+  expect(await toolsTop()).toBeLessThan(await titleBottom());
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect.poll(async () => (await toolsTop()) >= (await titleBottom())).toBe(true);
 });

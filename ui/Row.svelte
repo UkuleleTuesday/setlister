@@ -76,9 +76,11 @@
     swipeDx === null || !li ? null : Math.min(1, Math.abs(swipeDx) / (COMMIT * li.clientWidth)),
   );
 
-  // The page badge leads this line: beside the title it would squeeze the tools.
+  const title = $derived(row.match ? row.match.title : `“${row.raw_title}”`);
+
   const metaText = $derived.by(() => {
     const parts: string[] = [];
+    if (row.match?.artist) parts.push(row.match.artist);
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
     if (row.source !== "manual") parts.push(sourceLabel(row.source));
     else if (!row.addedBy) parts.push("added manually");
@@ -106,7 +108,6 @@
     const text = parts.join(" · ");
     return text.charAt(0).toUpperCase() + text.slice(1);
   });
-  const showMeta = $derived(metaText !== "" || Boolean(row.match));
 
   // "+1 · 2" doesn't say what it counts, so the aria-label does.
   const voteLabel = $derived.by(() => {
@@ -260,17 +261,18 @@
         <Icon name="drag" />
       </button>
     {/if}
+    <!-- Real text, so assistive tech reads "Page 9" too. -->
+    <span class="date-tile page-tile">
+      <span class="date-tile-weekday">Page</span><span class="date-tile-day">
+        {row.match ? row.match.page : "?"}
+      </span>
+    </span>
     <div class="row-main">
-      <!-- Real text, so assistive tech reads it too. -->
       {#if isNext}<span class="next-tag">Next</span>{/if}
       <div class="row-top">
-        <span class="match-title">{row.match ? row.match.display : `“${row.raw_title}”`}</span>
+        <span class="match-title">{title}</span>
       </div>
-      {#if showMeta}
-        <div class="row-meta">
-          {#if row.match}<span class="page-badge">p.{row.match.page}</span>{/if}{metaText}
-        </div>
-      {/if}
+      {#if metaText}<div class="row-meta">{metaText}</div>{/if}
     </div>
     <div class="row-tools">
       <!-- Up next is deliberately not re-sorted by votes: the set plays from
@@ -285,11 +287,9 @@
           aria-label={voteLabel}
           onclick={() => actions.vote(row.uid)}
         >
-          <Icon name="want" /><span>
-            {vote.mine ? "You" : "+1"}
-          </span>{#if vote.mine ? vote.count > 1 : vote.count > 0}<span class="vote-count">
-              · {vote.count}
-            </span>{/if}
+          <!-- Compact, so the page tile and the title fit beside it; the
+               fill says whether you're in, the label says the rest. -->
+          <Icon name="want" />{#if vote.count > 0}<span class="vote-count">{vote.count}</span>{/if}
         </button>
       {/if}
       {#if context === "upnext"}

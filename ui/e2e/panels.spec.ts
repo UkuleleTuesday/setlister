@@ -112,11 +112,10 @@ test("the night's name opens its details: the date and the songbook", async ({ p
   await expect(date).toContainText(String(new Date().getFullYear()));
   await expect(date).not.toHaveText(/Tonight|Today/);
   await expect(sheet.locator("#edition")).toBeEnabled();
+  // The songbook's note lives here now, not in a footer under the lists.
+  await expect(sheet.locator("#edition-note")).toContainText("matched against “Current”");
   await page.locator("#session-details-close").tap();
   await expect(sheet).toBeHidden();
-
-  await page.locator("#edition-change").tap();
-  await expect(sheet).toBeVisible();
 });
 
 test("Here now lists who's connected", async ({ phone }) => {

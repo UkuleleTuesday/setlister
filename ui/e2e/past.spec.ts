@@ -75,27 +75,15 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
   // Edit mode lists what was played, open and in the order it was ticked.
   const playedRows = "#played-group-rows";
   await expect(page.locator(playedRows)).toBeVisible();
-  expect(await titles(page, playedRows)).toEqual([
-    "Jolene - Dolly Parton",
-    "Let It Be - The Beatles",
-    "Hallelujah - Leonard Cohen",
-  ]);
+  expect(await titles(page, playedRows)).toEqual(["Jolene", "Let It Be", "Hallelujah"]);
   const hallelujah = page.locator(`${playedRows} > li`).filter({ hasText: "Hallelujah" });
   await expect(hallelujah.getByRole("button", { name: "Played later" })).toBeDisabled();
   await hallelujah.getByRole("button", { name: "Played earlier" }).tap();
-  expect(await titles(page, playedRows)).toEqual([
-    "Jolene - Dolly Parton",
-    "Hallelujah - Leonard Cohen",
-    "Let It Be - The Beatles",
-  ]);
+  expect(await titles(page, playedRows)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
 
   await edit.tap();
   await expect(page.locator("#recap")).toBeVisible();
-  expect(await titles(page, "#recap-rows")).toEqual([
-    "Jolene - Dolly Parton",
-    "Hallelujah - Leonard Cohen",
-    "Let It Be - The Beatles",
-  ]);
+  expect(await titles(page, "#recap-rows")).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(page.locator("#recap-count")).toHaveText("· 3");
   await expect(page.locator("#recap-rows")).toContainText(/played \d/);
   await expect(page.locator("#recap-rows button")).toHaveCount(0);
@@ -109,7 +97,7 @@ test("a past night opens as a recap, and Edit backfills and fixes the order", as
   await expect(room.locator("#night-note")).toContainText("Christmas night at the Wild Duck.");
   await expect
     .poll(() => titles(room, "#recap-rows"))
-    .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
+    .toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(room.locator("#past-edit")).toHaveCount(0);
   await expect(room.locator(".room-top:visible")).toHaveCount(0);
 });

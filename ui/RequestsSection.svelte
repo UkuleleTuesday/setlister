@@ -39,13 +39,12 @@
   <p
     id="requests-hint"
     class="list-hint"
-    hidden={visible.length === 0 || (lists.room && !lists.roomOpen)}
+    hidden={visible.length === 0 || !lists.room || !lists.roomOpen}
   >
-    {lists.room
-      ? "Thumbs up the ones you want to hear."
-      : "Most wanted first. Move one up when it's time."}
+    Thumbs up the ones you want to hear.
   </p>
-  <!-- At the top of the pool so a shouted request goes in without scrolling. -->
+  <!-- Pinned to the bottom of the screen (style.css), so a shouted request
+       goes in from anywhere in the lists. -->
   <div id="manual-add" class="manual-add">
     <button type="button" class="songbook-trigger btn btn-primary btn-lg" onclick={onAddTune}>
       <Icon name="add" /><span class="btn-label">Add a tune</span>

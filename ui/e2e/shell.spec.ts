@@ -21,7 +21,9 @@ test("the header names the night, and home takes the brand back", async ({ phone
   await expect(share).toHaveAccessibleName(`Sharing session ${id}. Tap for options`);
   // Alone, the count would only say "you".
   await expect(page.locator("#share-count-badge")).toBeHidden();
-  await expect(page.locator("#edition-note")).toContainText("Matched against “Current”");
+  await page.locator("#session-title").tap();
+  await expect(page.locator("#edition-note")).toContainText("matched against “Current”");
+  await page.locator("#session-details-close").tap();
 
   await page.locator("#back-home").tap();
   await expect(page.locator("#home")).toBeVisible();

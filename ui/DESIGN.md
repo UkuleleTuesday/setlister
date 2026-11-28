@@ -52,7 +52,7 @@ mobile-first: phone and touch come first, desktop is a bonus.
 | Space       | `--space-1` (0.2rem) … `--space-10` (2rem)                                                 | Steps of 0.2rem.                                                                      |
 | Radius      | `--radius-xs` 6, `-sm` 8, `-md` 12, `-lg` 16, `-full`                                      | Badges `xs`, inputs and menus `sm`, cards and buttons `md`, sheets and big CTAs `lg`. |
 | Elevation   | `--shadow-xs`, `-card`, `-raised`, `-cta`, `-popover`, `-modal`                            | Lowest to highest. `-raised` marks "next" and "upcoming".                             |
-| Layers      | `--z-lifted`, `-popover`, `-menu`, `-sheet`, `-lightbox`                                   |                                                                                       |
+| Layers      | `--z-lifted`, `-bar`, `-popover`, `-menu`, `-sheet`, `-lightbox`                           | `-bar` is the pinned add bar: over rows, under popovers.                              |
 | Motion      | `--duration-fast`, `--duration-base`, `--ease`                                             | Animations go inside a `prefers-reduced-motion` guard.                                |
 | Interaction | `--tap-min`, `--pressed-opacity`, `--disabled-opacity`, `--focus-ring`                     |                                                                                       |
 | Layout      | `--page-max`, `--control-size`                                                             | The column every view shares. Icon-buttons and the pills beside them.                 |
@@ -78,9 +78,10 @@ mobile-first: phone and touch come first, desktop is a bonus.
 | `.note`, `.error`                          | Help text and failures.                                                                           |
 | `.callout`                                 | A tinted note: a confirmation, a status, the edit-mode notice. Set its margin per use.            |
 | `.inset-list`                              | Rows in one card, split by hairlines, for lists you open things from.                             |
-| `.date-tile` (`.date-tile-lg`)             | Weekday over day number, leading a row about a night. Large for the home hero's next night.       |
+| `.date-tile` (`.date-tile-lg`)             | Small caps label over a number, leading a row: a night's weekday and day, or a tune's page.       |
 | `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
 | `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills. A `button.window-pill` ends in `forward` and hits at 44px.               |
+| `.vote-button`                             | The thumbs-up toggle on a row: the `want` icon and the count, nothing else. See Votes.            |
 | `.settings-group`                          | An `.eyebrow` naming who the settings affect, over its rows and fields.                           |
 | `.setting-row`                             | A `<label>`: `.setting-text` (and `.setting-help`) on the left, its control on the right.         |
 | `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
@@ -107,6 +108,30 @@ Every view is `.app-header`, then `main`, in one `--page-max` column.
    people. A count of one is only you, so it hides.
 6. **Notches.** Edge padding is `max(<token>, env(safe-area-inset-*))`. The
    insets read 0 until `index.html` sets `viewport-fit=cover`.
+7. **Add bar.** On a live night, organisers' Add a tune and Snap the board
+   pin to the bottom edge (`.manual-add`, `--z-bar`). The session pads its
+   bottom so the last row clears it.
+
+### Setlist rows
+
+1. **The page leads**, in a `.date-tile` (`.page-tile`): it's what gets
+   called out to the room. Title over artist, then one muted meta line.
+2. **Every queued row is equal.** Each keeps its own played and move
+   buttons: tunes get played out of order, chained or ticked late. Next is a
+   label and the tile's accent tint, never a bigger button.
+3. **Under 380px**, organiser rows put their buttons on a line of their own
+   under the title, so the title keeps the width.
+
+### Votes
+
+1. **Icon and count only.** A thumbs-up shows the `want` icon and how many
+   want the tune ("2"), never words like "You" or "+1": rows are tight
+   beside the page tile. No count until someone wants it.
+2. **Filled means you're in.** The pill fills with `--accent` once you've
+   voted; outlined otherwise. Read-only counts, such as the songbook's
+   tonight tag, follow the same icon, count and fill.
+3. **The label says the rest.** The `aria-label` spells out who wants it
+   ("You and 1 other want this one"), since the pill alone can't.
 
 ### Settings
 

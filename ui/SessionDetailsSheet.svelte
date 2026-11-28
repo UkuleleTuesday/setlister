@@ -6,6 +6,7 @@
   import { catalogue } from "./catalogue.svelte.js";
   import { editionLabel } from "./editions.js";
   import { features } from "./features.js";
+  import { night } from "./night.svelte.js";
   import { linkStateText } from "./request-window.js";
   import { cleanBlurb, sessionLongDate } from "./session-index.js";
   import { session } from "./session.svelte.js";
@@ -145,6 +146,12 @@
     {locked
       ? "Tap Edit on the night to change its songbook."
       : "Changes the songbook for everyone in this session."}
+    {#if night.edition}<span id="edition-note">
+        Tunes are matched against “{editionLabel(night.edition)}” (generated {catalogue.generatedAt.slice(
+          0,
+          10,
+        ) || "unknown"}).
+      </span>{/if}
   </p>
 
   {#if features.unlistedSessions}
