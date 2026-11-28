@@ -10,7 +10,7 @@ import { copyToClipboard } from "./share-link.js";
 import * as sync from "./sync.js";
 import type { Row } from "./types.js";
 import { sendRoomWrite } from "./room-writes.js";
-import { view } from "./view.svelte.js";
+import { organiserStatus } from "./organiser-status.svelte.js";
 import { hasVoted, toggleVote } from "./votes.js";
 
 function withRow(uid: string, change: (row: Row) => void) {
@@ -57,7 +57,7 @@ export const rowActions: RowActions = {
     const clientId = presence.getClientId();
     night.votes = toggleVote(night.votes, uid, clientId);
     persist();
-    if (view.mode === "room") {
+    if (!organiserStatus.isOrganiser) {
       sendRoomWrite(
         sync.setRoomVote(uid, clientId, hasVoted(night.votes, uid, clientId)),
         "Couldn’t save your thumbs up. Reload and try again.",

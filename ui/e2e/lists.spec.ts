@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { features } from "../features.js";
-import { expect, test } from "./fixtures.js";
+import { expect, storedLists, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
 const requestRow = (page: Page, title: string) =>
@@ -97,6 +97,10 @@ test("the running order: Next tag, drag and keyboard reorder, kept on reload", a
   await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(upNextRow(page, "Let It Be").locator(".drag-handle")).toBeFocused();
 
+  const id = new URL(page.url()).searchParams.get("session")!;
+  await expect
+    .poll(async () => (await storedLists(id)).upNext)
+    .toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await page.reload();
   await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
 });

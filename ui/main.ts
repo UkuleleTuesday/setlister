@@ -17,11 +17,9 @@ import {
 } from "./organiser.svelte.js";
 import { currentRouteId, followBackButton, navigateTo, setView } from "./routing.js";
 import { restore } from "./save.js";
-import { retireModeLinks } from "./view-mode.js";
 
 // First: strip an organiser key from the address bar.
 takeOrganiseLink();
-retireModeLinks();
 restore();
 // After restore(): needs the saved name.
 startRegistration();

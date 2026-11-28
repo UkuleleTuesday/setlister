@@ -7,7 +7,6 @@ import {
   CATALOGUE_MAX_AGE_MS,
   catalogueNeedsRefresh,
   getCachedCatalogue,
-  migrateLegacyCatalogue,
   putCachedCatalogue,
 } from "../catalogue-cache.js";
 import { song } from "./fixtures.js";
@@ -75,27 +74,6 @@ describe("putCachedCatalogue", () => {
     store = putCachedCatalogue(store, "book-new", entry("book-new"), NOW + 101);
     expect(store["book-0"]).toBeDefined();
     expect(store["book-1"]).toBeUndefined();
-  });
-});
-
-describe("migrateLegacyCatalogue", () => {
-  it("folds a valid single-slot cache into the map", () => {
-    const store = migrateLegacyCatalogue({}, entry("wexford-2026"), NOW);
-    expect(getCachedCatalogue(store, "wexford-2026")).not.toBeNull();
-  });
-
-  it("never overwrites an edition already in the map", () => {
-    const fresh = putCachedCatalogue({}, "current", entry("current", 5), NOW);
-    const store = migrateLegacyCatalogue(fresh, entry("current", 1), NOW + 1);
-    expect(store.current.catalogue).toHaveLength(5);
-  });
-
-  it("ignores a legacy slot with no edition id or no songs", () => {
-    expect(migrateLegacyCatalogue({}, null, NOW)).toEqual({});
-    expect(migrateLegacyCatalogue({}, { catalogue: [{}] }, NOW)).toEqual({});
-    expect(migrateLegacyCatalogue({}, { edition: { id: "current" }, catalogue: [] }, NOW)).toEqual(
-      {},
-    );
   });
 });
 

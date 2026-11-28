@@ -3,10 +3,9 @@
 import { notices } from "./notices.svelte.js";
 import { loseOrganiserAccess } from "./organiser.svelte.js";
 import { readSync, session } from "./session.svelte.js";
-import { offerLink } from "./share-link.js";
+import { buildSessionUrl, offerLink } from "./share-link.js";
 import * as sync from "./sync.js";
 import type { RequestsSwitch } from "./types.js";
-import { buildSessionUrl } from "./view-mode.js";
 
 export async function shareSessionLink(): Promise<boolean> {
   const id = sync.getSessionId();

@@ -1,4 +1,4 @@
-// Edited in place. Sync and storage only ever get plain copies (nightSnapshot).
+// Edited in place. Sync only ever gets plain copies (nightSnapshot).
 
 import type { Edition, ListState, Row, Votes } from "./types.js";
 

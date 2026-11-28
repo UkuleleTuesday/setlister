@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alternativesOf, isRow } from "../row-shape.js";
+import { alternativesOf, isRow, sourceLabel } from "../row-shape.js";
 import type { Row } from "../types.js";
 import { row, song } from "./fixtures.js";
 
@@ -26,5 +26,14 @@ describe("alternativesOf", () => {
   it("reads anything but an array as none", () => {
     expect(alternativesOf(withAlternatives("Creep"))).toEqual([]);
     expect(alternativesOf(withAlternatives(undefined))).toEqual([]);
+  });
+});
+
+describe("sourceLabel", () => {
+  it("names each source, so a new one can't read as the whiteboard", () => {
+    expect(sourceLabel("manual")).toBe("added manually");
+    expect(sourceLabel("room")).toBe("from the room");
+    expect(sourceLabel("scan")).toBe("from the whiteboard");
+    expect(sourceLabel(undefined)).toBe("from the whiteboard");
   });
 });

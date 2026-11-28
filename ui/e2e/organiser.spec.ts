@@ -8,8 +8,7 @@ test("a room phone gets the request view, and the link makes it an organiser's",
   const id = await startSession(organiser);
   const page = await phone({ room: true });
 
-  await page.goto(`/?session=${id}&mode=full`);
-  await expect(page).toHaveURL(new RegExp(`\\?session=${id}$`));
+  await page.goto(`/?session=${id}`);
   await expect(page.locator("body")).toHaveClass(/room-mode/);
 
   await page.goto(`/?session=${id}#organise=${KEY}`);

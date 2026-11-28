@@ -15,7 +15,7 @@
   import { searchSongs } from "./search.js";
   import { catalogueEmptyMessage, tonightTagLabel } from "./songbook.js";
   import type { CatalogueEntry } from "./types.js";
-  import { view } from "./view.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
   import { hasVoted, voteCount } from "./votes.js";
 
   let { onPick, onclose }: { onPick: (entry: CatalogueEntry) => void; onclose: () => void } =
@@ -66,7 +66,9 @@
   // at screen readers. The tap's note has the exact wait.
   function refreshWait() {
     clearTimeout(waitTimer);
-    const remaining = view.mode === "room" ? cooldownRemaining(readLastRoomAdd(), Date.now()) : 0;
+    const remaining = organiserStatus.isOrganiser
+      ? 0
+      : cooldownRemaining(readLastRoomAdd(), Date.now());
     waiting = remaining > 0;
     if (remaining) waitTimer = setTimeout(refreshWait, remaining + 50);
   }

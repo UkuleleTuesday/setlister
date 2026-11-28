@@ -4,7 +4,7 @@ import * as presence from "./presence.js";
 import { openingSoonNote, requestsClosedNote } from "./request-window.js";
 import { session } from "./session.svelte.js";
 import type { Row } from "./types.js";
-import { view } from "./view.svelte.js";
+import { organiserStatus } from "./organiser-status.svelte.js";
 import { hasVoted, voteCount } from "./votes.js";
 
 /** The want button's state for one row. */
@@ -14,7 +14,7 @@ export interface RowVote {
 }
 
 class Lists {
-  room = $derived(view.mode === "room");
+  room = $derived(!organiserStatus.isOrganiser);
   roomOpen = $derived(this.room && session.link.open);
   // A View-only link promises the room can only watch. Closing the link
   // doesn't stop the organiser voting.

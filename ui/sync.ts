@@ -233,12 +233,12 @@ function deepCopy<T>(obj: T): T {
 // Ids have only ~10k combos, so claim one in a transaction and retry on a
 // collision. A listed session's index row goes in the same transaction.
 export async function createSession(
-  getState: () => LocalState,
+  edition: Edition,
   applyStateFn: ApplyState,
   sessionMeta: { createdBy?: string; listed?: boolean; createdAt?: Date | null; blurb?: string },
 ): Promise<string> {
   const { db, fx } = await getFirestore();
-  const serialized = serialize(getState());
+  const serialized = serialize({ upNext: [], requests: [], edition });
   const next = readMeta({ ...sessionMeta, blurb: cleanBlurb(sessionMeta?.blurb || "") });
   const pickedAt = sessionMeta?.createdAt instanceof Date ? sessionMeta.createdAt : null;
   let id: string | null = null;
