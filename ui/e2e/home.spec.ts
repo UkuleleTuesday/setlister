@@ -31,7 +31,8 @@ test("tonight leads, and a second night isn't offered while it's planned", async
   const card = page.locator("#next-session .next-session-card");
   await expect(card.locator("#next-session-name")).toHaveText(/Tonight|Today/);
   await expect(card).not.toContainText("Started by");
-  await expect(page.locator("#next-session-add")).toHaveText("Add a tune");
+  // Organisers add from inside the night: the card just opens it.
+  await expect(page.locator("#next-session-add")).toHaveCount(0);
   await expect(page.locator("#next-session-open")).toHaveText("See tonight’s setlist");
 
   if (features.unlistedSessions) {
@@ -44,19 +45,11 @@ test("tonight leads, and a second night isn't offered while it's planned", async
     await expect(page.locator("#new-session")).toHaveCount(0);
   }
 
-  await page.locator("#next-session-open").tap();
+  // Anywhere on the card, not just its last row.
+  await card.tap({ position: { x: 24, y: 24 } });
   await page.waitForURL(/[?&]session=/);
   await expect(page.locator("#session-view")).toBeVisible();
   await expect(page.locator("#songbook-sheet")).toBeHidden();
-});
-
-test("an organiser's Add a tune opens tonight with the songbook up", async ({ phone }) => {
-  const page = await phone();
-  await startSession(page);
-  await page.locator("#back-home").tap();
-  await page.locator("#next-session-add").tap();
-  await page.waitForURL(/[?&]session=/);
-  await expect(page.locator("#songbook-sheet")).toBeVisible();
 });
 
 test("the room's card says how the night is going and requests in one tap", async ({ phone }) => {
@@ -110,8 +103,7 @@ test("with requests closed, the room's card only opens the setlist", async ({ ph
   await expect(room.locator("#next-session-status")).toHaveText("Requests closed");
   await expect(room.locator("#next-session-status")).not.toHaveClass(/open/);
   await expect(room.locator("#next-session-add")).toHaveCount(0);
-  await expect(room.locator("#next-session-open")).toHaveClass(/btn-on-accent/);
-  await room.locator("#next-session-open").tap();
+  await room.locator("#next-session .next-session-card").tap({ position: { x: 24, y: 24 } });
   await expect(room.locator("#session-view")).toBeVisible();
   await expect(room.locator("#songbook-sheet")).toBeHidden();
 });

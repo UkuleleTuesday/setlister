@@ -74,7 +74,8 @@
       counts: summary ? tonightCounts(summary) : "",
     };
   });
-  const canAdd = $derived(organiserStatus.isOrganiser || Boolean(card.link?.open));
+  // Organisers add from inside the night: for them the card only opens it.
+  const canRequest = $derived(!organiserStatus.isOrganiser && Boolean(card.link?.open));
   const isTonight = $derived(
     Boolean(next?.createdAt) &&
       startOfNight(next!.createdAt!).getTime() === startOfNight(now).getTime(),
@@ -168,37 +169,27 @@
             </p>{/if}
         </div>
       {/if}
-      <div class="next-session-actions">
-        {#if canAdd}
+      {#if canRequest}
+        <div class="next-session-actions">
           <button
             id="next-session-add"
             class="btn btn-lg btn-on-accent"
             type="button"
             onclick={() => onPick(next.id, { songbook: true })}
           >
-            <Icon name="add" /><span class="btn-label">
-              {organiserStatus.isOrganiser ? "Add a tune" : "Request a tune"}
-            </span>
+            <Icon name="add" /><span class="btn-label">Request a tune</span>
           </button>
-          <button
-            id="next-session-open"
-            class="next-session-open"
-            type="button"
-            onclick={() => onPick(next.id)}
-          >
-            {openLabel}<Icon name="forward" />
-          </button>
-        {:else}
-          <button
-            id="next-session-open"
-            class="btn btn-lg btn-on-accent"
-            type="button"
-            onclick={() => onPick(next.id)}
-          >
-            <span class="btn-label">{openLabel}</span><Icon name="forward" />
-          </button>
-        {/if}
-      </div>
+        </div>
+      {/if}
+      <!-- Its ::after covers the card, so a tap anywhere opens the night. -->
+      <button
+        id="next-session-open"
+        class="next-session-open"
+        type="button"
+        onclick={() => onPick(next.id)}
+      >
+        {openLabel}<Icon name="forward" />
+      </button>
     </section>
   {/if}
 </div>

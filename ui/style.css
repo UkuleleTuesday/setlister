@@ -1038,6 +1038,7 @@ footer#edition-note:empty {
 }
 /* The next night, as a ticket: the one loud thing on home. */
 .next-session-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   margin: var(--space-2) 0 0;
@@ -1117,39 +1118,32 @@ footer#edition-note:empty {
   font-size: var(--text-sm);
 }
 .next-session-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  position: relative;
+  z-index: var(--z-lifted);
   padding: var(--space-2) var(--space-6) var(--space-5);
 }
-.next-session-open:not(.btn) {
+.next-session-open {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  min-height: var(--tap-min);
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 var(--space-6);
   border: none;
+  border-top: 1px solid var(--on-accent-divider);
   background: none;
   color: var(--on-accent);
-  font-size: var(--text-base);
+  font: inherit;
   font-weight: var(--weight-semibold);
   cursor: pointer;
 }
-/* Above the room's controls, not in them: those hide while requests are shut,
-   which is when people plan. */
-.night-note {
-  margin: var(--space-1) 0 var(--space-5);
+.next-session-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
-.night-note .eyebrow {
-  margin: 0 0 var(--space-1);
-  color: var(--accent);
-}
-.night-note-text {
-  margin: 0;
-  color: var(--text);
-  font-size: var(--text-base);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+/* The whole card is the button, so it dims as one. */
+.next-session-card:has(.next-session-open:active) {
+  opacity: var(--pressed-opacity);
 }
 .no-night {
   margin: var(--space-2) 0 0;

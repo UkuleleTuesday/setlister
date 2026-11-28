@@ -103,11 +103,12 @@ export function leaveToHome() {
   else navigateTo(null);
 }
 
-/** `songbook`: open the songbook too, if this phone can add to the night. */
+/** `songbook`: open the songbook too, if the request link is open. */
 export async function openSession(id: string, { songbook = false } = {}) {
   await navigateTo(id, { cameFromHome: true });
-  if (!songbook || sync.getSessionId() !== id || session.past) return;
-  if (view.mode === "full" || linkNow().open) overlays.songbook = true;
+  if (songbook && sync.getSessionId() === id && !session.past && linkNow().open) {
+    overlays.songbook = true;
+  }
 }
 
 export async function startSession({ createdAt, listed, editionId, blurb }: NewSessionChoice) {
