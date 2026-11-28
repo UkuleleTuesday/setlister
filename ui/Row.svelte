@@ -77,17 +77,10 @@
   );
 
   const title = $derived(row.match ? row.match.title : `“${row.raw_title}”`);
-  // The room thumbs up from the row; organisers just see how many want it.
-  const roomVote = $derived(context === "room" || context === "room-upnext" ? vote : null);
-  const wantText = $derived.by(() => {
-    if (context !== "requests" || !vote?.count) return "";
-    return `${vote.count} ${vote.count === 1 ? "wants" : "want"} it`;
-  });
 
   const metaText = $derived.by(() => {
     const parts: string[] = [];
     if (row.match?.artist) parts.push(row.match.artist);
-    if (wantText) parts.push(wantText);
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
     if (row.source !== "manual") parts.push(sourceLabel(row.source));
     else if (!row.addedBy) parts.push("added manually");
@@ -284,22 +277,20 @@
     <div class="row-tools">
       <!-- Up next is deliberately not re-sorted by votes: the set plays from
            the top. -->
-      {#if roomVote}
+      {#if vote}
         <button
           type="button"
           class="vote-button"
-          class:voted={roomVote.mine}
-          aria-pressed={roomVote.mine ? "true" : "false"}
-          title={roomVote.mine ? "You want this one" : "I want this one"}
+          class:voted={vote.mine}
+          aria-pressed={vote.mine ? "true" : "false"}
+          title={vote.mine ? "You want this one" : "I want this one"}
           aria-label={voteLabel}
           onclick={() => actions.vote(row.uid)}
         >
           <Icon name="want" /><span>
-            {roomVote.mine ? "You" : "+1"}
-          </span>{#if roomVote.mine ? roomVote.count > 1 : roomVote.count > 0}<span
-              class="vote-count"
-            >
-              · {roomVote.count}
+            {vote.mine ? "You" : "+1"}
+          </span>{#if vote.mine ? vote.count > 1 : vote.count > 0}<span class="vote-count">
+              · {vote.count}
             </span>{/if}
         </button>
       {/if}

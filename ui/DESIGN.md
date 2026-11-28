@@ -118,8 +118,6 @@ Every view is `.app-header`, then `main`, in one `--page-max` column.
 2. **Every queued row is equal.** Each keeps its own played and move
    buttons: tunes get played out of order, chained or ticked late. Next is a
    label and the tile's accent tint, never a bigger button.
-3. **Organisers see demand as text** ("2 want it"); only the room's rows
-   carry the thumbs-up button.
 
 ### Settings
 
