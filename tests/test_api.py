@@ -12,7 +12,8 @@ from utrequests.config import get_settings
 from .conftest import WHITEBOARDS, load_fixture
 from .test_vision import FakeClient
 
-PAGES_ORIGIN = "https://ukuleletuesday.github.io"
+PAGES_ORIGIN = "https://setlister.ukuleletuesday.ie"
+OLD_PAGES_ORIGIN = "https://ukuleletuesday.github.io"
 
 
 @pytest.fixture
@@ -170,9 +171,10 @@ def test_unknown_path_404(client):
     assert response.get_json() == {"detail": "Not found"}
 
 
-def test_cors_allowed_origin_echoed(client):
-    response = client.get("/healthz", headers={"Origin": PAGES_ORIGIN})
-    assert response.headers["Access-Control-Allow-Origin"] == PAGES_ORIGIN
+@pytest.mark.parametrize("origin", [PAGES_ORIGIN, OLD_PAGES_ORIGIN])
+def test_cors_allowed_origin_echoed(client, origin):
+    response = client.get("/healthz", headers={"Origin": origin})
+    assert response.headers["Access-Control-Allow-Origin"] == origin
     assert "Origin" in response.headers["Vary"]
 
 
