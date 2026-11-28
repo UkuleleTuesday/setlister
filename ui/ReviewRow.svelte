@@ -3,10 +3,9 @@
   import SongPicker from "./SongPicker.svelte";
   import { type Duplicate, duplicateLabel } from "./dupes.js";
   import { features } from "./features.js";
-  import { alternativesOf } from "./row-shape.js";
+  import { alternativesOf, sourceLabel } from "./row-shape.js";
   import type { CatalogueStatus } from "./songbook.js";
   import type { CatalogueEntry, Row } from "./types.js";
-  import { sourceLabel } from "./view-mode.js";
 
   let {
     row,

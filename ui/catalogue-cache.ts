@@ -11,7 +11,6 @@ export interface CachedCatalogue {
 export type CatalogueStore = Record<string, CachedCatalogue>;
 
 const CATALOGUES_CACHE_KEY = "setlister.catalogues.v2";
-const LEGACY_CATALOGUE_CACHE_KEY = "setlister.catalogue.v1";
 
 // Current plus a themed night or two: each entry is ~20KB of a shared 5MB.
 export const CATALOGUE_CACHE_LIMIT = 4;
@@ -37,28 +36,6 @@ export function putCachedCatalogue(
   return next;
 }
 
-// A map entry beats the legacy slot: it can only be fresher.
-export function migrateLegacyCatalogue(
-  store: CatalogueStore,
-  legacyData: unknown,
-  now: number,
-): CatalogueStore {
-  const legacy = legacyData as Partial<CachedCatalogue> | null | undefined;
-  const id = legacy?.edition?.id;
-  if (!id || !Array.isArray(legacy.catalogue) || !legacy.catalogue.length) return store;
-  if (getCachedCatalogue(store, id)) return store;
-  return putCachedCatalogue(
-    store,
-    id,
-    {
-      edition: legacy.edition!,
-      catalogue: legacy.catalogue,
-      generatedAt: legacy.generatedAt || "",
-    },
-    now,
-  );
-}
-
 // A tab lives for days and the weekly regen shifts pages: without a re-check,
 // tonight's adds get last week's pages. Matches the API's own catalogue cache.
 export const CATALOGUE_MAX_AGE_MS = 15 * 60 * 1000;
@@ -70,24 +47,12 @@ export function catalogueNeedsRefresh(
   return !lastAttemptAt || now - lastAttemptAt >= CATALOGUE_MAX_AGE_MS;
 }
 
-export function readCatalogueStore(now = Date.now()): CatalogueStore {
-  let store: CatalogueStore = {};
+export function readCatalogueStore(): CatalogueStore {
   try {
-    store = JSON.parse(localStorage.getItem(CATALOGUES_CACHE_KEY) || "null") || {};
+    return JSON.parse(localStorage.getItem(CATALOGUES_CACHE_KEY) || "null") || {};
   } catch {
-    /* corrupt cache: the network load will repopulate it */
+    return {}; /* corrupt cache: the network load will repopulate it */
   }
-  try {
-    const legacy: unknown = JSON.parse(localStorage.getItem(LEGACY_CATALOGUE_CACHE_KEY) || "null");
-    if (legacy) {
-      store = migrateLegacyCatalogue(store, legacy, now);
-      localStorage.setItem(CATALOGUES_CACHE_KEY, JSON.stringify(store));
-      localStorage.removeItem(LEGACY_CATALOGUE_CACHE_KEY);
-    }
-  } catch {
-    /* unreadable legacy slot: nothing worth keeping */
-  }
-  return store;
 }
 
 export function saveCachedCatalogue(editionId: string, entry: CachedCatalogue): void {

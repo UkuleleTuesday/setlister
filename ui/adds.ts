@@ -21,7 +21,7 @@ import { planScan, requestParse } from "./scan.js";
 import { linkNow } from "./session.svelte.js";
 import * as sync from "./sync.js";
 import type { CatalogueEntry, Row } from "./types.js";
-import { view } from "./view.svelte.js";
+import { organiserStatus } from "./organiser-status.svelte.js";
 import { ASKER, hasVoted, seedAsker } from "./votes.js";
 
 function newUid(): string {
@@ -31,7 +31,7 @@ function newUid(): string {
 }
 
 export function pickSong(entry: CatalogueEntry) {
-  const room = view.mode === "room";
+  const room = !organiserStatus.isOrganiser;
   // App closes the songbook when requests close, but a tap can race that.
   if (room && !linkNow().open) {
     overlays.songbook = false;
@@ -80,16 +80,16 @@ export function pickSong(entry: CatalogueEntry) {
 export function confirmRequest({ entry, name, comment }: RequestAnswer) {
   if (name !== null) setPlayerName(name);
   // App dismisses the sheet when requests close, but a tap can race that.
-  if (entry && view.mode === "room" && !linkNow().open) {
+  if (entry && !organiserStatus.isOrganiser && !linkNow().open) {
     notices.requests.show("Requests just closed. Try the whiteboard of wishes!");
     return;
   }
   // addByName re-checks duplicates: the lists may have moved while the sheet was open.
   if (entry && addByName(entry, comment)) {
     notices.requests.show(
-      view.mode === "room"
-        ? `Added “${entry.title}”. Next one in a minute.`
-        : `Added “${entry.title}”.`,
+      organiserStatus.isOrganiser
+        ? `Added “${entry.title}”.`
+        : `Added “${entry.title}”. Next one in a minute.`,
     );
   }
 }
@@ -103,7 +103,7 @@ function addByName(entry: CatalogueEntry, comment: string): boolean {
     return false;
   }
   const uid = newUid();
-  const room = view.mode === "room";
+  const room = !organiserStatus.isOrganiser;
   const row: Row = {
     uid,
     source: room ? "room" : "manual",

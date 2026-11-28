@@ -35,9 +35,9 @@
   import { on } from "svelte/events";
   import Icon from "./Icon.svelte";
   import { stateTime } from "./gig-state.js";
+  import { sourceLabel } from "./row-shape.js";
   import { sessionTimeLabel } from "./session-index.js";
   import type { Row } from "./types.js";
-  import { sourceLabel } from "./view-mode.js";
 
   let {
     row,

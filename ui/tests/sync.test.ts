@@ -101,22 +101,10 @@ describe("serialize / deserialize", () => {
 });
 
 describe("readMeta", () => {
-  it("treats a missing listed field as legacy, not as unlisted-on-purpose", () => {
-    const meta = readMeta({ createdBy: "" });
-    expect(meta.legacy).toBe(true);
-    expect(meta.listed).toBe(false);
-  });
-
-  it("treats an explicit false as a deliberate choice, not legacy", () => {
-    const meta = readMeta({ createdBy: "", listed: false });
-    expect(meta.legacy).toBe(false);
-    expect(meta.listed).toBe(false);
-  });
-
-  it("reads an explicit true", () => {
-    const meta = readMeta({ createdBy: "", listed: true });
-    expect(meta.legacy).toBe(false);
-    expect(meta.listed).toBe(true);
+  it("reads listed only when it's true", () => {
+    expect(readMeta({ listed: true }).listed).toBe(true);
+    expect(readMeta({ listed: false }).listed).toBe(false);
+    expect(readMeta({}).listed).toBe(false);
   });
 
   it("survives a missing document", () => {
@@ -127,7 +115,6 @@ describe("readMeta", () => {
       requestsOpen: null,
       requestsOpensAt: null,
       requestsClosesAt: null,
-      legacy: true,
     });
   });
 
@@ -140,7 +127,6 @@ describe("readMeta", () => {
       requestsOpen: null,
       requestsOpensAt: null,
       requestsClosesAt: null,
-      legacy: false,
     });
   });
 

@@ -37,6 +37,7 @@
     shareSessionLink,
   } from "./sharing.js";
   import { view } from "./view.svelte.js";
+  import { organiserStatus } from "./organiser-status.svelte.js";
   import {
     type WhatsNewEntry,
     latestEntry,
@@ -54,7 +55,7 @@
   const inSession = $derived(view.page === "session");
   // Held off mid-scan: swapping views would drop the review.
   const recap = $derived(
-    session.past && !(view.editingPast && view.mode === "full") && !view.reviewing,
+    session.past && !(view.editingPast && organiserStatus.isOrganiser) && !view.reviewing,
   );
 
   $effect(() => {
@@ -82,7 +83,7 @@
     night.upNext.length === 0 &&
       night.requests.length === 0 &&
       !view.reviewing &&
-      view.mode !== "room",
+      organiserStatus.isOrganiser,
   );
   const roomName = $derived(night.name.trim());
 
@@ -150,7 +151,7 @@
   <div class="title-stack">
     <p class="club-name eyebrow">Ukulele Tuesday</p>
     <h1>
-      {#if inSession && view.mode === "full"}
+      {#if inSession && organiserStatus.isOrganiser}
         <button
           id="session-title"
           class="title-button tap-target"
@@ -258,7 +259,7 @@
               extraClass="window-pill-chevron"
             />
           </button>
-        {:else if view.mode === "full"}
+        {:else if organiserStatus.isOrganiser}
           <button
             id="past-edit"
             class="link-button"
@@ -284,7 +285,7 @@
       {#if recap}
         <Recap
           actions={rowActions}
-          canEdit={view.mode === "full"}
+          canEdit={organiserStatus.isOrganiser}
           onCopy={copySetlist}
           onDownload={downloadSetlist}
         />

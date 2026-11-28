@@ -26,3 +26,9 @@ export async function offerLink(url: string, title: string): Promise<boolean> {
   await copyToClipboard(url);
   return true;
 }
+
+export function buildSessionUrl(href: string, id: string): string {
+  const url = new URL(href);
+  url.searchParams.set("session", id);
+  return url.toString();
+}

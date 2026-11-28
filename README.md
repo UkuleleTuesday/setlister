@@ -190,12 +190,3 @@ Organiser access:
 2. Firestore: create `clubConfig/organiserKey` with string `key` =
    `openssl rand -hex 16`.
 3. Pin the link in the organisers' chat.
-
-A project provisioned before session history may still have a TTL policy on
-`sessions.expiresAt`, which deletes old nights. Turn it off:
-
-```bash
-gcloud firestore fields ttls list --project=songbook-generator
-gcloud firestore fields ttls update expiresAt \
-  --collection-group=sessions --disable-ttl --project=songbook-generator
-```

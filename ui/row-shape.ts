@@ -1,6 +1,6 @@
 // Bad entries are skipped, never repaired (#157).
 
-import type { Candidate, Row } from "./types.js";
+import type { Candidate, Row, RowSource } from "./types.js";
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -15,4 +15,10 @@ export function alternativesOf(row: Row): Candidate[] {
   const alternatives: unknown = row.alternatives;
   if (!Array.isArray(alternatives)) return [];
   return alternatives.filter((alt) => isObject(alt) && isObject(alt.entry));
+}
+
+export function sourceLabel(source: RowSource | undefined): string {
+  if (source === "manual") return "added manually";
+  if (source === "room") return "from the room";
+  return "from the whiteboard";
 }

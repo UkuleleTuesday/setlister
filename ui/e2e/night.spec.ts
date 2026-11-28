@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures.js";
+import { expect, storedLists, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
 test("opens on the session history", async ({ phone }) => {
@@ -10,7 +10,7 @@ test("opens on the session history", async ({ phone }) => {
 
 test("runs a night: add, promote, play, bin and restore, surviving a reload", async ({ phone }) => {
   const page = await phone();
-  await startSession(page);
+  const id = await startSession(page);
 
   await addByName(page, "Jolene", { name: "Alex" });
   await addByName(page, "Hallelujah");
@@ -43,6 +43,7 @@ test("runs a night: add, promote, play, bin and restore, surviving a reload", as
   await expect(requests.getByRole("listitem").filter({ hasText: "Hallelujah" })).toBeVisible();
   await expect(bin).toBeHidden();
 
+  await expect.poll(() => storedLists(id)).toEqual({ upNext: [], requests: ["Hallelujah"] });
   await page.reload();
   await expect(page.locator("#played-group")).toContainText("1 played");
   await expect(requests.getByRole("listitem").filter({ hasText: "Hallelujah" })).toBeVisible();

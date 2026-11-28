@@ -54,12 +54,9 @@ async function applyRoute(id: string | null): Promise<void> {
   }
 
   if (!id) {
-    // ORDER MATTERS: leave first, or persist() pushes the emptied lists and
-    // wipes the session for everyone in it.
     sync.leaveSession();
     night.upNext = [];
     night.requests = [];
-    persist();
     setView("home");
     loadHistory();
     return;
@@ -78,9 +75,6 @@ async function applyRoute(id: string | null): Promise<void> {
     readSync();
     persist();
     setView("session");
-    // Sessions predating visibility get a listing row; a no-op otherwise,
-    // crucially for one deliberately unlisted.
-    if (view.mode === "full") sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
     notices.home.show(
@@ -121,11 +115,12 @@ export async function startSession({ createdAt, listed, editionId, blurb }: NewS
   };
   let id: string;
   try {
-    id = await sync.createSession(
-      () => ({ upNext: [], requests: [], edition: chosenEdition }),
-      applyRemoteState,
-      { createdBy: presence.displayName(night.name), listed, createdAt, blurb },
-    );
+    id = await sync.createSession(chosenEdition, applyRemoteState, {
+      createdBy: presence.displayName(night.name),
+      listed,
+      createdAt,
+      blurb,
+    });
   } catch (err) {
     if (sync.isPermissionDenied(err)) {
       overlays.newSession = false;

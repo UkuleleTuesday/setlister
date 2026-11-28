@@ -40,6 +40,27 @@ export async function storedRowCount(sessionId: string): Promise<number> {
   return Object.keys(doc.fields?.rows?.mapValue?.fields ?? {}).length;
 }
 
+type Value = { stringValue?: string; booleanValue?: boolean; mapValue?: { fields?: Fields } };
+type Fields = Record<string, Value & { arrayValue?: { values?: Value[] } }>;
+
+/** Each stored list's unplayed, unbinned songs by matched title, in order. */
+export async function storedLists(
+  sessionId: string,
+): Promise<{ upNext: string[]; requests: string[] }> {
+  const res = await fetch(
+    `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents/sessions/${sessionId}`,
+    { headers: { Authorization: "Bearer owner" } },
+  );
+  const fields: Fields = res.ok ? ((await res.json()) as { fields: Fields }).fields : {};
+  const rows = fields.rows?.mapValue?.fields ?? {};
+  const titles = (order: string) =>
+    (fields[order]?.arrayValue?.values ?? [])
+      .map((uid) => rows[uid.stringValue ?? ""]?.mapValue?.fields ?? {})
+      .filter((row) => !row.played?.booleanValue && !row.binned?.booleanValue)
+      .map((row) => row.match?.mapValue?.fields?.title?.stringValue ?? "");
+  return { upNext: titles("upNextOrder"), requests: titles("requestsOrder") };
+}
+
 const DOCS = `${EMULATOR}/v1/projects/${PROJECT}/databases/(default)/documents`;
 
 export async function setOrganiserKey(key: string): Promise<void> {
