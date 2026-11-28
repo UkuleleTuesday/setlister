@@ -81,6 +81,7 @@ mobile-first: phone and touch come first, desktop is a bonus.
 | `.date-tile` (`.date-tile-lg`)             | Small caps label over a number, leading a row: a night's weekday and day, or a tune's page.       |
 | `.numbered`                                | Numbers a list of row cards, such as the played order. Use it on an `<ol>`.                       |
 | `.page-badge`, `.window-pill`, `.next-tag` | Badges and status pills. A `button.window-pill` ends in `forward` and hits at 44px.               |
+| `.vote-button`                             | The thumbs-up toggle on a row: the `want` icon and the count, nothing else. See Votes.            |
 | `.settings-group`                          | An `.eyebrow` naming who the settings affect, over its rows and fields.                           |
 | `.setting-row`                             | A `<label>`: `.setting-text` (and `.setting-help`) on the left, its control on the right.         |
 | `.switch`                                  | On/off that applies at once: `<input type="checkbox" role="switch">`.                             |
@@ -118,6 +119,17 @@ Every view is `.app-header`, then `main`, in one `--page-max` column.
 2. **Every queued row is equal.** Each keeps its own played and move
    buttons: tunes get played out of order, chained or ticked late. Next is a
    label and the tile's accent tint, never a bigger button.
+
+### Votes
+
+1. **Icon and count only.** A thumbs-up shows the `want` icon and how many
+   want the tune ("2"), never words like "You" or "+1": rows are tight
+   beside the page tile. No count until someone wants it.
+2. **Filled means you're in.** The pill fills with `--accent` once you've
+   voted; outlined otherwise. Read-only counts, such as the songbook's
+   tonight tag, follow the same icon, count and fill.
+3. **The label says the rest.** The `aria-label` spells out who wants it
+   ("You and 1 other want this one"), since the pill alone can't.
 
 ### Settings
 

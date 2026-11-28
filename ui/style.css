@@ -2064,6 +2064,10 @@ body.room-mode .settings-toggle {
   color: var(--accent);
   font-weight: var(--weight-semibold);
 }
+/* A filled thumb means you're in, as on the vote pill. */
+.tonight-tag.voted svg.icon {
+  fill: currentColor;
+}
 
 /* --- The songbook (#songbook-sheet) --------------------------------------- */
 /* A fixed height, not a max: a centred sheet that shrank as results narrowed
