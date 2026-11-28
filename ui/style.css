@@ -1075,10 +1075,10 @@ main {
   border-radius: var(--radius-full);
   background: var(--confirmed-soft);
 }
-/* Hairlines run edge to edge, like the open row's at the foot of the card. */
+/* Space, not hairlines: each block's eyebrow already says where it starts.
+   The only line is the open row's, marking the card's tap target. */
 .next-session-block {
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--on-accent-divider);
+  padding: 0 var(--space-6) var(--space-5);
 }
 .next-session-block p {
   margin: 0;
