@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { setBinned, setPlayed, stateTime } from "../gig-state.js";
+import { setBinned, setPlayed, stateTime, workingRequests, workingUpNext } from "../gig-state.js";
 import type { Row } from "../types.js";
 
 const T1 = Date.UTC(2026, 9, 21, 20, 42, 11);
@@ -81,5 +81,22 @@ describe("stateTime", () => {
     expect(stateTime(null)).toBeNull();
     expect(stateTime("soon")).toBeNull();
     expect(stateTime(T1)).toBeNull();
+  });
+});
+
+describe("the working lists", () => {
+  const rows = [
+    { ...fresh(), uid: "open" },
+    { ...fresh(), uid: "played", played: true },
+    // Nights from before the Bin moved into Requests can hold these.
+    { ...fresh(), uid: "binned", binned: true },
+  ];
+
+  it("Up next shows neither played nor binned rows", () => {
+    expect(workingUpNext(rows).map((r) => r.uid)).toEqual(["open"]);
+  });
+
+  it("Requests shows no binned rows", () => {
+    expect(workingRequests(rows).map((r) => r.uid)).toEqual(["open", "played"]);
   });
 });

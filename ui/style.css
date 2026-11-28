@@ -1894,27 +1894,6 @@ body.room-mode .settings-toggle {
 .setlist-actions button:disabled::before {
   display: none;
 }
-.row-tools .check-button.active {
-  background: var(--confirmed);
-  color: var(--on-accent);
-  border-radius: var(--radius-full);
-  width: 1.7rem;
-  height: 1.7rem;
-  line-height: 1;
-}
-.row-tools .bin-button.active {
-  background: var(--conflict-soft);
-  color: var(--conflict);
-  border-radius: var(--radius-full);
-  width: 1.7rem;
-  height: 1.7rem;
-  line-height: 1;
-}
-.row-tools .check-button.active .icon,
-.row-tools .bin-button.active .icon {
-  width: 1rem;
-  height: 1rem;
-}
 .row-tools .vote-button {
   gap: var(--space-1);
   min-height: 40px;

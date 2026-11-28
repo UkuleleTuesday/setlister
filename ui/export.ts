@@ -1,7 +1,7 @@
 import type { Edition, Row } from "./types.js";
 
 export function exportedRows(upNext: Row[], requests: Row[]): Row[] {
-  return [...upNext, ...requests].filter((row) => !row.removed);
+  return [...upNext, ...requests];
 }
 
 export function exportText(rows: Row[]): string {

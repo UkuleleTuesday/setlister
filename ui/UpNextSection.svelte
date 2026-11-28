@@ -3,6 +3,7 @@
   import { on } from "svelte/events";
   import ExportActions from "./ExportActions.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
+  import { workingUpNext } from "./gig-state.js";
   import RowGroup from "./RowGroup.svelte";
   import { lists, rowVote } from "./lists.svelte.js";
   import { night } from "./night.svelte.js";
@@ -22,7 +23,7 @@
     onDownload: () => void;
   } = $props();
 
-  const visible = $derived(night.upNext.filter((e) => !e.binned && !e.played));
+  const visible = $derived(workingUpNext(night.upNext));
   const played = $derived(playedOrder(night.upNext));
   let dragOrder: string[] | null = $state(null);
   let dragUid: string | null = $state(null);
