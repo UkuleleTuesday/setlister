@@ -2002,15 +2002,20 @@ body.room-mode .settings-toggle {
   max-height: 240px;
   overflow-y: auto;
 }
+/* The gap keeps a thumb that lands a pixel off from picking the neighbour. */
 .song-picker-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-height: var(--tap-min);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-xs);
   cursor: pointer;
   font-size: var(--text-md);
+}
+.song-picker-option + .song-picker-option {
+  margin-top: var(--space-1);
 }
 .song-picker-option.active,
 .song-picker-option:hover {

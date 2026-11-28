@@ -53,7 +53,10 @@ where a field written at session creation breaks "New session". Run
 
 - **Descriptions are short:** what changed, why, and anything a reviewer must
   act on. No test counts, file lists or restating the diff.
-- **UX changes include before and after screenshots** in the description.
+- **UX changes include before and after screenshots** in the description:
+  emulator only (public, permanent). Commit them to `docs/pr-shots/`, remove in
+  a second commit, push both, link by the first commit's raw URL. Squash-merge;
+  don't force-push.
 
 ## Before you push
 
