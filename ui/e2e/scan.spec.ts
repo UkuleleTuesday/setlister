@@ -236,7 +236,7 @@ test("leaving the session drops a review in progress", async ({ phone, parseRows
 
   await page.locator("#back-home").tap();
   await expect(page.locator("#home")).toBeVisible();
-  await page.locator("#next-session .next-session-card").tap();
+  await page.locator("#next-session-open").tap();
   await expect(page.locator("#session-view")).toBeVisible();
   await expect(page.locator("#review")).toBeHidden();
   await expect(page.locator("#requests-rows").getByRole("listitem")).toHaveCount(0);

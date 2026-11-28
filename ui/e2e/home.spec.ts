@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { features } from "../features.js";
-import { expect, test } from "./fixtures.js";
-import { startSession } from "./steps.js";
+import { expect, storedRowCount, test } from "./fixtures.js";
+import { addByName, setRequests, startSession } from "./steps.js";
 
 /** Local YYYY-MM-DD, as the date picker uses. */
 function dayOffset(days: number): string {
@@ -23,38 +23,86 @@ async function startPastNight(page: Page, date: string) {
   await expect(page.locator("#home")).toBeVisible();
 }
 
-test("tonight leads, and blocks a second night", async ({ phone }) => {
+test("tonight leads, and a second night isn't offered while it's planned", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
   await page.locator("#back-home").tap();
 
   const card = page.locator("#next-session .next-session-card");
-  await expect(card).toContainText("Open the setlist");
-  await expect(card).toContainText(/Tonight|Today/);
-  await expect(page.locator("#new-session")).toHaveClass(/btn-soft/);
+  await expect(card.locator("#next-session-name")).toHaveText(/Tonight|Today/);
+  await expect(card).not.toContainText("Started by");
+  await expect(page.locator("#next-session-add")).toHaveText("Add a tune");
+  await expect(page.locator("#next-session-open")).toHaveText("See tonight’s setlist");
 
-  await page.locator("#new-session").tap();
-  const start = page.locator("#new-session-start");
-  await expect(page.locator("#new-session-notice")).toContainText("already planned");
-  await expect(start).toBeDisabled();
   if (features.unlistedSessions) {
+    await page.locator("#new-session").tap();
+    await expect(page.locator("#new-session-notice")).toContainText("already planned");
     await page.locator("#new-session-visibility").selectOption("unlisted");
-    await expect(page.locator("#new-session-notice")).toBeHidden();
-    await expect(start).toBeEnabled();
+    await expect(page.locator("#new-session-start")).toBeEnabled();
+    await page.locator("#new-session-cancel").tap();
   } else {
-    await expect(page.locator("#new-session-notice")).toHaveText(/home screen\.$/);
-    await expect(page.locator("#new-session-visibility")).toHaveCount(0);
+    await expect(page.locator("#new-session")).toHaveCount(0);
   }
 
-  await page.locator("#new-session-cancel").tap();
-  await expect(page.locator("#new-session-sheet")).toBeHidden();
-  await page.locator("#new-session").tap();
-  await page.locator("#new-session-sheet").tap({ position: { x: 8, y: 8 } });
-  await expect(page.locator("#new-session-sheet")).toBeHidden();
-
-  await card.tap();
+  await page.locator("#next-session-open").tap();
   await page.waitForURL(/[?&]session=/);
   await expect(page.locator("#session-view")).toBeVisible();
+  await expect(page.locator("#songbook-sheet")).toBeHidden();
+});
+
+test("an organiser's Add a tune opens tonight with the songbook up", async ({ phone }) => {
+  const page = await phone();
+  await startSession(page);
+  await page.locator("#back-home").tap();
+  await page.locator("#next-session-add").tap();
+  await page.waitForURL(/[?&]session=/);
+  await expect(page.locator("#songbook-sheet")).toBeVisible();
+});
+
+test("the room's card says how the night is going and requests in one tap", async ({ phone }) => {
+  const organiser = await phone();
+  const id = await startSession(organiser);
+  await setRequests(organiser, true);
+  await addByName(organiser, "Jolene", { name: "Alex" });
+  await addByName(organiser, "Hallelujah");
+  await organiser
+    .locator("#requests-rows")
+    .getByRole("listitem")
+    .filter({ hasText: "Jolene" })
+    .getByRole("button", { name: "Move to Up next" })
+    .tap();
+  await expect.poll(() => storedRowCount(id)).toBe(2);
+
+  const room = await phone({ room: true });
+  await room.goto("/");
+  await expect(room.locator(".home-intro")).toHaveText(
+    "Ask for tunes and follow the night’s setlist.",
+  );
+  await expect(room.locator("#next-session-status")).toHaveText(/^Requests open/);
+  await expect(room.locator("#next-session-status")).toHaveClass(/open/);
+  await expect(room.locator("#next-session-next")).toContainText("p.6 Jolene - Dolly Parton");
+  await expect(room.locator("#next-session-counts")).toHaveText("1 request");
+  await expect(room.locator("#new-session")).toHaveCount(0);
+
+  await room.locator("#next-session-add").tap();
+  await room.waitForURL(new RegExp(`[?&]session=${id}`));
+  await expect(room.locator("#songbook-sheet")).toBeVisible();
+});
+
+test("with requests closed, the room's card only opens the setlist", async ({ phone }) => {
+  const organiser = await phone();
+  await startSession(organiser);
+  await setRequests(organiser, false);
+
+  const room = await phone({ room: true });
+  await room.goto("/");
+  await expect(room.locator("#next-session-status")).toHaveText("Requests closed");
+  await expect(room.locator("#next-session-status")).not.toHaveClass(/open/);
+  await expect(room.locator("#next-session-add")).toHaveCount(0);
+  await expect(room.locator("#next-session-open")).toHaveClass(/btn-on-accent/);
+  await room.locator("#next-session-open").tap();
+  await expect(room.locator("#session-view")).toBeVisible();
+  await expect(room.locator("#songbook-sheet")).toBeHidden();
 });
 
 test("past nights list in full, newest first, one heading per month", async ({ phone }) => {

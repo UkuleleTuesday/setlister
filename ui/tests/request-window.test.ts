@@ -5,6 +5,7 @@ import {
   defaultWindowLabel,
   effectiveRequestsOpen,
   fromDateTimeInputValue,
+  homeStatusText,
   isWithinWindow,
   linkState,
   linkStateText,
@@ -364,5 +365,35 @@ describe("linkState and its wording", () => {
     expect(after.open).toBe(false);
     expect(switchHelp(null, after, created)).toMatch(/^On schedule, closed at /);
     expect(scheduleLabel(after.window, created)).toMatch(/^\S+ \S+ to /);
+  });
+});
+
+describe("homeStatusText", () => {
+  const now = at(2026, 7, 4, 18, 0);
+
+  it("says until when requests stay open", () => {
+    expect(homeStatusText({ state: "open", at: at(2026, 7, 4, 22, 30) }, now)).toMatch(
+      /^Requests open until \S/,
+    );
+  });
+
+  it("says plainly open when nothing closes it", () => {
+    expect(homeStatusText({ state: "open", at: null }, now)).toBe("Requests open");
+  });
+
+  it("says the time when they open later tonight", () => {
+    expect(homeStatusText({ state: "later", at: at(2026, 7, 4, 19, 30) }, now)).toMatch(
+      /^Requests open at\s/,
+    );
+  });
+
+  it("names the day when they open on another one", () => {
+    const text = homeStatusText({ state: "later", at: at(2026, 7, 6, 19, 30) }, now);
+    expect(text).toMatch(/^Requests open \S+ at\s/);
+    expect(text).not.toMatch(/^Requests open at/);
+  });
+
+  it("says closed otherwise", () => {
+    expect(homeStatusText({ state: "closed", at: null }, now)).toBe("Requests closed");
   });
 });

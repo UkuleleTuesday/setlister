@@ -174,6 +174,11 @@ button:not(:disabled):active {
   color: var(--accent);
   background: var(--accent-soft);
 }
+/* The one action on an --accent-fill surface. */
+.btn-on-accent {
+  color: var(--accent);
+  background: var(--on-accent);
+}
 .btn-lg {
   min-height: 54px;
   border-radius: var(--radius-lg);
@@ -969,7 +974,8 @@ footer#edition-note:empty {
   align-self: center;
 }
 /* --- Home: the club's session history ------------------------------------ */
-#home h2 {
+/* Section headings only: tonight's card titles itself. */
+#home > h2 {
   margin: var(--space-2) 0 var(--space-4);
   font-size: var(--text-lg);
 }
@@ -1025,24 +1031,28 @@ footer#edition-note:empty {
 .session-item.upcoming .date-tile-day {
   color: var(--accent);
 }
+.home-intro {
+  margin: 0 0 var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
 /* The next night, as a ticket: the one loud thing on home. */
 .next-session-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-5);
-  width: 100%;
+  display: flex;
+  flex-direction: column;
   margin: var(--space-2) 0 0;
-  padding: var(--space-6) var(--space-6) 0;
-  border: none;
   border-radius: var(--radius-lg);
   background: var(--accent-fill);
   color: var(--on-accent);
   box-shadow: var(--shadow-cta);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
   overflow: hidden;
+}
+.next-session-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-5);
 }
 .next-session-card .date-tile-lg {
   background: var(--card);
@@ -1052,24 +1062,78 @@ footer#edition-note:empty {
   color: var(--accent);
 }
 .next-session-name {
+  margin: 0;
   font-size: var(--text-display);
   font-weight: var(--weight-bold);
   line-height: 1.05;
   letter-spacing: var(--tracking-tight);
   overflow-wrap: anywhere;
 }
-.next-session-meta {
-  margin-top: var(--space-2);
+.next-session-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
   color: var(--on-accent-muted);
   font-size: var(--text-sm);
-  overflow-wrap: anywhere;
+}
+/* Green means requests can land, as on the request link pill. */
+.next-session-status.open::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--confirmed-soft);
+}
+.next-session-block {
+  margin: 0 var(--space-6);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--on-accent-divider);
+}
+.next-session-block p {
+  margin: 0;
+}
+.next-session-block p + p {
+  margin-top: var(--space-1);
+}
+.next-session-block .eyebrow {
+  color: var(--on-accent-muted);
 }
 .next-session-note {
-  grid-column: 1 / -1;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+.next-session-next {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+.next-session-next .eyebrow {
+  margin-right: var(--space-2);
+}
+.next-session-counts {
+  color: var(--on-accent-muted);
+  font-size: var(--text-sm);
+}
+.next-session-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-6) var(--space-5);
+}
+.next-session-open:not(.btn) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--tap-min);
+  border: none;
+  background: none;
+  color: var(--on-accent);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
 }
 /* Above the room's controls, not in them: those hide while requests are shut,
    which is when people plan. */
@@ -1086,17 +1150,6 @@ footer#edition-note:empty {
   font-size: var(--text-base);
   line-height: 1.45;
   overflow-wrap: anywhere;
-}
-.next-session-open {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 52px;
-  margin: 0 calc(-1 * var(--space-6));
-  padding: 0 var(--space-6);
-  border-top: 1px solid var(--on-accent-divider);
-  font-weight: var(--weight-semibold);
 }
 .no-night {
   margin: var(--space-2) 0 0;
@@ -1118,28 +1171,8 @@ h2#past-heading {
   margin-top: var(--space-7);
 }
 
-/* Sits beside the settings button, at its height and in its quiet style,
-   until there's news: then it fills and wears a dot. */
-.whats-new-banner {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-size);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  background: var(--card);
-  box-shadow: var(--shadow-xs);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  cursor: pointer;
-}
+/* Quiet beside settings until there's news: then it tints and wears a dot. */
 .whats-new-banner.unseen {
-  border-color: transparent;
-  background: var(--accent-soft);
-  box-shadow: none;
   color: var(--accent);
 }
 /* In flow, so its hit area clears the last entry and the divider. */

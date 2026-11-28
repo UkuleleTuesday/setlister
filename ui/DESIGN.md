@@ -64,6 +64,7 @@ mobile-first: phone and touch come first, desktop is a bonus.
 | `.btn` + `.btn-primary`                    | The view's main action.                                                                           |
 | `.btn` + `.btn-soft`                       | Secondary actions such as Cancel or Close, and the second big button.                             |
 | `.btn-lg`                                  | Hero actions on the page, such as Add a tune or New session. Not inside sheets.                   |
+| `.btn` + `.btn-on-accent`                  | The one action on an `--accent-fill` surface, such as Request a tune on tonight's card.           |
 | `.link-button`                             | Text-only actions inline with content. The hit area is built in.                                  |
 | `.icon-button`                             | Round, bordered icon-only button, such as the header's share and settings. Needs an `aria-label`. |
 | `.app-header`                              | Every view's top: title stack, then actions. See Page structure.                                  |
