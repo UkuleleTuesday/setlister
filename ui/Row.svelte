@@ -76,9 +76,18 @@
     swipeDx === null || !li ? null : Math.min(1, Math.abs(swipeDx) / (COMMIT * li.clientWidth)),
   );
 
-  // The page badge leads this line: beside the title it would squeeze the tools.
+  const title = $derived(row.match ? row.match.title : `“${row.raw_title}”`);
+  // The room thumbs up from the row; organisers just see how many want it.
+  const roomVote = $derived(context === "room" || context === "room-upnext" ? vote : null);
+  const wantText = $derived.by(() => {
+    if (context !== "requests" || !vote?.count) return "";
+    return `${vote.count} ${vote.count === 1 ? "wants" : "want"} it`;
+  });
+
   const metaText = $derived.by(() => {
     const parts: string[] = [];
+    if (row.match?.artist) parts.push(row.match.artist);
+    if (wantText) parts.push(wantText);
     if (row.addedBy) parts.push(`Added by ${row.addedBy}`);
     if (row.source !== "manual") parts.push(sourceLabel(row.source));
     else if (!row.addedBy) parts.push("added manually");
@@ -106,7 +115,6 @@
     const text = parts.join(" · ");
     return text.charAt(0).toUpperCase() + text.slice(1);
   });
-  const showMeta = $derived(metaText !== "" || Boolean(row.match));
 
   // "+1 · 2" doesn't say what it counts, so the aria-label does.
   const voteLabel = $derived.by(() => {
@@ -260,35 +268,38 @@
         <Icon name="drag" />
       </button>
     {/if}
+    <!-- Real text, so assistive tech reads "Page 9" too. -->
+    <span class="date-tile page-tile">
+      <span class="date-tile-weekday">Page</span><span class="date-tile-day">
+        {row.match ? row.match.page : "?"}
+      </span>
+    </span>
     <div class="row-main">
-      <!-- Real text, so assistive tech reads it too. -->
       {#if isNext}<span class="next-tag">Next</span>{/if}
       <div class="row-top">
-        <span class="match-title">{row.match ? row.match.display : `“${row.raw_title}”`}</span>
+        <span class="match-title">{title}</span>
       </div>
-      {#if showMeta}
-        <div class="row-meta">
-          {#if row.match}<span class="page-badge">p.{row.match.page}</span>{/if}{metaText}
-        </div>
-      {/if}
+      {#if metaText}<div class="row-meta">{metaText}</div>{/if}
     </div>
     <div class="row-tools">
       <!-- Up next is deliberately not re-sorted by votes: the set plays from
            the top. -->
-      {#if vote}
+      {#if roomVote}
         <button
           type="button"
           class="vote-button"
-          class:voted={vote.mine}
-          aria-pressed={vote.mine ? "true" : "false"}
-          title={vote.mine ? "You want this one" : "I want this one"}
+          class:voted={roomVote.mine}
+          aria-pressed={roomVote.mine ? "true" : "false"}
+          title={roomVote.mine ? "You want this one" : "I want this one"}
           aria-label={voteLabel}
           onclick={() => actions.vote(row.uid)}
         >
           <Icon name="want" /><span>
-            {vote.mine ? "You" : "+1"}
-          </span>{#if vote.mine ? vote.count > 1 : vote.count > 0}<span class="vote-count">
-              · {vote.count}
+            {roomVote.mine ? "You" : "+1"}
+          </span>{#if roomVote.mine ? roomVote.count > 1 : roomVote.count > 0}<span
+              class="vote-count"
+            >
+              · {roomVote.count}
             </span>{/if}
         </button>
       {/if}

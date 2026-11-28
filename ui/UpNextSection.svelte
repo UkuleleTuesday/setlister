@@ -131,17 +131,10 @@
     </h2>
     <ExportActions {onCopy} {onDownload} />
   </div>
-  <p id="upnext-hint" class="list-hint" hidden={visible.length === 0}>Coming up, in order.</p>
-  <RowGroup
-    id="played-group"
-    iconName="played"
-    noun="played"
-    rows={played}
-    context={lists.room ? "room-played" : session.past ? "played-edit" : "played"}
-    {actions}
-    startOpen={session.past}
-    numbered={session.past}
-  />
+  <!-- Organisers know the drill; the room gets a line on what this is. -->
+  <p id="upnext-hint" class="list-hint" hidden={visible.length === 0 || !lists.room}>
+    Coming up, in order.
+  </p>
   <ul id="upnext-rows" bind:this={list} {@attach reorder}>
     {#each shown as row (row.uid)}
       <RowCard
@@ -154,6 +147,17 @@
       />
     {/each}
   </ul>
+  <!-- After the queue: what's done shouldn't push what's coming down. -->
+  <RowGroup
+    id="played-group"
+    iconName="played"
+    noun="played"
+    rows={played}
+    context={lists.room ? "room-played" : session.past ? "played-edit" : "played"}
+    {actions}
+    startOpen={session.past}
+    numbered={session.past}
+  />
   <p id="upnext-empty" class="note" hidden={visible.length > 0}>
     {lists.room ? "Nothing queued yet" : "Nothing queued yet. Promote a request from below."}
   </p>

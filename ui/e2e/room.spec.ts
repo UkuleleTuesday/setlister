@@ -46,12 +46,10 @@ test("the room requests a tune and backs another, and the organiser sees both li
 
   const requests = organiser.locator("#requests-rows");
   await expect(requests.getByRole("listitem").filter({ hasText: "Let It Be" })).toBeVisible();
-  await expect(
-    requests
-      .getByRole("listitem")
-      .filter({ hasText: "Jolene" })
-      .getByRole("button", { name: "You and 1 other want this one" }),
-  ).toBeVisible();
+  // Organisers see the demand, not a thumbs-up of their own.
+  const jolene = requests.getByRole("listitem").filter({ hasText: "Jolene" });
+  await expect(jolene.locator(".row-meta")).toContainText("2 want it");
+  await expect(jolene.locator(".vote-button")).toHaveCount(0);
 });
 
 test("a tune already asked for gets a thumbs up instead of a copy", async ({ phone }) => {

@@ -72,11 +72,7 @@ test("the running order: Next tag, drag and keyboard reorder, kept on reload", a
 }) => {
   const page = await phone();
   await threeQueued(page);
-  expect(await upNextTitles(page)).toEqual([
-    "Jolene - Dolly Parton",
-    "Hallelujah - Leonard Cohen",
-    "Let It Be - The Beatles",
-  ]);
+  expect(await upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(page.locator("#upnext-rows > li").first()).toHaveClass(/next-up/);
   await expect(page.locator("#upnext-rows .next-tag")).toHaveCount(1);
   await expect(upNextRow(page, "Jolene").locator(".next-tag")).toHaveText("Next");
@@ -92,42 +88,27 @@ test("the running order: Next tag, drag and keyboard reorder, kept on reload", a
     await page.mouse.move(from.x + from.width / 2, y);
   }
   await page.mouse.up();
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Let It Be - The Beatles", "Jolene - Dolly Parton", "Hallelujah - Leonard Cohen"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Let It Be", "Jolene", "Hallelujah"]);
   await expect(upNextRow(page, "Let It Be").locator(".next-tag")).toHaveText("Next");
 
   await upNextRow(page, "Let It Be").locator(".drag-handle").focus();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
   await expect(upNextRow(page, "Let It Be").locator(".drag-handle")).toBeFocused();
 
   await page.reload();
-  await expect
-    .poll(() => upNextTitles(page))
-    .toEqual(["Jolene - Dolly Parton", "Hallelujah - Leonard Cohen", "Let It Be - The Beatles"]);
+  await expect.poll(() => upNextTitles(page)).toEqual(["Jolene", "Hallelujah", "Let It Be"]);
 });
 
-test("votes toggle, and the pool sorts by them", async ({ phone }) => {
+test("organisers see how many want a request, as text", async ({ phone }) => {
   const page = await phone();
   await startSession(page);
   await addByName(page, "Jolene", { name: "Alex" });
-  await addByName(page, "Hallelujah");
-  const jolene = requestRow(page, "Jolene").locator(".vote-button");
-  await expect(jolene).toHaveAttribute("aria-pressed", "true");
-  await expect(jolene).toHaveAccessibleName("You want this one");
-
-  await jolene.tap();
-  await expect(jolene).toHaveAttribute("aria-pressed", "false");
-  await expect(jolene).toHaveAccessibleName("I want this one, nobody has yet");
-  await expect(page.locator("#requests-rows .match-title").first()).toHaveText(
-    "Hallelujah - Leonard Cohen",
-  );
-  await jolene.tap();
-  await expect(jolene).toHaveText("You");
+  const jolene = requestRow(page, "Jolene");
+  await expect(jolene.locator(".row-meta")).toHaveText("Dolly Parton · 1 wants it · Added by Alex");
+  await expect(jolene.locator(".page-tile")).toHaveText(/Page\s*6/);
+  await expect(jolene.locator(".vote-button")).toHaveCount(0);
 });
 
 test("played and binned groups rescue their rows", async ({ phone }) => {

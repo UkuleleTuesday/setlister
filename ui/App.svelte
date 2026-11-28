@@ -17,8 +17,7 @@
   import UpNextSection from "./UpNextSection.svelte";
   import WhatsNewSheet from "./WhatsNewSheet.svelte";
   import { addFromBoard, confirmRequest, pickSong, scanBoard } from "./adds.js";
-  import { catalogue, scopeCatalogueToEdition } from "./catalogue.svelte.js";
-  import { editionLabel } from "./editions.js";
+  import { scopeCatalogueToEdition } from "./catalogue.svelte.js";
   import { night } from "./night.svelte.js";
   import { notices } from "./notices.svelte.js";
   import { organiser } from "./organiser.svelte.js";
@@ -86,12 +85,6 @@
       view.mode !== "room",
   );
   const roomName = $derived(night.name.trim());
-  const editionNote = $derived(
-    night.edition
-      ? `Matched against “${editionLabel(night.edition)}” ` +
-          `(generated ${catalogue.generatedAt.slice(0, 10) || "unknown"})`
-      : "",
-  );
 
   // Once the link shuts, don't leave sheets offering taps that can't land.
   $effect(() => {
@@ -414,19 +407,6 @@
 {#if overlays.whatsNew}
   <WhatsNewSheet entries={overlays.whatsNew} onclose={() => (overlays.whatsNew = null)} />
 {/if}
-
-<footer id="edition-note" class="note" hidden={!inSession || !editionNote}>
-  {editionNote}{#if view.mode === "full"}<span class="edition-sep" aria-hidden="true">
-      ·
-    </span><button
-      type="button"
-      id="edition-change"
-      class="link-button"
-      onclick={openSessionDetails}
-    >
-      Change
-    </button>{/if}
-</footer>
 
 {#if overlays.photo}
   <PhotoLightbox src={overlays.photo} onclose={() => (overlays.photo = null)} />

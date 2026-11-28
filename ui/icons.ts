@@ -13,9 +13,7 @@ import {
   Download,
   GripVertical,
   Link,
-  ListMinus,
   ListMusic,
-  ListPlus,
   LoaderCircle,
   Pencil,
   Plus,
@@ -32,8 +30,8 @@ import {
 export const ICONS = {
   // They cross lists, not nudge a slot, so the queue idiom, not an arrow. The
   // bin owns deletion, so −list can't be misread as "remove".
-  promote: ListPlus,
-  demote: ListMinus,
+  promote: ArrowUp,
+  demote: ArrowDown,
   played: Check,
   check: Check,
   bin: Trash2,

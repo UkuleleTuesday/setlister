@@ -83,6 +83,7 @@
 
   /* Layers */
   --z-lifted: 5;
+  --z-bar: 8;
   --z-popover: 10;
   --z-menu: 20;
   --z-sheet: 30;
@@ -700,19 +701,6 @@ main {
   padding: var(--space-5);
 }
 
-footer#edition-note {
-  max-width: var(--page-max);
-  margin: var(--space-3) auto 0;
-  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
-  text-align: center;
-}
-.edition-sep {
-  margin: 0 var(--space-2);
-}
-footer#edition-note:empty {
-  display: none;
-}
-
 .field {
   display: block;
   margin-bottom: var(--space-4);
@@ -1290,19 +1278,30 @@ h2#past-heading {
 #add-feedback {
   margin: 0 0 var(--space-4);
 }
+/* Pinned to the bottom edge, inside the page column, so adding is in reach
+   from anywhere in the lists. */
 .manual-add {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-bar);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
-  margin: 0 0 var(--space-4);
+  padding: var(--space-4) max(var(--space-5), calc((100% - var(--page-max)) / 2 + var(--space-5)))
+    max(var(--space-5), env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--divider);
+}
+/* Room for the bar under the last row. */
+#session-view:not(.room):not(.recap) {
+  padding-bottom: 6rem;
 }
 /* Two side by side at 320px: a size down, or "Snap the board" wraps. */
 .manual-add .btn-lg {
   padding-inline: var(--space-3);
   font-size: var(--text-base);
-}
-#session-view.fresh .manual-add .btn-lg {
-  font-size: var(--text-lg);
 }
 #session-view.room .manual-add {
   display: none;
@@ -1404,17 +1403,12 @@ button.window-pill::after {
 #session-view.fresh #requests-empty {
   display: none;
 }
-#session-view.fresh .manual-add {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-}
 
 /* --- Room mode (#86) -------------------------------------------------------
    Class-driven like `fresh`. Hides organiser controls; the rules enforce the
    permission. */
 body.room-mode .share-toggle,
-body.room-mode .settings-toggle,
-body.room-mode #edition-note {
+body.room-mode .settings-toggle {
   display: none;
 }
 #session-view.room #window-chip,
@@ -1604,20 +1598,20 @@ body.room-mode #edition-note {
 .row-card.next-up {
   box-shadow: var(--shadow-raised);
 }
-.row-card.next-up .row-body {
-  border-left: 3px solid var(--accent);
+/* Home's "upcoming" tint: a label on the top row, not a gate. */
+.row-card.next-up .page-tile {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.row-card.next-up .page-tile .date-tile-day {
+  color: var(--accent);
 }
 .next-tag {
-  /* Inline with the title it would force mid-name wraps. */
-  display: inline-block;
-  margin-bottom: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: var(--accent);
-  color: var(--on-accent);
-  border-radius: var(--radius-full);
+  /* Its own line: inline with the title it would force mid-name wraps. */
+  display: block;
+  color: var(--accent);
   font-size: var(--text-micro);
   font-weight: var(--weight-bold);
-  line-height: 1.3;
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
 }
