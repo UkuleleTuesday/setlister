@@ -68,7 +68,6 @@ const EMPTY_META: SessionMeta = {
   requestsOpen: null,
   requestsOpensAt: null,
   requestsClosesAt: null,
-  legacy: false,
 };
 let meta: SessionMeta = { ...EMPTY_META };
 
@@ -115,9 +114,6 @@ export function readMeta(data: unknown): SessionMeta {
     requestsOpen: doc.requestsOpen === true ? true : doc.requestsOpen === false ? false : null,
     requestsOpensAt: timestampToDate(doc.requestsOpensAt),
     requestsClosesAt: timestampToDate(doc.requestsClosesAt),
-    // Not the same as `listed: false`: backfillListing() firing on that would
-    // re-list an unlisted night whenever its share link is opened.
-    legacy: !data || !("listed" in doc),
   };
 }
 
@@ -132,29 +128,6 @@ function emitMeta(data: unknown): void {
     next.requestsClosesAt?.getTime() !== meta.requestsClosesAt?.getTime();
   meta = next;
   if (changed && metaCallback) metaCallback({ ...meta });
-}
-
-// Lists a pre-visibility session when it's opened. Legacy only: a deliberately
-// unlisted session has no index row either (see readMeta).
-export async function backfillListing(): Promise<void> {
-  if (!sessionId || !meta.legacy) return;
-  const id = sessionId;
-  try {
-    const { db, fx } = await getFirestore();
-    if (sessionId !== id) return; // left while awaiting the SDK
-    const indexRef = fx.doc(db, INDEX_COLLECTION, id);
-    if ((await fx.getDoc(indexRef)).exists()) return; // another client got there first
-    // One batch: an index row without `listed: true` reads as "Unlisted".
-    const batch = fx.writeBatch(db);
-    batch.update(fx.doc(db, "sessions", id), { listed: true });
-    batch.set(
-      indexRef,
-      indexEntryData({ createdBy: meta.createdBy, createdAt: sessionCreatedAt }, fx),
-    );
-    await batch.commit();
-  } catch {
-    /* offline, denied, or racing another client: the next open retries */
-  }
 }
 
 export function getSessionId(): string | null {
@@ -360,7 +333,7 @@ export async function setSessionBlurb(text: string): Promise<void> {
   const batch = fx.writeBatch(db);
   batch.update(fx.doc(db, "sessions", id), { blurb: value, updatedAt: fx.serverTimestamp() });
   // update(), not set(): a set's Date-precision createdAt can fail the rules'
-  // equality check against a server timestamp. A legacy night has no row yet.
+  // equality check against a server timestamp.
   if (meta.listed) batch.update(fx.doc(db, INDEX_COLLECTION, id), { blurb: value });
   await batch.commit();
   meta = { ...meta, blurb };
@@ -549,9 +522,6 @@ async function flushPush(): Promise<void> {
   if (!updates) return;
 
   updates.updatedAt = fx.serverTimestamp();
-  // Legacy docs (before #77) carry a TTL field; strip it so the TTL policy
-  // can't sweep them.
-  updates.expiresAt = fx.deleteField();
   // Optimistic: the echo snapshot is skipped, so lastRemote advances here.
   lastRemote = deepCopy(current);
 

@@ -15,7 +15,7 @@ export function applyRemoteState(state: ListState) {
   night.upNext = state.upNext;
   night.requests = state.requests;
   night.votes = state.votes || {};
-  // The doc wins even when null (it predates per-session books): keeping this
+  // The doc wins even when its edition is unreadable (null): keeping this
   // device's edition would push it into the shared doc on the persist() below.
   night.edition = state.edition ?? null;
   scopeCatalogueToEdition(state.edition?.id || "current");

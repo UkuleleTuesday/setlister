@@ -47,7 +47,6 @@ function session(overrides: Doc = {}): Doc {
     upNextOrder: [],
     requestsOrder: [],
     edition: null,
-    name: "Tuesday 4 August 2026",
     createdBy: "Alex",
     listed: true,
     requestsOpen: true,
@@ -93,27 +92,29 @@ function seed(fn: (adminDb: Firestore) => Promise<unknown>) {
 }
 
 describe("sessions/{id}", () => {
-  it("accepts a session with no expiresAt (the current shape)", async () => {
+  it("accepts a session in the current shape", async () => {
     await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), session()));
   });
 
-  it("still accepts a legacy doc carrying expiresAt", async () => {
-    // Cached pre-#77 bundles still write it, and CI deploys rules and UI in parallel.
-    await assertSucceeds(setDoc(doc(db, "sessions", "misty-banjo"), session({ expiresAt: NOW })));
+  it("rejects the retired name and expiresAt fields", async () => {
+    await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ name: "Open mic" })));
+    await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ expiresAt: NOW })));
   });
 
-  it("lets a legacy doc drop expiresAt on update", async () => {
-    await seed((adminDb) =>
-      setDoc(doc(adminDb, "sessions", "misty-banjo"), session({ expiresAt: NOW })),
-    );
+  // Cached bundles from before #219 still send this with every push.
+  it("accepts an update deleting expiresAt from a doc that never had it", async () => {
+    await seed((adminDb) => setDoc(doc(adminDb, "sessions", "misty-banjo"), session()));
     await assertSucceeds(
-      updateDoc(doc(db, "sessions", "misty-banjo"), { expiresAt: deleteField() }),
+      updateDoc(doc(db, "sessions", "misty-banjo"), {
+        upNextOrder: [],
+        updatedAt: serverTimestamp(),
+        expiresAt: deleteField(),
+      }),
     );
   });
 
-  it("accepts a legacy doc with no name/createdBy/listed/requestsOpen/window fields at all", async () => {
+  it("accepts a legacy doc with no createdBy/listed/requestsOpen/window fields at all", async () => {
     const legacy = session();
-    delete legacy.name;
     delete legacy.createdBy;
     delete legacy.listed;
     delete legacy.requestsOpen;
@@ -124,12 +125,6 @@ describe("sessions/{id}", () => {
 
   it("rejects an unknown field", async () => {
     await assertFails(setDoc(doc(db, "sessions", "misty-banjo"), session({ sneaky: true })));
-  });
-
-  it("rejects an over-long name", async () => {
-    await assertFails(
-      setDoc(doc(db, "sessions", "misty-banjo"), session({ name: "x".repeat(81) })),
-    );
   });
 
   it("accepts a blurb up to 160 chars, and nothing longer or non-string", async () => {
@@ -407,7 +402,7 @@ describe("session writes: organisers and the room", () => {
   });
 
   it("lets the room add to a legacy session with no votes field", async () => {
-    const legacy = session({ expiresAt: NOW });
+    const legacy = session();
     delete legacy.votes;
     delete legacy.listed;
     await seed((adminDb) => setDoc(doc(adminDb, "sessions", ID), legacy));

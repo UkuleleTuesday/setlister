@@ -14,7 +14,6 @@ import { isValidSessionId } from "./session-id.js";
 import { linkNow, readSync, session } from "./session.svelte.js";
 import * as sync from "./sync.js";
 import { loseOrganiserAccess } from "./organiser.svelte.js";
-import { organiserStatus } from "./organiser-status.svelte.js";
 import { view } from "./view.svelte.js";
 
 export function currentRouteId(): string | null {
@@ -76,9 +75,6 @@ async function applyRoute(id: string | null): Promise<void> {
     readSync();
     persist();
     setView("session");
-    // Sessions predating visibility get a listing row; a no-op otherwise,
-    // crucially for one deliberately unlisted.
-    if (organiserStatus.isOrganiser) sync.backfillListing();
   } catch (err) {
     sync.leaveSession();
     notices.home.show(

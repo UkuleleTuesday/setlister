@@ -82,6 +82,4 @@ export interface SessionMeta {
   requestsOpen: boolean | null;
   requestsOpensAt: Date | null;
   requestsClosesAt: Date | null;
-  /** The doc has no `listed` field: it predates visibility. */
-  legacy: boolean;
 }
