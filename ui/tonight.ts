@@ -4,17 +4,18 @@ import { playedOrder } from "./recap.js";
 import type { ListState, Row } from "./types.js";
 
 export interface TonightSummary {
-  /** The top of Up next: neither played nor binned. */
+  /** The top of Up next, once a tune has been played: before that, it's only the organisers' prep. */
   next: Row | null;
   requests: number;
   played: number;
 }
 
 export function tonightSummary({ upNext, requests }: Pick<ListState, "upNext" | "requests">) {
+  const played = playedOrder(upNext).length;
   return {
-    next: upNext.find((row) => !row.played && !row.binned) ?? null,
+    next: played ? (upNext.find((row) => !row.played && !row.binned) ?? null) : null,
     requests: requests.filter((row) => !row.binned).length,
-    played: playedOrder(upNext).length,
+    played,
   } satisfies TonightSummary;
 }
 

@@ -80,9 +80,20 @@ test("the room's card says how the night is going and requests in one tap", asyn
   );
   await expect(room.locator("#next-session-status")).toHaveText(/^Requests open/);
   await expect(room.locator("#next-session-status")).toHaveClass(/open/);
-  await expect(room.locator("#next-session-next")).toContainText("p.6 Jolene - Dolly Parton");
+  // Before the first tune, Up next is only the organisers' prep.
   await expect(room.locator("#next-session-counts")).toHaveText("1 request");
+  await expect(room.locator("#next-session-next")).toHaveCount(0);
   await expect(room.locator("#new-session")).toHaveCount(0);
+
+  const organiserRow = (title: string) =>
+    organiser
+      .locator("#upnext-rows, #requests-rows")
+      .getByRole("listitem")
+      .filter({ hasText: title });
+  await organiserRow("Hallelujah").getByRole("button", { name: "Move to Up next" }).tap();
+  await organiserRow("Jolene").getByRole("button", { name: "Mark played" }).tap();
+  await expect(room.locator("#next-session-next")).toContainText("p.5 Hallelujah - Leonard Cohen");
+  await expect(room.locator("#next-session-counts")).toHaveText("1 played");
 
   await room.locator("#next-session-add").tap();
   await room.waitForURL(new RegExp(`[?&]session=${id}`));

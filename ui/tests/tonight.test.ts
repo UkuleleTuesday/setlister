@@ -12,6 +12,10 @@ describe("tonightSummary", () => {
     expect(tonightSummary({ upNext, requests: [] }).next?.uid).toBe("next");
   });
 
+  it("has no next tune before the first one is played", () => {
+    expect(tonightSummary({ upNext: [row("queued")], requests: [] }).next).toBeNull();
+  });
+
   it("has no next tune when Up next is spent", () => {
     expect(tonightSummary({ upNext: [row("a", { played: true })], requests: [] }).next).toBeNull();
   });
