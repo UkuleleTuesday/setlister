@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { bySong } from "./api.js";
 import { features } from "../features.js";
+import { firebaseConfig } from "../firebase-config.js";
 import { expect, storedRowCount, test } from "./fixtures.js";
 import { addByName, startSession } from "./steps.js";
 
@@ -107,6 +108,8 @@ test("review: remove and restore, correct a song, check the photo", async ({
   const review = page.locator("#review");
   await expect(review).toBeVisible();
   await expect(page.locator("#add")).toBeHidden();
+  // A second photo would drop this review (#197).
+  await expect(page.locator("#camera-button")).toBeDisabled();
   const confirm = page.locator("#review-confirm");
   await expect(confirm).toHaveText("Add 2 to Requests");
   const rows = page.locator("#review-rows > li");
@@ -134,9 +137,77 @@ test("review: remove and restore, correct a song, check the photo", async ({
 
   await confirm.tap();
   await expect(review).toBeHidden();
+  await expect(page.locator("#camera-button")).toBeEnabled();
   const requests = page.locator("#requests-rows").getByRole("listitem");
   await expect(requests.filter({ hasText: "Lean on Me" })).toBeVisible();
   await expect(requests.filter({ hasText: "Jolene" })).toBeVisible();
+});
+
+// An unlisted night, so it doesn't stop New session.
+async function seedUnlistedSession(id: string) {
+  const now = { timestampValue: new Date().toISOString() };
+  const empty = { arrayValue: {} };
+  const res = await fetch(
+    `http://127.0.0.1:8081/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/sessions?documentId=${id}`,
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: {
+          v: { integerValue: "1" },
+          rows: { mapValue: {} },
+          upNextOrder: empty,
+          requestsOrder: empty,
+          edition: { nullValue: null },
+          createdBy: { stringValue: "Alex" },
+          listed: { booleanValue: false },
+          votes: { mapValue: {} },
+          createdAt: now,
+          updatedAt: now,
+        },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`Couldn't seed the session (${res.status})`);
+}
+
+// Back held down can skip straight from one night to another, past home.
+test("a scan still running when you switch nights lands in neither", async ({
+  phone,
+  parseRows,
+}) => {
+  const other = "quiet-banjo";
+  await seedUnlistedSession(other);
+  const page = await phone();
+  await page.goto(`/?session=${other}`);
+  // Joined, or the join lands after the tap and reopens the night.
+  await expect(
+    page.getByRole("button", { name: `Sharing session ${other}. Tap for options` }),
+  ).toBeVisible();
+  await page.locator("#back-home").tap();
+  await expect(page.locator("#session-list-status")).toBeHidden();
+  await page.locator("#new-session").tap();
+  await page.locator("#new-session-start").tap();
+  await expect(page).not.toHaveURL(new RegExp(`session=${other}`));
+  await expect(page.locator("#session-view")).toBeVisible();
+  const scanned = new URL(page.url()).searchParams.get("session")!;
+
+  let release!: (rows: unknown[]) => void;
+  parseRows.current = { release: new Promise((resolve) => (release = resolve)) };
+  await snap(page);
+  await expect(page.locator("#scan-overlay")).toBeVisible();
+
+  await page.evaluate(() => history.go(-2));
+  await expect(page).toHaveURL(new RegExp(`session=${other}$`));
+  await expect(page.locator("#scan-overlay")).toBeHidden();
+  release([parsed("Lean on Me", "confirmed"), parsed("Jolene", "needs_review")]);
+
+  // Anything the scan let through would land before this does.
+  await addByName(page, "Hallelujah", { name: "Alex" });
+  await expect.poll(() => storedRowCount(other)).toBe(1);
+  await expect(page.locator("#requests-rows").getByRole("listitem")).toHaveCount(1);
+  await expect(page.locator("#review")).toBeHidden();
+  expect(await storedRowCount(scanned)).toBe(0);
 });
 
 // Row.svelte has no removed state: the lists rely on this.
@@ -231,6 +302,7 @@ test("a scan can be cancelled, and a server error says why", async ({
   await snap(page);
   await expect(page.locator("#scan-overlay")).toBeVisible();
   await expect(page.locator("#scan-status-text")).toHaveText("Reading the board…");
+  await expect(page.locator("#camera-button")).toBeDisabled();
   await page.locator("#scan-cancel").tap();
   await expect(page.locator("#scan-result")).toHaveText("Scan cancelled. Nothing was added.");
   await expect(page.locator("#preview-wrap")).toBeHidden();

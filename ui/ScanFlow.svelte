@@ -31,6 +31,7 @@
     onConfirm,
     onShowPhoto,
     onReviewChange,
+    busy = $bindable(false),
   }: {
     /** Run the scan for this photo; reject to fail it (abort included). */
     scan: (file: File, signal: AbortSignal) => Promise<ScanOutcome>;
@@ -38,6 +39,8 @@
     onConfirm: (kept: Row[]) => void;
     onShowPhoto: (imageUrl: string) => void;
     onReviewChange: (reviewing: boolean) => void;
+    /** A scan is running or under review: a second photo would drop it (#197). */
+    busy?: boolean;
   } = $props();
 
   // Generous: a cold Cloud Function plus a thinking model takes tens of seconds.
@@ -61,8 +64,12 @@
   let statusTimer: ReturnType<typeof setInterval> | undefined;
   let resultTimer: ReturnType<typeof setTimeout> | undefined;
   let abort: AbortController | null = null;
-  // Which escape aborted the scan, since fetch reports both as AbortError.
-  let endedBy: "cancel" | "timeout" | null = null;
+  // Which escape aborted the scan, since fetch reports them all as AbortError.
+  let endedBy: "cancel" | "timeout" | "left" | null = null;
+
+  $effect(() => {
+    busy = phase.kind === "scanning" || phase.kind === "reviewing";
+  });
 
   let photoInput: HTMLInputElement | undefined = $state();
   let previewWrap: HTMLDivElement | undefined = $state();
@@ -75,8 +82,10 @@
     photoInput?.click();
   }
 
-  // Leaving the session drops a review in progress: its rows belong to that night.
+  // Leaving the session ends its scan and drops its review: the rows belong to
+  // that night (#184). App remounts this per session.
   onMount(() => () => {
+    abortScan("left");
     if (phase.kind !== "idle") URL.revokeObjectURL(phase.imageUrl);
     if (phase.kind === "reviewing") onReviewChange(false);
   });
@@ -96,7 +105,7 @@
     resultTimer = setTimeout(() => (result = ""), RESULT_MS);
   }
 
-  function abortScan(reason: "cancel" | "timeout") {
+  function abortScan(reason: "cancel" | "timeout" | "left") {
     if (!abort) return;
     endedBy = reason;
     abort.abort();
@@ -148,7 +157,7 @@
         phase = { kind: "idle" };
         if (endedBy === "timeout") {
           notices.session.show("That scan took too long. Check your signal and snap it again.");
-        } else {
+        } else if (endedBy === "cancel") {
           flashResult("Scan cancelled. Nothing was added.");
         }
       } else {

@@ -50,6 +50,7 @@
 
   // Imperative because a file input's click() has to run inside the tap itself.
   let scanFlow: ScanFlow | undefined = $state();
+  let scanBusy = $state(false);
   let shareToggle: HTMLButtonElement;
 
   const inSession = $derived(view.page === "session");
@@ -342,15 +343,20 @@
           actions={rowActions}
           onAddTune={() => (overlays.songbook = true)}
           onSnap={() => scanFlow?.pickPhoto()}
+          snapDisabled={scanBusy}
         />
 
-        <ScanFlow
-          bind:this={scanFlow}
-          scan={scanBoard}
-          onConfirm={addFromBoard}
-          onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
-          {onReviewChange}
-        />
+        <!-- Back can hop straight to another night without passing home. -->
+        {#key session.id}
+          <ScanFlow
+            bind:this={scanFlow}
+            bind:busy={scanBusy}
+            scan={scanBoard}
+            onConfirm={addFromBoard}
+            onShowPhoto={(imageUrl) => (overlays.photo = imageUrl)}
+            {onReviewChange}
+          />
+        {/key}
 
         <BinGroup actions={rowActions} />
       {/if}
