@@ -151,6 +151,7 @@ function scannedRow(row: Omit<Row, "uid">): Row {
 
 // Rejects (abort included) for ScanFlow to word.
 export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOutcome> {
+  const sessionId = sync.getSessionId();
   const upload = await downscaleImage(file);
   const data = await requestParse(
     API_BASE,
@@ -159,6 +160,8 @@ export async function scanBoard(file: File, signal: AbortSignal): Promise<ScanOu
     { edition: night.edition?.id || catalogue.editionId },
     signal,
   );
+  // ScanFlow aborts on leaving, but a reply already read beats the abort (#184).
+  if (sync.getSessionId() !== sessionId) throw new DOMException("Left the session", "AbortError");
   adoptCatalogue(data);
   const { fresh, flagged, skipped } = planScan(
     data.rows.map(scannedRow),

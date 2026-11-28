@@ -26,8 +26,12 @@ export const CATALOGUE: CatalogueEntry[] = [
 
 export const bySong = (title: string) => CATALOGUE.find((e) => e.title === title)!;
 
-/** What /api/parse answers: rows, an error, or "hang" (the cancel path). */
-export type ParseRows = unknown[] | { status: number; detail: string } | "hang";
+/**
+ * What /api/parse answers: rows, an error, "hang" (the cancel path), or rows
+ * once `release` resolves (a scan still running when the test moves on).
+ */
+export type ParseRows =
+  unknown[] | { status: number; detail: string } | { release: Promise<unknown[]> } | "hang";
 
 const json = (route: Route, body: unknown) =>
   route.fulfill({
@@ -53,6 +57,9 @@ export async function stubApi(context: BrowserContext, parseRows: () => ParseRow
       const reply = parseRows();
       // Left unanswered: the page's own abort is what ends it.
       if (reply === "hang") return;
+      // An aborted request can't be fulfilled; that's the outcome under test.
+      if ("release" in reply)
+        return reply.release.then((rows) => parsed(route, rows)).catch(() => {});
       if (!Array.isArray(reply)) {
         return route.fulfill({
           status: reply.status,
@@ -61,13 +68,16 @@ export async function stubApi(context: BrowserContext, parseRows: () => ParseRow
           body: JSON.stringify({ detail: reply.detail }),
         });
       }
-      return json(route, {
-        edition: EDITION,
-        catalogue_generated_at: "2026-11-24T00:00:00Z",
-        rows: reply,
-        catalogue: CATALOGUE,
-      });
+      return parsed(route, reply);
     }
     return route.fulfill({ status: 404, body: "{}" });
   });
 }
+
+const parsed = (route: Route, rows: unknown[]) =>
+  json(route, {
+    edition: EDITION,
+    catalogue_generated_at: "2026-11-24T00:00:00Z",
+    rows,
+    catalogue: CATALOGUE,
+  });

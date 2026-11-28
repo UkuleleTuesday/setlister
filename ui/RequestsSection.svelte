@@ -11,10 +11,12 @@
     actions,
     onAddTune,
     onSnap,
+    snapDisabled,
   }: {
     actions: RowActions;
     onAddTune: () => void;
     onSnap: () => void;
+    snapDisabled: boolean;
   } = $props();
 
   const visible = $derived(workingRequests(night.requests));
@@ -56,6 +58,7 @@
       id="camera-button"
       class="camera-button btn btn-soft btn-lg"
       type="button"
+      disabled={snapDisabled}
       onclick={onSnap}
     >
       <Icon name="camera" /><span class="btn-label">Snap the board</span>
