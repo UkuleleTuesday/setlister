@@ -1041,7 +1041,9 @@ main {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-5);
-  padding: var(--space-6) var(--space-6) var(--space-5);
+  /* Wider than the gap between blocks, so the status doesn't merge into the
+     note's eyebrow below it. */
+  padding: var(--space-6) var(--space-6) var(--space-8);
 }
 .next-session-card .date-tile-lg {
   background: var(--card);
@@ -1059,19 +1061,21 @@ main {
   overflow-wrap: anywhere;
 }
 .next-session-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin: var(--space-2) 0 0;
   color: var(--on-accent-muted);
   font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.next-session-status span {
+  white-space: nowrap;
 }
 /* Green means requests can land, as on the request link pill. */
 .next-session-status.open::before {
   content: "";
-  flex-shrink: 0;
+  display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
+  margin-right: var(--space-2);
   border-radius: var(--radius-full);
   background: var(--confirmed-soft);
 }
@@ -1094,21 +1098,10 @@ main {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.next-session-next {
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-.next-session-next .eyebrow {
-  margin-right: var(--space-2);
-}
-.next-session-counts {
-  color: var(--on-accent-muted);
-  font-size: var(--text-sm);
-}
 .next-session-actions {
   position: relative;
   z-index: var(--z-lifted);
-  padding: var(--space-2) var(--space-6) var(--space-5);
+  padding: var(--space-1) var(--space-6) var(--space-5);
 }
 .next-session-open {
   display: flex;

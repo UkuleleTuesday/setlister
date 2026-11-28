@@ -19,7 +19,7 @@
     startOfNight,
   } from "./session-index.js";
   import { followTonight, tonightCard } from "./tonight-card.svelte.js";
-  import { tonightCounts, tonightNextText } from "./tonight.js";
+  import { tonightCounts } from "./tonight.js";
 
   type Entry = LabelledEntry<SessionEntry>;
 
@@ -67,11 +67,12 @@
     const doc = next && tonightCard.id === next.id ? tonightCard.meta : null;
     const link = doc && next ? linkState(doc, next.createdAt, tonightCard.now) : null;
     const summary = doc ? tonightCard.summary : null;
+    // The night's counts ride the status line: under a tune they'd read as its stats.
     return {
       link,
-      status: link ? homeStatusText(link.status, tonightCard.now) : "",
-      next: summary?.next ?? null,
-      counts: summary ? tonightCounts(summary) : "",
+      status: link
+        ? [homeStatusText(link.status, tonightCard.now), ...(summary ? tonightCounts(summary) : [])]
+        : [],
     };
   });
   // Organisers add from inside the night: for them the card only opens it.
@@ -143,9 +144,10 @@
         {@render tile(next, true)}
         <div class="session-item-text">
           <h2 id="next-session-name" class="next-session-name">{next.label || "Date pending"}</h2>
-          {#if card.status}
+          {#if card.status.length}
+            <!-- Breaks only between parts, so "at 7:30 PM" never splits. -->
             <p id="next-session-status" class="next-session-status" class:open={card.link?.open}>
-              {card.status}
+              {#each card.status as part, i (i)}{#if i}{" · "}{/if}<span>{part}</span>{/each}
             </p>
           {/if}
         </div>
@@ -154,19 +156,6 @@
         <div class="next-session-block">
           <p class="eyebrow">From the organisers</p>
           <p class="next-session-note">{next.blurb}</p>
-        </div>
-      {/if}
-      {#if card.next || card.counts}
-        <div class="next-session-block">
-          {#if card.next}
-            <p id="next-session-next" class="next-session-next">
-              <span class="eyebrow">Next</span>
-              {tonightNextText(card.next)}
-            </p>
-          {/if}
-          {#if card.counts}<p id="next-session-counts" class="next-session-counts">
-              {card.counts}
-            </p>{/if}
         </div>
       {/if}
       {#if canRequest}
