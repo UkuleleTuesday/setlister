@@ -29,6 +29,15 @@ export function setBinned(row: GigRow, binned: boolean, now = Date.now()): void 
   }
 }
 
+// Row.svelte has no pressed Played or Bin button: these filters keep those rows out.
+export function workingUpNext<T extends GigRow>(rows: T[]): T[] {
+  return rows.filter((row) => !row.played && !row.binned);
+}
+
+export function workingRequests<T extends GigRow>(rows: T[]): T[] {
+  return rows.filter((row) => !row.binned);
+}
+
 // `rows` is unvalidated: a bad value should cost a missing time, not a broken row.
 export function stateTime(value: unknown): Date | null {
   if (typeof value !== "string") return null;

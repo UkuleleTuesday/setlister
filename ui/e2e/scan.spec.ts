@@ -139,6 +139,23 @@ test("review: remove and restore, correct a song, check the photo", async ({
   await expect(requests.filter({ hasText: "Jolene" })).toBeVisible();
 });
 
+// Row.svelte has no removed state: the lists rely on this.
+test("a row removed in review never reaches the night", async ({ phone, parseRows }) => {
+  const page = await phone();
+  const id = await startSession(page);
+  parseRows.current = [parsed("Lean on Me", "needs_review"), parsed("Jolene", "conflict")];
+  await snap(page);
+
+  const rows = page.locator("#review-rows > li");
+  await rows.nth(0).getByRole("button", { name: "Remove row" }).tap();
+  await page.locator("#review-confirm").tap();
+
+  const requests = page.locator("#requests-rows").getByRole("listitem");
+  await expect(requests).toHaveCount(1);
+  await expect(requests.filter({ hasText: "Jolene" })).toBeVisible();
+  await expect.poll(() => storedRowCount(id)).toBe(1);
+});
+
 test("review offers runner-up songs only where the reader wasn't sure", async ({
   phone,
   parseRows,

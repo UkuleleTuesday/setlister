@@ -3,12 +3,12 @@ import { exportPayload, exportText, exportedRows } from "../export.js";
 import { row, song } from "./fixtures.js";
 
 describe("exportedRows", () => {
-  it("runs Up next first, drops removed rows, and keeps crossed-out ones", () => {
+  it("runs Up next first, and keeps crossed-out rows", () => {
     const a = row({ uid: "a" });
-    const b = row({ uid: "b", removed: true });
+    const b = row({ uid: "b" });
     const c = row({ uid: "c", crossed_out: true });
     const d = row({ uid: "d" });
-    expect(exportedRows([a, b], [c, d]).map((r) => r.uid)).toEqual(["a", "c", "d"]);
+    expect(exportedRows([a, b], [c, d]).map((r) => r.uid)).toEqual(["a", "b", "c", "d"]);
   });
 });
 

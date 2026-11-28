@@ -220,7 +220,6 @@
   bind:this={li}
   class={["row-card", row.status]}
   class:crossed={row.crossed_out}
-  class:removed={row.removed}
   class:played={row.played}
   class:binned={row.binned}
   class:swipeable
@@ -350,10 +349,8 @@
       {#if context === "upnext"}
         <button
           type="button"
-          class={["check-button", { active: row.played }]}
-          title={row.played ? "Mark not played" : "Mark played"}
-          aria-label={row.played ? "Mark not played" : "Mark played"}
-          aria-pressed={row.played ? "true" : "false"}
+          title="Mark played"
+          aria-label="Mark played"
           onclick={() => actions.togglePlayed(row.uid)}
         >
           <Icon name="played" />
@@ -361,10 +358,8 @@
       {:else if context === "requests"}
         <button
           type="button"
-          class={["bin-button", { active: row.binned }]}
-          title={row.binned ? "Un-bin" : "Bin"}
-          aria-label={row.binned ? "Un-bin" : "Bin"}
-          aria-pressed={row.binned ? "true" : "false"}
+          title="Bin"
+          aria-label="Bin"
           onclick={() => actions.toggleBinned(row.uid)}
         >
           <Icon name="bin" />

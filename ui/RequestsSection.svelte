@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import RowCard, { type RowActions } from "./Row.svelte";
+  import { workingRequests } from "./gig-state.js";
   import { lists, rowVote } from "./lists.svelte.js";
   import { night } from "./night.svelte.js";
   import { notices } from "./notices.svelte.js";
@@ -16,7 +17,7 @@
     onSnap: () => void;
   } = $props();
 
-  const visible = $derived(night.requests.filter((e) => !e.binned));
+  const visible = $derived(workingRequests(night.requests));
   const sorted = $derived(sortForDisplay(visible, night.votes));
 
   // The room has no camera, and a closed link has no way in to point at.
