@@ -1643,6 +1643,18 @@ body.room-mode .settings-toggle {
   margin-top: 0;
   flex-shrink: 0;
 }
+/* Under 380px an organiser row can't fit handle, tile, title, thumbs-up and
+   two buttons: the buttons take their own line so the title keeps the width. */
+@media (max-width: 379px) {
+  #session-view:not(.room) .row-body.compact {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  #session-view:not(.room) .row-body.compact .row-tools {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
 /* Review rows aren't swipeable, so their picker dropdown isn't clipped. */
 .row-card.swipeable {
   position: relative;

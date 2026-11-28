@@ -119,6 +119,8 @@ Every view is `.app-header`, then `main`, in one `--page-max` column.
 2. **Every queued row is equal.** Each keeps its own played and move
    buttons: tunes get played out of order, chained or ticked late. Next is a
    label and the tile's accent tint, never a bigger button.
+3. **Under 380px**, organiser rows put their buttons on a line of their own
+   under the title, so the title keeps the width.
 
 ### Votes
 
