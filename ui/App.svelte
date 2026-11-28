@@ -178,13 +178,14 @@
     {#if !inSession}
       <button
         id="whats-new-banner"
-        class="whats-new-banner tap-target"
+        class="whats-new-banner icon-button"
         class:unseen={!bannerSeen}
         type="button"
+        aria-label={bannerSeen ? "What’s new" : "What’s new, unread"}
         hidden={!latest}
         onclick={openWhatsNew}
       >
-        <Icon name="news" /><span class="btn-label">What’s new</span>
+        <Icon name="news" />
         <span class="badge badge-dot" aria-hidden="true" hidden={bannerSeen}></span>
       </button>
     {/if}

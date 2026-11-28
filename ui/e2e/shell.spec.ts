@@ -62,7 +62,7 @@ test("the night's note reaches home and the night's page, for everyone, open or 
   const homeNote = organiser.locator(".next-session-note");
   await expect(homeNote).toHaveCount(0);
 
-  await organiser.locator("#next-session .next-session-card").tap();
+  await organiser.locator("#next-session-open").tap();
   await organiser.locator("#session-title").tap();
   const field = organiser.locator("#session-blurb");
   await field.fill(NOTE);
@@ -81,7 +81,7 @@ test("the night's note reaches home and the night's page, for everyone, open or 
   await room.goto(`/?session=${id}`);
   await expect(room.locator("#night-note")).toContainText(NOTE);
 
-  await organiser.locator("#next-session .next-session-card").tap();
+  await organiser.locator("#next-session-open").tap();
   await organiser.locator("#session-title").tap();
   await expect(field).toHaveValue(NOTE);
   await field.fill("");
@@ -127,6 +127,7 @@ test("the note can be written when starting the night", async ({ phone }) => {
   await expect(page.locator("#night-note")).toContainText(NOTE);
   await page.locator("#back-home").tap();
   await expect(page.locator(".next-session-note")).toHaveText(NOTE);
+  await expect(page.locator("#next-session")).toContainText("From the organisers");
 });
 
 test("with no night planned, home says so to each role", async ({ phone }) => {

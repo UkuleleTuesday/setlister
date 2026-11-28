@@ -224,6 +224,13 @@ export function linkStateText({ state, at }: LinkState["status"], now: Date): st
   return "View only";
 }
 
+/** Tonight's card on home: whether the room can request, and until or from when. */
+export function homeStatusText({ state, at }: LinkState["status"], now: Date): string {
+  if (state === "open") return at ? `Requests open until ${sessionTimeLabel(at)}` : "Requests open";
+  if (state === "later" && at) return `Requests open ${whenOpens(at, now)}`;
+  return "Requests closed";
+}
+
 export function roomWindowText({ state, at }: LinkState["status"]): string {
   return state === "open" && at ? `Requests open until ${sessionTimeLabel(at)}` : "Requests open";
 }

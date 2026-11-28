@@ -11,7 +11,7 @@ import { overlays } from "./overlays.svelte.js";
 import * as presence from "./presence.js";
 import { persist } from "./save.js";
 import { isValidSessionId } from "./session-id.js";
-import { readSync } from "./session.svelte.js";
+import { linkNow, readSync, session } from "./session.svelte.js";
 import * as sync from "./sync.js";
 import { loseOrganiserAccess } from "./organiser.svelte.js";
 import { view } from "./view.svelte.js";
@@ -103,8 +103,12 @@ export function leaveToHome() {
   else navigateTo(null);
 }
 
-export function openSession(id: string) {
-  return navigateTo(id, { cameFromHome: true });
+/** `songbook`: open the songbook too, if the request link is open. */
+export async function openSession(id: string, { songbook = false } = {}) {
+  await navigateTo(id, { cameFromHome: true });
+  if (songbook && sync.getSessionId() === id && !session.past && linkNow().open) {
+    overlays.songbook = true;
+  }
 }
 
 export async function startSession({ createdAt, listed, editionId, blurb }: NewSessionChoice) {

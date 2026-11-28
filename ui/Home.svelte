@@ -1,8 +1,10 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
+  import { features } from "./features.js";
   import { history, loadHistory } from "./history.svelte.js";
   import { notices } from "./notices.svelte.js";
   import { organiserStatus } from "./organiser-status.svelte.js";
+  import { homeStatusText, linkState } from "./request-window.js";
   import {
     type LabelledEntry,
     type MonthGroup,
@@ -14,7 +16,10 @@
     pastSessionTitle,
     sessionDateLabel,
     sessionTimeLabel,
+    startOfNight,
   } from "./session-index.js";
+  import { followTonight, tonightCard } from "./tonight-card.svelte.js";
+  import { tonightCounts, tonightNextText } from "./tonight.js";
 
   type Entry = LabelledEntry<SessionEntry>;
 
@@ -22,7 +27,7 @@
     onPick,
     onNewSession,
   }: {
-    onPick: (id: string) => void;
+    onPick: (id: string, options?: { songbook?: boolean }) => void;
     onNewSession: () => void;
   } = $props();
 
@@ -46,12 +51,36 @@
         : "",
   );
 
-  function meta(entry: Entry) {
-    const who = entry.createdBy ? `Started by ${entry.createdBy}` : "Started by someone";
-    // disambiguate() only suffixes a night shared by two sessions.
+  // disambiguate() only suffixes a night shared by two sessions: then the time tells them apart.
+  function meta(entry: Entry): string {
     const twin = entry.createdAt && entry.label !== sessionDateLabel(entry.createdAt, now);
-    return twin ? `${sessionTimeLabel(entry.createdAt)} · ${who}` : who;
+    return twin ? sessionTimeLabel(entry.createdAt) : "";
   }
+
+  $effect(() => {
+    const id = next?.id;
+    if (id) return followTonight(id);
+  });
+
+  // Only once the doc has loaded: a guessed "closed" would flash before "open".
+  const card = $derived.by(() => {
+    const doc = next && tonightCard.id === next.id ? tonightCard.meta : null;
+    const link = doc && next ? linkState(doc, next.createdAt, tonightCard.now) : null;
+    const summary = doc ? tonightCard.summary : null;
+    return {
+      link,
+      status: link ? homeStatusText(link.status, tonightCard.now) : "",
+      next: summary?.next ?? null,
+      counts: summary ? tonightCounts(summary) : "",
+    };
+  });
+  // Organisers add from inside the night: for them the card only opens it.
+  const canRequest = $derived(!organiserStatus.isOrganiser && Boolean(card.link?.open));
+  const isTonight = $derived(
+    Boolean(next?.createdAt) &&
+      startOfNight(next!.createdAt!).getTime() === startOfNight(now).getTime(),
+  );
+  const openLabel = $derived(isTonight ? "See tonight’s setlist" : "See the setlist");
 </script>
 
 <!-- A just-created doc awaiting its server timestamp has no date yet. -->
@@ -79,7 +108,7 @@
       {@render tile(entry)}
       <span class="session-item-text">
         <span class="session-item-name">{title}</span>
-        <span class="session-item-meta">{meta(entry)}</span>
+        {#if meta(entry)}<span class="session-item-meta">{meta(entry)}</span>{/if}
       </span>
       <Icon name="forward" extraClass="session-item-chevron" />
     </button>
@@ -104,31 +133,64 @@
 
 <div id="home-error" class="error" hidden={!notices.home.text}>{notices.home.text}</div>
 
+<p class="home-intro">Ask for tunes and follow the night’s setlist.</p>
+
 <!-- The night is the hero: it's what most phones come to home for. -->
 <div id="next-session" hidden={!next}>
   {#if next}
-    <!-- The note describes the card rather than naming it, so a screen reader
-         hears the night first and 160 characters second. -->
-    <button
-      type="button"
-      class="next-session-card"
-      data-id={next.id}
-      aria-labelledby="next-session-name next-session-meta next-session-open"
-      aria-describedby={next.blurb ? "next-session-note" : undefined}
-      onclick={() => onPick(next.id)}
-    >
-      {@render tile(next, true)}
-      <span class="session-item-text">
-        <span id="next-session-name" class="next-session-name">{next.label || "Date pending"}</span>
-        <span id="next-session-meta" class="next-session-meta">{meta(next)}</span>
-      </span>
+    <section class="next-session-card" data-id={next.id} aria-labelledby="next-session-name">
+      <div class="next-session-head">
+        {@render tile(next, true)}
+        <div class="session-item-text">
+          <h2 id="next-session-name" class="next-session-name">{next.label || "Date pending"}</h2>
+          {#if card.status}
+            <p id="next-session-status" class="next-session-status" class:open={card.link?.open}>
+              {card.status}
+            </p>
+          {/if}
+        </div>
+      </div>
       {#if next.blurb}
-        <span id="next-session-note" class="next-session-note">{next.blurb}</span>
+        <div class="next-session-block">
+          <p class="eyebrow">From the organisers</p>
+          <p class="next-session-note">{next.blurb}</p>
+        </div>
       {/if}
-      <span id="next-session-open" class="next-session-open">
-        Open the setlist<Icon name="forward" />
-      </span>
-    </button>
+      {#if card.next || card.counts}
+        <div class="next-session-block">
+          {#if card.next}
+            <p id="next-session-next" class="next-session-next">
+              <span class="eyebrow">Next</span>
+              {tonightNextText(card.next)}
+            </p>
+          {/if}
+          {#if card.counts}<p id="next-session-counts" class="next-session-counts">
+              {card.counts}
+            </p>{/if}
+        </div>
+      {/if}
+      {#if canRequest}
+        <div class="next-session-actions">
+          <button
+            id="next-session-add"
+            class="btn btn-lg btn-on-accent"
+            type="button"
+            onclick={() => onPick(next.id, { songbook: true })}
+          >
+            <Icon name="add" /><span class="btn-label">Request a tune</span>
+          </button>
+        </div>
+      {/if}
+      <!-- Its ::after covers the card, so a tap anywhere opens the night. -->
+      <button
+        id="next-session-open"
+        class="next-session-open"
+        type="button"
+        onclick={() => onPick(next.id)}
+      >
+        {openLabel}<Icon name="forward" />
+      </button>
+    </section>
   {/if}
 </div>
 <div id="no-night" class="no-night callout" hidden={history.status !== "ready" || !!next}>
@@ -140,7 +202,8 @@
   </p>
 </div>
 
-{#if organiserStatus.isOrganiser}
+<!-- Start is blocked while a shared night is planned, so don't offer it. -->
+{#if organiserStatus.isOrganiser && (!next || features.unlistedSessions)}
   <button
     id="new-session"
     class={["btn", next ? "btn-soft" : "btn-primary btn-lg"]}
