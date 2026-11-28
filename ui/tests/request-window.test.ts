@@ -26,8 +26,8 @@ import {
 const at = (y: number, m: number, d: number, h = 20, min = 0) => new Date(y, m, d, h, min);
 
 describe("defaultOpensAt", () => {
-  it("is exactly 30 minutes before the session's start", () => {
-    expect(defaultOpensAt(at(2026, 7, 4, 20, 0))).toEqual(at(2026, 7, 4, 19, 30));
+  it("is exactly 2 hours before the session's start", () => {
+    expect(defaultOpensAt(at(2026, 7, 4, 20, 0))).toEqual(at(2026, 7, 4, 18, 0));
   });
 });
 
@@ -40,8 +40,12 @@ describe("defaultClosesAt", () => {
     expect(defaultClosesAt(at(2026, 7, 4, 23, 47))).toEqual(at(2026, 7, 5, 4, 0));
   });
 
-  it("falls back too when the 30-minute lead would open it at or after 22:30", () => {
-    expect(defaultClosesAt(at(2026, 7, 4, 23, 0))).toEqual(at(2026, 7, 5, 4, 0));
+  it("falls back too for a session starting at 22:30", () => {
+    expect(defaultClosesAt(at(2026, 7, 4, 22, 30))).toEqual(at(2026, 7, 5, 4, 0));
+  });
+
+  it("keeps 22:30 for a session starting just before it", () => {
+    expect(defaultClosesAt(at(2026, 7, 4, 22, 0))).toEqual(at(2026, 7, 4, 22, 30));
   });
 
   it("attributes a session created just after midnight to the PREVIOUS night", () => {
@@ -297,7 +301,7 @@ describe("linkState and its wording", () => {
   });
 
   it("counts down only in auto mode, inside the notice period", () => {
-    const now = at(2026, 7, 4, 19, 18);
+    const now = at(2026, 7, 4, 17, 48);
     const soon = linkState(auto, created, now);
     expect(soon.open).toBe(false);
     expect(soon.soonMinutes).toBe(12);
@@ -309,7 +313,7 @@ describe("linkState and its wording", () => {
     expect(openingSoonNote(12)).toBe(
       "Requests open in 12 minutes. Pop your tune on the whiteboard of wishes for now.",
     );
-    const forced = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 19, 18));
+    const forced = linkState({ ...auto, requestsOpen: false }, created, at(2026, 7, 4, 17, 48));
     expect(forced.soonMinutes).toBeNull();
   });
 
@@ -334,7 +338,7 @@ describe("linkState and its wording", () => {
   });
 
   it("names the day when the link opens on another one (#241)", () => {
-    const opens = at(2026, 7, 4, 19, 30);
+    const opens = at(2026, 7, 4, 18, 0);
     const time = opens.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     const weekday = opens.toLocaleDateString(undefined, { weekday: "short" });
     const date = opens.toLocaleDateString(undefined, { day: "numeric", month: "short" });

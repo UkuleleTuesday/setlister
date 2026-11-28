@@ -14,9 +14,10 @@ export type RequestsMode = boolean | null;
 
 export type WindowState = "open" | "later" | "closed";
 
-// Early enough to get a request in before the first song, late enough not to
-// read as "always open".
-const DEFAULT_OPEN_LEAD_MS = 30 * 60 * 1000;
+// Long enough to request on the way, short enough that a last-minute songbook
+// change rarely lands after requests open: a row keeps the page it was matched
+// to, so earlier requests would carry stale pages.
+const DEFAULT_OPEN_LEAD_MS = 2 * 60 * 60 * 1000;
 
 const OPENING_SOON_LEAD_MS = 30 * 60 * 1000;
 
@@ -32,7 +33,9 @@ const DEFAULT_CLOSE_MINUTE = 30;
 export function defaultClosesAt(sessionCreatedAt: Date): Date {
   const d = startOfNight(sessionCreatedAt);
   d.setHours(DEFAULT_CLOSE_HOUR, DEFAULT_CLOSE_MINUTE, 0, 0);
-  if (d > defaultOpensAt(sessionCreatedAt)) return d;
+  // Against the start, not the open: a late session would otherwise close
+  // before it begins.
+  if (d > sessionCreatedAt) return d;
   d.setDate(d.getDate() + 1);
   d.setHours(NIGHT_BOUNDARY_HOUR, 0, 0, 0);
   return d;
