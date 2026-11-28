@@ -1075,9 +1075,9 @@ main {
   border-radius: var(--radius-full);
   background: var(--confirmed-soft);
 }
+/* Hairlines run edge to edge, like the open row's at the foot of the card. */
 .next-session-block {
-  margin: 0 var(--space-6);
-  padding: var(--space-4) 0;
+  padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--on-accent-divider);
 }
 .next-session-block p {
